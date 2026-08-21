@@ -12,7 +12,7 @@ The user will first be presented with a complete login flow, where it is possibl
 
 - Create new account
 - Recover password
-- Login
+- Login / Logout
 
 ## Dashboard
 
@@ -22,7 +22,15 @@ Right after the login the user is directed to it's dashboard, where all the over
 - Change profile image
 - Update Password
 - Edit 3d avatar character
-- Set backup email address
+- Config the new email address
+
+### Notifications
+A list of notifications that the user can receive, like invites to other envs, friend requests.
+
+### Features Game
+
+- A list of games that the user has played, with the possibility to see the results and statistics.
+- The ranking of the user in the games, with the possibility to see the ranking of other users.
 
 ### Spaces List
 
@@ -30,6 +38,9 @@ A list of all the available "offices" that the user can visit, as well as their 
 
 >[!NOTE]
 > ***The spaces are hosted by other users, in order for it to be available the user needs to be online***
+
+>[!OPTIONAL]
+> The spaces can be view in the minimap, where the user can see the location of the spaces and the other users.
 
 ### Friends List
 
@@ -54,7 +65,6 @@ From the dashboard, the user can get to this page, where it is possible to choos
 >[!NOTE]
 >***All users can access the main co-work space, that could be the place to know and add new friends***
 
-
 ## Virtual Env
 Here is the virtual environment main view, where the user can navigate, interact and talk to other users. Lets now refer to it as env or envs, because we are getting acquainted already.
 
@@ -63,11 +73,37 @@ Some objects and regions of the envs are interactible, pre-determine by the desi
 
 - **Seats**: places where the user can sit, mostly applyed to chairs and couches.
 - **Workstations**: places the user can assume the `working` status, and is mostly used on computers and specila machinery.
-- **Games**: places the user can play a game along with other users, like a table-top game.
+- **Game**: the users can play a game along with other users, like a table-top game.
+- **Whiteboard**: the users can write and draw together, like a professional whiteboard.
 
 ### Proximity voice chat
 The envs control how close each user are to each other, that determines if they can be heard by each other, this simulates a "physical" interaction, where users need to be in the same room in order to interact. 
 
-## Env Controls
+### Env Controls
 In order to navigate the envs we are keeping it simple with WASD to move, mouse to look and F to interact. Where Interact will have a few different contexts and WASD will also be used to navigate UI in a few of those contexts. 
 
+### Perspective View
+
+- The envs are rendered in 3d from the first person perspective, where the user can look around and move in a 3d space. 
+- The user can also see other users and their avatars, as well as the interactible objects and regions.
+- The viewmodel of the user is a 3d model of the parts of the body that are visible from the first person perspective, like the hands and arms. 
+    - The viewmodel can be customized by the user, like change set the guns, swords, staffs, etc.
+- The other users are represented by their 3d avatars.
+
+## The Map
+
+- **First Aproach**: a closest environment to a real office, with a few environments, where the users can interact and work together.
+- **Second Aproach**: a larger open space, with some distance between the environments, simulating a map to be explored. 
+
+## Game
+
+**Turn-Based Artillery**: a game where the users can play a turn-based artillery game, like Worms or GunBound.
+
+- The game is played in a 2d interface.
+- The player has a personal character and can control the angle and power of the shot, and possibly the type of weapon.
+- The player can also move the character around the map, but with a limited amount of movement.
+- The view has two states:
+    - One for the player that is the current turn.
+    - Another when the action is being executed, where the player can see the result of the action.
+- The game is turn-based, where each player has a limited time to make their move.
+- The game can be played by 2 or more players, and the winner is the last player standing.

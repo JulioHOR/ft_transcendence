@@ -1,0 +1,59 @@
+networks:
+  ft_transcendence:
+
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/${USER}/data/ft_transcendence/postgres
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+
+services:
+  database:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    networks:
+      - ft_transcendence
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    secrets:
+      - db_password
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    networks:
+      - ft_transcendence
+    secrets:
+      - db_password
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: database
+    depends_on:
+      - database
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${FRONT_PUBLIC_PORT}:${FRONTEND_INTERNAL_PORT}"
+    networks:
+      - ft_transcendence
+    env_file:
+      - .env
+    depends_on:
+      - backend
+    restart: unless-stopped

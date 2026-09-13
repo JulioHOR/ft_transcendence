@@ -1,4 +1,4 @@
-import type { GameSnapshot } from "../transport/types";
+import type { GameSnapshot } from "../../../games/pong/protocol/types";
 import {
   INITIAL_VELOCITY_X,
   INITIAL_VELOCITY_Z,
@@ -17,6 +17,10 @@ export function createInitialSimState(): SimState {
     velocityZ: INITIAL_VELOCITY_Z,
     leftPaddleOffset: 0,
     rightPaddleOffset: 0,
+    leftPaddleVelocity: 0,
+    rightPaddleVelocity: 0,
+    lastLeftPaddleInputAt: 0,
+    lastRightPaddleInputAt: 0,
     scoreLeft: 0,
     scoreRight: 0,
     winner: null,

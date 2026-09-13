@@ -1,7 +1,7 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
-import type { Transport } from "./transport/types";
-import { TABLE } from "./simulation";
-import { clamp, computeDeltaSeconds } from "./math";
+import type { Transport } from "../protocol";
+import { TABLE } from "../protocol";
+import { clamp, computeDeltaSeconds } from "../shared/math";
 
 const PADDLE_SPEED = 8;
 const MOVE_UP_CODES = new Set(["KeyW", "ArrowUp"]);

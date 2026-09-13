@@ -1,6 +1,6 @@
 import { createRoot, type Root } from "react-dom/client";
-import { PongApp } from "./PongApp";
-import type { Transport } from "./transport/types";
+import { PongApp } from "./view/PongApp";
+import type { Transport } from "./protocol";
 
 export type PongGameHandle = {
   start(): void;

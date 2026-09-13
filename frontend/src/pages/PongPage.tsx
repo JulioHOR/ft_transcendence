@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { PongApp } from "../games/pong/PongApp";
-import { createMockTransport } from "../games/pong/transport/mockTransport";
+import { PongApp } from "../games/pong/view/PongApp";
+import { createMockTransport } from "../mocks/pong";
 
 export function PongPage() {
   const transport = useMemo(() => createMockTransport(), []);

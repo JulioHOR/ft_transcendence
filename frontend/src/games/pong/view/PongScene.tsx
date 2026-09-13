@@ -1,5 +1,5 @@
-import type { GameSnapshot } from "./transport/types";
-import { TABLE, getPaddleX, type Side } from "./simulation";
+import type { GameSnapshot, Side } from "../protocol";
+import { TABLE, getPaddleX } from "../protocol";
 
 const TABLE_SURFACE_Y = -0.5;
 const TABLE_BORDER_Y = -0.35;

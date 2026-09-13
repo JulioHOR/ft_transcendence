@@ -1,4 +1,4 @@
-import type { Side } from "../transport/types";
+import type { Side } from "../../../games/pong/protocol/types";
 import { POINTS_TO_WIN, TABLE } from "./constants";
 import { sideSign } from "./geometry";
 import { resetBall, stopBall } from "./state";

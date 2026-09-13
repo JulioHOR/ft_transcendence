@@ -2,8 +2,8 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { Canvas } from "@react-three/fiber";
 import { PongScene } from "./PongScene";
 import { usePaddleInput } from "./usePaddleInput";
-import { POINTS_TO_WIN } from "./simulation";
-import type { Transport, GameSnapshot, Side } from "./transport/types";
+import { POINTS_TO_WIN } from "../protocol";
+import type { Transport, GameSnapshot, Side } from "../protocol";
 
 const INITIAL_SNAPSHOT: GameSnapshot = {
   leftPaddleOffset: 0,

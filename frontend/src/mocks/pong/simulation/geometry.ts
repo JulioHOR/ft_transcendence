@@ -1,4 +1,4 @@
-import type { Side } from "../transport/types";
+import type { Side } from "../../../games/pong/protocol/types";
 import type { Border } from "./constants";
 import { TABLE } from "./constants";
 import type { SimState } from "./types";

@@ -1,11 +1,11 @@
-import type { Side } from "../transport/types";
-import { clamp } from "../math";
+import type { Side } from "../../../games/pong/protocol/types";
+import { clamp } from "../../../games/pong/shared/math";
 import {
   ANGLE_FACTOR,
+  BASE_PADDLE_SPEED,
   BORDERS,
-  MAX_BALL_SPEED,
+  PADDLE_MOTION_FACTOR,
   SIDES,
-  SPEED_GAIN_ON_HIT,
   TABLE,
   type Border,
 } from "./constants";
@@ -14,6 +14,7 @@ import {
   getPaddleOffset,
   sideSign,
 } from "./geometry";
+import { getPaddleVelocity } from "./paddles";
 import type { SimState } from "./types";
 
 function doesPaddleOverlapBall(paddleOffset: number, ballZ: number): boolean {
@@ -58,37 +59,27 @@ function getPaddleHitRatio(state: SimState, side: Side): number {
   return clamp(rawRatio, -1, 1);
 }
 
-function getBallSpeed(state: SimState): number {
-  return Math.hypot(state.velocityX, state.velocityZ);
-}
-
-function applyPaddleAngle(state: SimState, hitRatio: number): void {
-  state.velocityZ = hitRatio * ANGLE_FACTOR;
-}
-
-function accelerateAfterPaddleHit(state: SimState): void {
-  const currentSpeed = getBallSpeed(state);
-  if (currentSpeed === 0) return;
-  const boostedSpeed = Math.min(
-    currentSpeed * SPEED_GAIN_ON_HIT,
-    MAX_BALL_SPEED,
-  );
-  const scale = boostedSpeed / currentSpeed;
-  state.velocityX *= scale;
-  state.velocityZ *= scale;
-}
-
 function placeBallOnPaddleFace(state: SimState, side: Side): void {
   const paddleFaceX = sideSign(side) * TABLE.paddleX;
   state.ballX = paddleFaceX - sideSign(side) * TABLE.ballRadius;
 }
 
+function applyPaddleBounceVelocity(
+  state: SimState,
+  side: Side,
+  hitRatio: number,
+): void {
+  const directionX = side === "left" ? 1 : -1;
+  const paddleMotion = getPaddleVelocity(state, side) * PADDLE_MOTION_FACTOR;
+
+  state.velocityX = directionX * BASE_PADDLE_SPEED;
+  state.velocityZ = hitRatio * ANGLE_FACTOR + paddleMotion;
+}
+
 function bounceOnPaddle(state: SimState, side: Side): void {
   const hitRatio = getPaddleHitRatio(state, side);
   placeBallOnPaddleFace(state, side);
-  state.velocityX *= -1;
-  applyPaddleAngle(state, hitRatio);
-  accelerateAfterPaddleHit(state);
+  applyPaddleBounceVelocity(state, side, hitRatio);
 }
 
 export function resolveSideBorders(state: SimState): void {

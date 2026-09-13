@@ -1,4 +1,4 @@
-import type { Side } from "../transport/types";
+import type { Side } from "../../../games/pong/protocol/types";
 
 export type SimState = {
   ballX: number;
@@ -7,6 +7,10 @@ export type SimState = {
   velocityZ: number;
   leftPaddleOffset: number;
   rightPaddleOffset: number;
+  leftPaddleVelocity: number;
+  rightPaddleVelocity: number;
+  lastLeftPaddleInputAt: number;
+  lastRightPaddleInputAt: number;
   scoreLeft: number;
   scoreRight: number;
   winner: Side | null;

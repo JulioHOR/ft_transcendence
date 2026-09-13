@@ -1,13 +1,15 @@
-import type { Transport, PaddleInput, GameSnapshot } from "./types";
+import type { Transport, PaddleInput, GameSnapshot } from "../../games/pong/protocol/types";
 import {
   createInitialSimState,
   stepSimulation,
   toSnapshot,
   TABLE,
   isMatchFinished,
+  applyPaddleInput,
+  setPaddleOffset,
   type SimState,
-} from "../simulation";
-import { clamp, computeDeltaSeconds } from "../math";
+} from "./simulation";
+import { clamp, computeDeltaSeconds } from "../../games/pong/shared/math";
 
 const OPPONENT_MAX_SPEED = 8;
 const OPPONENT_CHASE_FACTOR = 4;
@@ -28,9 +30,13 @@ function updateOpponentPaddle(state: SimState, deltaSeconds: number): void {
   const distanceToBall = state.ballZ - state.rightPaddleOffset;
   const chaseStep = distanceToBall * OPPONENT_CHASE_FACTOR;
   const limitedStep = clamp(chaseStep, -OPPONENT_MAX_SPEED, OPPONENT_MAX_SPEED);
-  const nextOffset = state.rightPaddleOffset + limitedStep * deltaSeconds;
-  const { min, max } = getOpponentOffsetLimits();
-  state.rightPaddleOffset = clamp(nextOffset, min, max);
+  const limits = getOpponentOffsetLimits();
+  const nextOffset = clamp(
+    state.rightPaddleOffset + limitedStep * deltaSeconds,
+    limits.min,
+    limits.max,
+  );
+  setPaddleOffset(state, "right", nextOffset, deltaSeconds);
 }
 
 function advancePlayingMatch(state: SimState, deltaSeconds: number): void {
@@ -88,7 +94,12 @@ function disconnectSession(refs: SessionRefs): void {
 
 function sendSessionInput(refs: SessionRefs, input: PaddleInput): void {
   if (isMatchFinished(refs.matchState)) return;
-  refs.matchState.leftPaddleOffset = input.offset;
+  applyPaddleInput(
+    refs.matchState,
+    "left",
+    input.offset,
+    performance.now(),
+  );
 }
 
 function buildTransport(refs: SessionRefs): Transport {

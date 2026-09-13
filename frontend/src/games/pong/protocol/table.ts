@@ -1,6 +1,13 @@
 import type { Side } from "./types";
 
-/** Shared table layout — client draws with this; server should use the same numbers. */
+/**
+ * Dimensões da mesa em unidades do mundo 3D (Three.js, Y para cima).
+ *
+ * Orientação usada em todo o módulo:
+ * - X: comprimento da mesa (gol ↔ gol)
+ * - Z: largura da mesa (movimento das paddles)
+ * - Y: altura (quase fixa na física; só no desenho 3D)
+ */
 export const TABLE = {
   halfLength: 10,
   halfWidth: 5,
@@ -9,8 +16,14 @@ export const TABLE = {
   ballRadius: 0.35,
 } as const;
 
+/** Quantidade de pontos necessária para vencer a partida. */
 export const POINTS_TO_WIN = 5;
 
+/**
+ * Retorna a coordenada X (comprimento) da face da paddle.
+ *
+ * @param side - Lado da mesa
+ */
 export function getPaddleX(side: Side): number {
   return (side === "left" ? -1 : 1) * TABLE.paddleX;
 }

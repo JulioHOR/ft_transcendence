@@ -51,6 +51,7 @@ const RESTART_BUTTON_STYLE: CSSProperties = {
   color: "#fff",
 };
 
+/** Exibe o placar da partida. */
 function ScoreBoard({ left, right }: { left: number; right: number }) {
   return (
     <div style={SCORE_STYLE}>
@@ -59,10 +60,12 @@ function ScoreBoard({ left, right }: { left: number; right: number }) {
   );
 }
 
+/** Retorna o texto exibido ao fim da partida. */
 function getWinnerLabel(winner: Side): string {
   return winner === "left" ? "You win" : "Opponent wins";
 }
 
+/** Overlay de fim de partida com opção de reiniciar. */
 function MatchOverOverlay({
   winner,
   onRestart,
@@ -81,6 +84,11 @@ function MatchOverOverlay({
   );
 }
 
+/**
+ * Conecta ao transport, mantém o snapshot atualizado e desconecta no unmount.
+ *
+ * @param transport - Canal de comunicação da partida
+ */
 function usePongSnapshot(transport: Transport): GameSnapshot {
   const [snapshot, setSnapshot] = useState(INITIAL_SNAPSHOT);
 
@@ -93,6 +101,7 @@ function usePongSnapshot(transport: Transport): GameSnapshot {
   return snapshot;
 }
 
+/** Placar e overlay de fim de partida. */
 function MatchHud({
   snapshot,
   onRestart,
@@ -110,6 +119,7 @@ function MatchHud({
   );
 }
 
+/** Área do jogo: HUD + canvas 3D. */
 function PongStage({
   snapshot,
   transport,
@@ -127,6 +137,11 @@ function PongStage({
   );
 }
 
+/**
+ * Aplicação do Pong: recebe o transport, lê o estado e desenha a partida.
+ *
+ * @param transport - Canal de comunicação da partida
+ */
 export function PongApp({ transport }: { transport: Transport }) {
   const snapshot = usePongSnapshot(transport);
   usePaddleInput(transport, { enabled: snapshot.winner === null });

@@ -19,12 +19,19 @@ const PADDLE_VIEW: { side: Side; color: string }[] = [
 
 type Vec3 = [number, number, number];
 
+/**
+ * Retorna a posição da paddle no eixo Z (largura) a partir do snapshot.
+ *
+ * @param snapshot - Estado atual da partida
+ * @param side - Lado da paddle
+ */
 function getSnapshotPaddleOffset(snapshot: GameSnapshot, side: Side): number {
   return side === "left"
     ? snapshot.leftPaddleOffset
     : snapshot.rightPaddleOffset;
 }
 
+/** Superfície da mesa no plano XZ. */
 function TableSurface() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, TABLE_SURFACE_Y, 0]}>
@@ -34,6 +41,7 @@ function TableSurface() {
   );
 }
 
+/** Trilho individual da borda da mesa. */
 function BorderRail({ position, size }: { position: Vec3; size: Vec3 }) {
   return (
     <mesh position={position}>
@@ -43,6 +51,9 @@ function BorderRail({ position, size }: { position: Vec3; size: Vec3 }) {
   );
 }
 
+/**
+ * Monta as posições e tamanhos das bordas da mesa.
+ */
 function getBorderRails(): { position: Vec3; size: Vec3 }[] {
   const halfLength = TABLE_LENGTH / 2;
   const halfWidth = TABLE_WIDTH / 2;
@@ -63,6 +74,7 @@ function getBorderRails(): { position: Vec3; size: Vec3 }[] {
   ];
 }
 
+/** Conjunto das quatro bordas da mesa. */
 function TableBorder() {
   return (
     <>
@@ -77,6 +89,13 @@ function TableBorder() {
   );
 }
 
+/**
+ * Paddle 3D posicionada em X (comprimento) e Z (largura).
+ *
+ * @param side - Lado da mesa
+ * @param offset - Posição no eixo Z (largura)
+ * @param color - Cor do material
+ */
 function Paddle({
   side,
   offset,
@@ -94,6 +113,12 @@ function Paddle({
   );
 }
 
+/**
+ * Bola 3D.
+ *
+ * @param x - Posição no eixo X (comprimento)
+ * @param z - Posição no eixo Z (largura)
+ */
 function Ball({ x, z }: { x: number; z: number }) {
   return (
     <mesh position={[x, BALL_Y, z]}>
@@ -103,6 +128,11 @@ function Ball({ x, z }: { x: number; z: number }) {
   );
 }
 
+/**
+ * Cena 3D da partida: mesa, paddles e bola a partir do snapshot.
+ *
+ * @param snapshot - Estado atual da partida
+ */
 export function PongScene({ snapshot }: { snapshot: GameSnapshot }) {
   return (
     <>

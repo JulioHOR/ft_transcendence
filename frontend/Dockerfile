@@ -1,4 +1,4 @@
-FROM node:22-bookworm AS build
+FROM node:24-trixie AS build
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY public ./public
 
 RUN npm run build
 
-FROM debian:bookworm
+FROM debian:trixie
 
 RUN apt-get update && apt-get install -y \
     nginx \

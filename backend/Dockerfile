@@ -1,4 +1,4 @@
-FROM debian:bookworm
+FROM debian:trixie
 
 RUN apt-get update && apt-get install -y \
     python3 \
@@ -13,5 +13,8 @@ RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt
 COPY app/ ./
 COPY tools/init_backend.sh /usr/local/bin/init_backend.sh
 RUN chmod +x /usr/local/bin/init_backend.sh
+
+RUN useradd --system appuser
+USER appuser
 
 ENTRYPOINT ["init_backend.sh"]

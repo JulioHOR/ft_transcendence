@@ -1,0 +1,22 @@
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    // three + r3f naturally exceed 500kb; split already isolates them from home
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/three")) return "three";
+          if (id.includes("node_modules/@react-three")) return "r3f";
+          if (id.includes("node_modules/react-dom")) return "react-dom";
+          if (id.includes("node_modules/react-router")) return "router";
+          if (id.includes("node_modules/react/")) return "react";
+        },
+      },
+    },
+  },
+});

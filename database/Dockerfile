@@ -1,7 +1,7 @@
-FROM debian:bookworm
+FROM debian:trixie
 
 RUN apt-get update && apt-get install -y \
-    postgresql \
+    postgresql-17 \
     gosu \
     && rm -rf /var/lib/apt/lists/*
 

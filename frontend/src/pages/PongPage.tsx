@@ -1,10 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { PongApp } from "../games/pong/view/PongApp";
-import { createMockTransport } from "../mocks/pong";
-
+import { WebSocketTransport } from "../transports/pong/WebSocketTransport";
 export function PongPage() {
-  const transport = useMemo(() => createMockTransport(), []);
-
+  const transport = useMemo(() => new WebSocketTransport(), []);
+  useEffect(() => () => transport.disconnect(), [transport]);
   return (
     <div>
       <h1>Pong</h1>

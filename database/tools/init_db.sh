@@ -14,9 +14,9 @@ if [ ! -f "${PGDATA}/PG_VERSION" ]; then
     echo "Initializing PostgreSQL data directory..."
     gosu postgres "${PG_BIN}/initdb" -D "${PGDATA}"
 
-    echo "listen_addresses='*'" >> "${PGDATA}/postgresql.conf"
-    echo "port = ${POSTGRES_INTERNAL_PORT}" >> "${PGDATA}/postgresql.conf"
-    echo "host all all 0.0.0.0/0 md5" >> "${PGDATA}/pg_hba.conf"
+    echo "listen_addresses='*'" >>"${PGDATA}/postgresql.conf"
+    echo "port = ${POSTGRES_INTERNAL_PORT}" >>"${PGDATA}/postgresql.conf"
+    echo "host all all 0.0.0.0/0 scram-sha-256" >>"${PGDATA}/pg_hba.conf"
 
     gosu postgres "${PG_BIN}/pg_ctl" -D "${PGDATA}" -o "-c listen_addresses=localhost -p ${POSTGRES_INTERNAL_PORT}" -w start
 

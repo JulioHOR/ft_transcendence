@@ -1,5 +1,5 @@
 {
-  "venvPath": "/home/peda-cos/ft_transcendence",
+  "venvPath": ".",
   "venv": ".venv",
-  "extraPaths": ["/home/peda-cos/ft_transcendence/backend/app"]
+  "extraPaths": ["backend/app"]
 }

@@ -25,10 +25,12 @@ if [ ! -f "${PGDATA}/PG_VERSION" ]; then
         CREATE DATABASE ${POSTGRES_DB} OWNER ${POSTGRES_USER};
 EOSQL
 
-    gosu postgres env PGPASSWORD="${db_password}" psql -v ON_ERROR_STOP=1 \
-        --username="${POSTGRES_USER}" \
-        --dbname="${POSTGRES_DB}" \
-        -f /docker-entrypoint-initdb.d/01-seed.sql
+    for script in /docker-entrypoint-initdb.d/*.sql; do
+        gosu postgres env PGPASSWORD="${db_password}" psql -v ON_ERROR_STOP=1 \
+            --username="${POSTGRES_USER}" \
+            --dbname="${POSTGRES_DB}" \
+            -f "${script}"
+    done
 
     gosu postgres "${PG_BIN}/pg_ctl" -D "${PGDATA}" -m fast -w stop
     echo "PostgreSQL initialized"

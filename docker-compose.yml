@@ -12,6 +12,8 @@ volumes:
 secrets:
   db_password:
     file: ./secrets/db_password.txt
+  flask_secret_key:
+    file: ./secrets/flask_secret_key.txt
 
 services:
   database:
@@ -36,6 +38,7 @@ services:
       - ft_transcendence
     secrets:
       - db_password
+      - flask_secret_key
     env_file:
       - .env
     environment:

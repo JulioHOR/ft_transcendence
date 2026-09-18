@@ -1,25 +1,26 @@
 
 import os
-import time
-from collections.abc import Iterator
-from contextlib import contextmanager
 
-import psycopg2
 from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
-from psycopg2.pool import ThreadedConnectionPool
+
+from auth.routes import SESSION_COOKIE_OPTIONS, auth_bp
+from db import db_cursor, read_secret, wait_db
 
 app = Flask(__name__)
 socketio = SocketIO(app, async_mode="threading", cors_allowed_origins=[])
 
+app.secret_key = read_secret("flask_secret_key")
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
+app.config.update(SESSION_COOKIE_OPTIONS)
 CONTENT_LIMIT = 1000
+
+app.register_blueprint(auth_bp)
 
 def register_game_routes():
     from games.pong.handlers import register_pong_handlers
-    from ws_core.matchmaker import Matchmaker
-
     from games.pong.match import PongMatch
+    from ws_core.matchmaker import Matchmaker
 
     def match_factory(left_sid, right_sid):
         return PongMatch(
@@ -34,46 +35,6 @@ def register_game_routes():
 
 register_game_routes()
 
-def _db_kwargs() -> dict:
-    try:
-        with open("/run/secrets/db_password") as f:
-            password = f.read().strip()
-    except OSError as exc:
-        raise RuntimeError("secret db_password não legível") from exc
-    return {
-        "host": os.environ["POSTGRES_HOST"],
-        "port": os.environ["POSTGRES_INTERNAL_PORT"],
-        "dbname": os.environ["POSTGRES_DB"],
-        "user": os.environ["POSTGRES_USER"],
-        "password": password,
-    }
-
-def db():
-    return psycopg2.connect(**_db_kwargs())
-
-_pool: ThreadedConnectionPool | None = None
-
-@contextmanager
-def db_cursor() -> Iterator[psycopg2.extensions.cursor]:
-    global _pool
-    if _pool is None:
-        _pool = ThreadedConnectionPool(1, 8, **_db_kwargs())
-    conn = _pool.getconn()
-    try:
-        with conn, conn.cursor() as cur:
-            yield cur
-    finally:
-        _pool.putconn(conn)
-
-def wait_db():
-    for _ in range(60):
-        try:
-            conn = db()
-            conn.close()
-            return
-        except psycopg2.OperationalError:
-            time.sleep(1)
-    raise RuntimeError("database not ready")
 
 @app.get("/api/messages")
 def get_messages():

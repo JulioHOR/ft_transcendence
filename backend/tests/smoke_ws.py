@@ -8,7 +8,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 import socket
 
-import app as app_module
 import socketio as si_client
 
 PORT = int(os.environ.get("SMOKE_PORT", "5177"))
@@ -79,6 +78,11 @@ def expect(cond, msg: str):
     print(f"ok: {msg}")
 
 def start_server() -> None:
+    import db
+
+    db.read_secret = lambda name: "secret-de-smoke"
+    import app as app_module
+
     os.environ["BACKEND_INTERNAL_PORT"] = str(PORT)
     server_thread = threading.Thread(
         target=lambda: app_module.socketio.run(

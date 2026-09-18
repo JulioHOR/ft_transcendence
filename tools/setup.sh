@@ -37,12 +37,25 @@ ensure_secret_file() {
 
         if [ -n "${secret_value}" ]; then
             printf '%s' "${secret_value}" > "${file_path}"
-            chmod 600 "${file_path}"
+            chmod 644 "${file_path}"
             return 0
         fi
 
         echo "Value cannot be empty. Try again."
     done
+}
+
+ensure_generated_secret() {
+    local file_path="$1"
+
+    if [ -s "${file_path}" ]; then
+        return 0
+    fi
+
+    mkdir -p "${SECRETS_DIR}"
+    openssl rand -hex 32 | tr -d '\n' > "${file_path}"
+    chmod 644 "${file_path}"
+    echo "Generated ${file_path}"
 }
 
 ensure_hosts_entry() {
@@ -64,6 +77,7 @@ ensure_hosts_entry() {
 }
 
 ensure_secret_file "${SECRETS_DIR}/db_password.txt" "Enter PostgreSQL password for app user"
+ensure_generated_secret "${SECRETS_DIR}/flask_secret_key.txt"
 ensure_hosts_entry
 
 echo "Setup complete."

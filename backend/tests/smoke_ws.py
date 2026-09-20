@@ -81,6 +81,7 @@ def start_server() -> None:
     import db
 
     db.read_secret = lambda name: "secret-de-smoke"
+    os.environ["PONG_COUNTDOWN_SECONDS"] = "0.15"
     import app as app_module
 
     os.environ["BACKEND_INTERNAL_PORT"] = str(PORT)
@@ -119,8 +120,18 @@ def main() -> None:
     a.wait("game:status", 1, 3)
     b.wait("game:status", 1, 3)
     expect(
-        a.statuses[0] == {"state": "playing"} and b.statuses[0] == {"state": "playing"},
-        "A e B recebem game:status playing",
+        a.statuses[0].get("state") == "countdown"
+        and b.statuses[0].get("state") == "countdown",
+        "A e B recebem game:status countdown",
+    )
+    expect(a.statuses[0].get("you") == "left", "A é left")
+    expect(b.statuses[0].get("you") == "right", "B é right")
+    a.wait("game:status", 2, 3)
+    b.wait("game:status", 2, 3)
+    expect(
+        a.statuses[1].get("state") == "playing"
+        and b.statuses[1].get("state") == "playing",
+        "A e B recebem game:status playing após countdown",
     )
 
     a.emit("queue:join")
@@ -190,11 +201,26 @@ def main() -> None:
     expect(winner in ("left", "right"), "winner do servidor")
     print(f"     placar final: {final_score}")
 
-    a.emit("game:restart")
+    a.emit("game:rematch")
+    time.sleep(0.2)
+    expect(
+        any(st.get("state") == "rematch_pending" for st in a.statuses),
+        "A sozinho em rematch → rematch_pending",
+    )
+    b.emit("game:rematch")
     time.sleep(0.5)
     expect(
-        any(st["state"] == "playing" for st in a.statuses),
-        "A restart → game:status playing (mesmos 2 jogadores)",
+        any(st.get("state") == "countdown" for st in a.statuses),
+        "A+B rematch → countdown de novo",
+    )
+    deadline_playing = time.time() + 3
+    while time.time() < deadline_playing:
+        if sum(1 for st in a.statuses if st.get("state") == "playing") >= 2:
+            break
+        time.sleep(0.05)
+    expect(
+        sum(1 for st in a.statuses if st.get("state") == "playing") >= 2,
+        "Após rematch countdown → playing de novo",
     )
 
     b.disconnect()

@@ -1,51 +1,63 @@
-/**
- * Lado da mesa.
- * `left` = jogador, `right` = oponente.
- */
 export type Side = "left" | "right";
 
-/**
- * Input de paddle enviado pelo cliente ao servidor.
- */
 export type PaddleInput = {
-  /**
-   * Posição da paddle no eixo Z (largura da mesa).
-   * Centro = 0.
-   */
   offset: number;
-  /** Número sequencial do input, crescente a cada envio. */
   sequence: number;
 };
 
-/**
- * Estado da partida enviado pelo servidor ao cliente para renderização.
- * Eixos iguais aos da TABLE: X = comprimento, Z = largura.
- */
 export type GameSnapshot = {
-  /** Posição da paddle esquerda no eixo Z (largura). */
   leftPaddleOffset: number;
-  /** Posição da paddle direita no eixo Z (largura). */
   rightPaddleOffset: number;
-  /** Posição da bola: `x` no comprimento, `z` na largura. */
   ball: { x: number; z: number };
   score: { left: number; right: number };
-  /** Vencedor da partida, ou `null` se ainda em andamento. */
   winner: Side | null;
   timestamp: number;
 };
 
-/**
- * Contrato de comunicação da partida entre cliente e servidor.
- */
+export type MatchPhase =
+  | "connecting"
+  | "waiting"
+  | "countdown"
+  | "playing"
+  | "finished"
+  | "opponent_left"
+  | "error";
+
+export type RematchAccepted = { left: boolean; right: boolean };
+
+export type MatchState = {
+  phase: MatchPhase;
+  you: Side | null;
+  startsAt: number | null;
+  rematchAccepted: RematchAccepted;
+  snapshot: GameSnapshot;
+  errorMessage: string | null;
+};
+
+export const EMPTY_SNAPSHOT: GameSnapshot = {
+  leftPaddleOffset: 0,
+  rightPaddleOffset: 0,
+  ball: { x: 0, z: 0 },
+  score: { left: 0, right: 0 },
+  winner: null,
+  timestamp: 0,
+};
+
+export function createInitialMatchState(): MatchState {
+  return {
+    phase: "connecting",
+    you: null,
+    startsAt: null,
+    rematchAccepted: { left: false, right: false },
+    snapshot: EMPTY_SNAPSHOT,
+    errorMessage: null,
+  };
+}
+
 export interface Transport {
-  /** Inicia a conexão / sessão da partida. */
   connect(): Promise<void>;
-  /** Encerra a conexão / sessão da partida. */
   disconnect(): void;
-  /** Reinicia placar e posições para uma nova partida. */
-  restart(): void;
-  /** Envia a posição atual da paddle do jogador. */
+  requestRematch(): void;
   sendInput(input: PaddleInput): void;
-  /** Define o callback chamado a cada novo estado da partida. */
-  onSnapshot(listener: (snapshot: GameSnapshot) => void): void;
+  onState(listener: (state: MatchState) => void): void;
 }

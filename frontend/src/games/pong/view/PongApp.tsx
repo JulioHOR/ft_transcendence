@@ -1,135 +1,37 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Canvas } from "@react-three/fiber";
 import { PongScene } from "./PongScene";
 import { usePaddleInput } from "./usePaddleInput";
-import { POINTS_TO_WIN } from "../protocol";
-import type { Transport, GameSnapshot, Side } from "../protocol";
+import {
+  CountdownScreen,
+  ResultScreen,
+  StatusScreen,
+} from "./MatchScreens";
+import type { GameSnapshot, MatchState, Transport } from "../protocol";
+import { createInitialMatchState } from "../protocol";
+import { ui } from "../../../ui/classes";
 
-const INITIAL_SNAPSHOT: GameSnapshot = {
-  leftPaddleOffset: 0,
-  rightPaddleOffset: 0,
-  ball: { x: 0, z: 0 },
-  score: { left: 0, right: 0 },
-  winner: null,
-  timestamp: 0,
-};
-
-const SCORE_STYLE: CSSProperties = {
-  position: "absolute",
-  top: 12,
-  left: 0,
-  right: 0,
-  zIndex: 1,
-  textAlign: "center",
-  color: "#fff",
-  fontSize: 28,
-  fontFamily: "monospace",
-  pointerEvents: "none",
-};
-
-const OVERLAY_STYLE: CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  zIndex: 2,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 16,
-  background: "rgba(0, 0, 0, 0.65)",
-  color: "#fff",
-  fontFamily: "monospace",
-};
-
-const RESTART_BUTTON_STYLE: CSSProperties = {
-  padding: "10px 20px",
-  fontSize: 16,
-  fontFamily: "monospace",
-  cursor: "pointer",
-  border: "1px solid #fff",
-  background: "transparent",
-  color: "#fff",
-};
-
-/** Exibe o placar da partida. */
-function ScoreBoard({ left, right }: { left: number; right: number }) {
-  return (
-    <div style={SCORE_STYLE}>
-      {left} — {right}
-    </div>
-  );
-}
-
-/** Retorna o texto exibido ao fim da partida. */
-function getWinnerLabel(winner: Side): string {
-  return winner === "left" ? "You win" : "Opponent wins";
-}
-
-/** Overlay de fim de partida com opção de reiniciar. */
-function MatchOverOverlay({
-  winner,
-  onRestart,
-}: {
-  winner: Side;
-  onRestart: () => void;
-}) {
-  return (
-    <div style={OVERLAY_STYLE}>
-      <div style={{ fontSize: 32 }}>{getWinnerLabel(winner)}</div>
-      <div style={{ fontSize: 14, opacity: 0.8 }}>First to {POINTS_TO_WIN}</div>
-      <button type="button" style={RESTART_BUTTON_STYLE} onClick={onRestart}>
-        Play again
-      </button>
-    </div>
-  );
-}
-
-/**
- * Conecta ao transport, mantém o snapshot atualizado e desconecta no unmount.
- *
- * @param transport - Canal de comunicação da partida
- */
-function usePongSnapshot(transport: Transport): GameSnapshot {
-  const [snapshot, setSnapshot] = useState(INITIAL_SNAPSHOT);
+function useMatchState(transport: Transport): MatchState {
+  const [state, setState] = useState(createInitialMatchState);
 
   useEffect(() => {
-    transport.onSnapshot(setSnapshot);
+    transport.onState(setState);
     void transport.connect();
     return () => transport.disconnect();
   }, [transport]);
 
-  return snapshot;
+  return state;
 }
 
-/** Placar e overlay de fim de partida. */
-function MatchHud({
-  snapshot,
-  onRestart,
-}: {
-  snapshot: GameSnapshot;
-  onRestart: () => void;
-}) {
+function PongStage({ snapshot }: { snapshot: GameSnapshot }) {
   return (
-    <>
-      <ScoreBoard left={snapshot.score.left} right={snapshot.score.right} />
-      {snapshot.winner !== null && (
-        <MatchOverOverlay winner={snapshot.winner} onRestart={onRestart} />
-      )}
-    </>
-  );
-}
-
-/** Área do jogo: HUD + canvas 3D. */
-function PongStage({
-  snapshot,
-  transport,
-}: {
-  snapshot: GameSnapshot;
-  transport: Transport;
-}) {
-  return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <MatchHud snapshot={snapshot} onRestart={() => transport.restart()} />
+    <div className="relative h-full w-full">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-3 z-10 text-center font-mono text-xl sm:text-2xl"
+        aria-live="polite"
+      >
+        {snapshot.score.left} — {snapshot.score.right}
+      </div>
       <Canvas camera={{ position: [0, 14, 14], fov: 45 }}>
         <PongScene snapshot={snapshot} />
       </Canvas>
@@ -137,13 +39,57 @@ function PongStage({
   );
 }
 
-/**
- * Aplicação do Pong: recebe o transport, lê o estado e desenha a partida.
- *
- * @param transport - Canal de comunicação da partida
- */
+function PhaseView({
+  state,
+  onRequestRematch,
+}: {
+  state: MatchState;
+  onRequestRematch: () => void;
+}): ReactNode {
+  switch (state.phase) {
+    case "connecting":
+      return <StatusScreen title="Conectando…" />;
+    case "waiting":
+      return (
+        <StatusScreen title="Aguardando oponente">
+          <p className={ui.muted}>Espere outro jogador entrar na fila.</p>
+        </StatusScreen>
+      );
+    case "countdown":
+      return <CountdownScreen you={state.you} startsAt={state.startsAt} />;
+    case "playing":
+      return <PongStage snapshot={state.snapshot} />;
+    case "finished":
+      return (
+        <ResultScreen
+          you={state.you}
+          winner={state.snapshot.winner}
+          score={state.snapshot.score}
+          rematchAccepted={state.rematchAccepted}
+          onRequestRematch={onRequestRematch}
+        />
+      );
+    case "opponent_left":
+      return <StatusScreen title="Oponente saiu" />;
+    case "error":
+      return (
+        <StatusScreen title="Erro">
+          <p className={ui.muted}>{state.errorMessage ?? "Erro na partida."}</p>
+        </StatusScreen>
+      );
+  }
+}
+
 export function PongApp({ transport }: { transport: Transport }) {
-  const snapshot = usePongSnapshot(transport);
-  usePaddleInput(transport, { enabled: snapshot.winner === null });
-  return <PongStage snapshot={snapshot} transport={transport} />;
+  const state = useMatchState(transport);
+  usePaddleInput(transport, {
+    enabled: state.phase === "playing" && state.snapshot.winner === null,
+  });
+
+  return (
+    <PhaseView
+      state={state}
+      onRequestRematch={() => transport.requestRematch()}
+    />
+  );
 }

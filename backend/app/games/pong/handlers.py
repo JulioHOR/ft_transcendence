@@ -46,7 +46,7 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> None:
         try:
             match = matchmaker.join(_sid())
         except AlreadyPlayingError:
-            emit_error(_sid(), "already_playing", "Você já está na fila ou em partida.")
+            emit_error(_sid(), "already_playing", "Você já está em uma partida.")
             return None
 
         if match is None:
@@ -60,7 +60,7 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> None:
     @socketio.on("queue:leave")
     def on_queue_leave(_data=None):
         if not matchmaker.in_queue(_sid()):
-            emit_error(_sid(), "invalid", "Você não está na fila de espera.")
+            emit_error(_sid(), "invalid", "Você não está esperando um oponente.")
             return None
         matchmaker.leave(_sid())
         return {"status": "left"}
@@ -70,28 +70,27 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> None:
         try:
             offset = _parse_input(data)
         except MalformedInput:
-            emit_error(_sid(), "malformed", "Payload de input inválido.")
+            emit_error(_sid(), "malformed", "Movimento inválido.")
             return None
 
         match = matchmaker.get_match(_sid())
         if match is None:
-            emit_error(_sid(), "not_in_match", "Entre na fila antes de jogar.")
+            emit_error(_sid(), "not_in_match", "Espere a partida começar.")
             return None
 
-        if not match.apply_input(_sid(), clamp(offset, -INPUT_LIMIT, INPUT_LIMIT), now_ms()):
-            emit_error(_sid(), "invalid", "Partida encerrada — input ignorado.")
+        match.apply_input(_sid(), clamp(offset, -INPUT_LIMIT, INPUT_LIMIT), now_ms())
 
     @socketio.on("game:rematch")
     def on_game_rematch(_data=None):
         sid = _sid()
         match = matchmaker.get_match(sid)
         if match is None:
-            emit_error(sid, "not_in_match", "Você não está em partida.")
+            emit_error(sid, "not_in_match", "Você não está em uma partida.")
             return None
 
         outcome = match.accept_rematch(sid)
         if outcome == "rejected":
-            emit_error(sid, "invalid", "Rematch só após o fim da partida.")
+            emit_error(sid, "invalid", "Aguarde o fim da partida para jogar de novo.")
             return None
         if outcome == "pending":
             socketio.emit(

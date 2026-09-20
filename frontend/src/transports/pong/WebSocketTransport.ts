@@ -77,9 +77,12 @@ export class WebSocketTransport implements Transport {
     });
 
     this.socket.on("game:error", (err: { message?: string }) => {
+      if (this.state.phase === "finished" || this.state.snapshot.winner !== null) {
+        return;
+      }
       this.setState({
         phase: "error",
-        errorMessage: err.message ?? "Erro na partida.",
+        errorMessage: err.message ?? "Tente novamente.",
       });
     });
 

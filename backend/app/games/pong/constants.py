@@ -8,7 +8,7 @@ TABLE = {
     "ballRadius": 0.35,
 }
 
-POINTS_TO_WIN = 5
+POINTS_TO_WIN = 3
 
 INITIAL_VELOCITY_X = 6
 INITIAL_VELOCITY_Z = 2

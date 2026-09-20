@@ -17,7 +17,7 @@ export const TABLE = {
 } as const;
 
 /** Quantidade de pontos necessária para vencer a partida. */
-export const POINTS_TO_WIN = 5;
+export const POINTS_TO_WIN = 3;
 
 /**
  * Retorna a coordenada X (comprimento) da face da paddle.

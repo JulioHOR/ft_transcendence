@@ -31,7 +31,7 @@ def emit_countdown(socketio, match) -> None:
     for sid, side in match.sides.items():
         socketio.emit(
             "game:status",
-            {"state": "countdown", "you": side, "startsAt": match.starts_at_ms},
+            {"state": "countdown", "side": side, "startsAt": match.starts_at_ms},
             to=sid,
         )
 

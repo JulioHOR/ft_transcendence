@@ -1,8 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
-import type { Side } from "../protocol";
+import type { MatchState, Side } from "../protocol";
 import { ui } from "../../../ui/classes";
 
-function Screen({ title, children }: { title: string; children?: ReactNode }) {
+export function StatusScreen({
+  title,
+  children,
+}: {
+  title: string;
+  children?: ReactNode;
+}) {
   return (
     <div
       role="status"
@@ -29,69 +35,94 @@ function useCountdownSeconds(startsAt: number | null): number {
   return seconds;
 }
 
-export function StatusScreen({
-  title,
-  children,
-}: {
-  title: string;
-  children?: ReactNode;
-}) {
-  return <Screen title={title}>{children}</Screen>;
+function sideLabel(side: Side | null): string {
+  if (side === "left") return "esquerda";
+  if (side === "right") return "direita";
+  return "?";
 }
 
 export function CountdownScreen({
-  you,
+  playerSide,
   startsAt,
 }: {
-  you: Side | null;
+  playerSide: Side | null;
   startsAt: number | null;
 }) {
   const seconds = useCountdownSeconds(startsAt);
-  const side = you === "left" ? "esquerda" : you === "right" ? "direita" : "?";
-
   return (
-    <Screen title="Partida encontrada">
-      <p className={ui.muted}>Você joga na {side}</p>
+    <StatusScreen title="Partida encontrada">
+      <p className={ui.muted}>Você joga na {sideLabel(playerSide)}</p>
       <p className="text-5xl font-bold tabular-nums" aria-live="polite">
         {seconds}
       </p>
-    </Screen>
+    </StatusScreen>
   );
 }
 
-export function ResultScreen({
-  you,
-  winner,
-  score,
-  rematchAccepted,
+function RematchButton({
+  accepted,
   onRequestRematch,
 }: {
-  you: Side | null;
-  winner: Side | null;
-  score: { left: number; right: number };
-  rematchAccepted: { left: boolean; right: boolean };
+  accepted: boolean;
   onRequestRematch: () => void;
 }) {
-  const youAccepted = you !== null && rematchAccepted[you];
-  const peerAccepted =
-    you !== null && rematchAccepted[you === "left" ? "right" : "left"];
-
   return (
-    <Screen title={you !== null && winner === you ? "Vitória" : "Derrota"}>
-      <p className={ui.muted}>
-        {score.left} — {score.right}
-      </p>
-      <p className={ui.muted}>
-        Você: {youAccepted ? "ok" : "…"} · Oponente: {peerAccepted ? "ok" : "…"}
-      </p>
-      <button
-        type="button"
-        onClick={onRequestRematch}
-        disabled={youAccepted}
-        className={ui.btnSolid}
-      >
-        {youAccepted ? "Aguardando…" : "Jogar de novo"}
-      </button>
-    </Screen>
+    <button
+      type="button"
+      onClick={onRequestRematch}
+      disabled={accepted}
+      className={ui.btnSolid}
+    >
+      {accepted ? "Aguardando…" : "Jogar de novo"}
+    </button>
+  );
+}
+
+function opponentSide(playerSide: Side): Side {
+  return playerSide === "left" ? "right" : "left";
+}
+
+function rematchFlags(
+  playerSide: Side | null,
+  rematchAccepted: { left: boolean; right: boolean },
+) {
+  if (playerSide === null) {
+    return { playerAccepted: false, opponentAccepted: false };
+  }
+  return {
+    playerAccepted: rematchAccepted[playerSide],
+    opponentAccepted: rematchAccepted[opponentSide(playerSide)],
+  };
+}
+
+function resultTitle(playerSide: Side | null, winner: Side | null): string {
+  return playerSide !== null && winner === playerSide ? "Vitória" : "Derrota";
+}
+
+function rematchLabel(flags: {
+  playerAccepted: boolean;
+  opponentAccepted: boolean;
+}): string {
+  return `Você: ${flags.playerAccepted ? "ok" : "…"} · Oponente: ${flags.opponentAccepted ? "ok" : "…"}`;
+}
+
+type ResultScreenProps = {
+  state: MatchState;
+  onRequestRematch: () => void;
+};
+
+export function ResultScreen({ state, onRequestRematch }: ResultScreenProps) {
+  const side = state.playerSide;
+  const flags = rematchFlags(side, state.rematchAccepted);
+  const { score, winner } = state.snapshot;
+  return (
+    <StatusScreen title={resultTitle(side, winner)}>
+      <p className={ui.muted}>{score.left} — {score.right}</p>
+      <p className={ui.muted}>{rematchLabel(flags)}</p>
+      <RematchButton
+        accepted={flags.playerAccepted}
+        onRequestRematch={onRequestRematch}
+      />
+    </StatusScreen>
   );
 }

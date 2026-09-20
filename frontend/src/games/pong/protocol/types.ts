@@ -27,7 +27,7 @@ export type RematchAccepted = { left: boolean; right: boolean };
 
 export type MatchState = {
   phase: MatchPhase;
-  you: Side | null;
+  playerSide: Side | null;
   startsAt: number | null;
   rematchAccepted: RematchAccepted;
   snapshot: GameSnapshot;
@@ -46,7 +46,7 @@ export const EMPTY_SNAPSHOT: GameSnapshot = {
 export function createInitialMatchState(): MatchState {
   return {
     phase: "connecting",
-    you: null,
+    playerSide: null,
     startsAt: null,
     rematchAccepted: { left: false, right: false },
     snapshot: EMPTY_SNAPSHOT,

@@ -124,8 +124,8 @@ def main() -> None:
         and b.statuses[0].get("state") == "countdown",
         "A e B recebem game:status countdown",
     )
-    expect(a.statuses[0].get("you") == "left", "A é left")
-    expect(b.statuses[0].get("you") == "right", "B é right")
+    expect(a.statuses[0].get("side") == "left", "A é left")
+    expect(b.statuses[0].get("side") == "right", "B é right")
     a.wait("game:status", 2, 3)
     b.wait("game:status", 2, 3)
     expect(

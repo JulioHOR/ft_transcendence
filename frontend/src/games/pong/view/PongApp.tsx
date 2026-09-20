@@ -10,7 +10,6 @@ import {
 } from "./MatchScreens";
 import type { GameSnapshot, MatchState, Transport } from "../protocol";
 import { createInitialMatchState, TABLE } from "../protocol";
-import { ui } from "../../../ui/classes";
 
 const VIEW_HALF_X = TABLE.halfLength * 1.2;
 const VIEW_HALF_Z = TABLE.halfWidth * 1.35;
@@ -27,25 +26,30 @@ function useMatchState(transport: Transport): MatchState {
   return state;
 }
 
-/** Enquadra a mesa na área visível do canvas. */
+function frameTableCamera(
+  camera: PerspectiveCamera,
+  width: number,
+  height: number,
+): void {
+  const aspect = width / Math.max(height, 1);
+  const vFov = (camera.fov * Math.PI) / 180;
+  const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect);
+  const distance =
+    Math.max(VIEW_HALF_Z / Math.tan(vFov / 2), VIEW_HALF_X / Math.tan(hFov / 2)) *
+    1.2;
+  camera.position.set(0, distance * 0.72, distance * 0.72);
+  camera.lookAt(0, 0, 0);
+  camera.near = 0.1;
+  camera.far = distance * 5;
+  camera.updateProjectionMatrix();
+}
+
 function FitTableCamera() {
   const { camera, size } = useThree();
 
   useLayoutEffect(() => {
     if (!(camera instanceof PerspectiveCamera)) return;
-
-    const aspect = size.width / Math.max(size.height, 1);
-    const vFov = (camera.fov * Math.PI) / 180;
-    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect);
-    const distance =
-      Math.max(VIEW_HALF_Z / Math.tan(vFov / 2), VIEW_HALF_X / Math.tan(hFov / 2)) *
-      1.2;
-
-    camera.position.set(0, distance * 0.72, distance * 0.72);
-    camera.lookAt(0, 0, 0);
-    camera.near = 0.1;
-    camera.far = distance * 5;
-    camera.updateProjectionMatrix();
+    frameTableCamera(camera, size.width, size.height);
   }, [camera, size.width, size.height]);
 
   return null;
@@ -70,45 +74,23 @@ function PongStage({ snapshot }: { snapshot: GameSnapshot }) {
   );
 }
 
-function PhaseView({
-  state,
-  onRequestRematch,
-}: {
+type PhaseViewProps = {
   state: MatchState;
   onRequestRematch: () => void;
-}): ReactNode {
-  switch (state.phase) {
-    case "connecting":
-      return <StatusScreen title="Conectando…" />;
-    case "waiting":
-      return (
-        <StatusScreen title="Aguardando oponente">
-          <p className={ui.muted}>Espere outra pessoa entrar.</p>
-        </StatusScreen>
-      );
-    case "countdown":
-      return <CountdownScreen you={state.you} startsAt={state.startsAt} />;
-    case "playing":
-      return <PongStage snapshot={state.snapshot} />;
-    case "finished":
-      return (
-        <ResultScreen
-          you={state.you}
-          winner={state.snapshot.winner}
-          score={state.snapshot.score}
-          rematchAccepted={state.rematchAccepted}
-          onRequestRematch={onRequestRematch}
-        />
-      );
-    case "opponent_left":
-      return <StatusScreen title="Oponente saiu" />;
-    case "error":
-      return (
-        <StatusScreen title="Algo deu errado">
-          <p className={ui.muted}>{state.errorMessage ?? "Tente novamente."}</p>
-        </StatusScreen>
-      );
+};
+
+function PhaseView({ state, onRequestRematch }: PhaseViewProps): ReactNode {
+  if (state.phase === "connecting") return <StatusScreen title="Conectando…" />;
+  if (state.phase === "waiting") return <StatusScreen title="Aguardando oponente" />;
+  if (state.phase === "countdown") {
+    return <CountdownScreen playerSide={state.playerSide} startsAt={state.startsAt} />;
   }
+  if (state.phase === "playing") return <PongStage snapshot={state.snapshot} />;
+  if (state.phase === "finished") {
+    return <ResultScreen state={state} onRequestRematch={onRequestRematch} />;
+  }
+  if (state.phase === "opponent_left") return <StatusScreen title="Oponente saiu" />;
+  return <StatusScreen title={state.errorMessage ?? "Algo deu errado"} />;
 }
 
 export function PongApp({ transport }: { transport: Transport }) {

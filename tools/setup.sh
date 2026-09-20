@@ -20,12 +20,21 @@ if [ -z "${DOMAIN_NAME}" ]; then
     exit 1
 fi
 
+ensure_secret_readable() {
+    local file_path="$1"
+
+    if [ -f "${file_path}" ]; then
+        chmod 644 "${file_path}"
+    fi
+}
+
 ensure_secret_file() {
     local file_path="$1"
     local prompt_message="$2"
     local secret_value
 
     if [ -s "${file_path}" ]; then
+        ensure_secret_readable "${file_path}"
         return 0
     fi
 
@@ -49,6 +58,7 @@ ensure_generated_secret() {
     local file_path="$1"
 
     if [ -s "${file_path}" ]; then
+        ensure_secret_readable "${file_path}"
         return 0
     fi
 

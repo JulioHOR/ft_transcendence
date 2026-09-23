@@ -1,0 +1,8 @@
+Following the Three.js guide:
+
+https://threejs.org/manual/
+
+Warning: Node.js is a required dependency for bundling the package.
+
+sudo npm install -g typescript --save-dev
+

@@ -56,7 +56,7 @@ def test_apply_input_lado_proprio_e_recusa_sid_estranho():
     try:
         time.sleep(0.05)
         assert match.apply_input("sidA", 2.0, 1000.0)
-        assert match.sim.left_paddle_offset == 2.0
+        assert match.sim.left_paddle_position == 2.0
         assert not match.apply_input("sidDesconhecido", 5.0, 1100.0)
     finally:
         match.destroy()

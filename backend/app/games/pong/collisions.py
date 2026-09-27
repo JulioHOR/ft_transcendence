@@ -9,13 +9,13 @@ from .constants import (
     border_sign,
     side_sign,
 )
-from .paddles import get_paddle_offset, get_paddle_velocity
+from .paddles import get_paddle_position, get_paddle_velocity
 from .shared import clamp
 from .state import SimState
 
-def does_paddle_overlap_ball(paddle_offset: float, ball_z: float) -> bool:
+def does_paddle_overlap_ball(paddle_position: float, ball_z: float) -> bool:
     overlap_distance = TABLE["paddleHalfDepth"] + TABLE["ballRadius"]
-    return abs(paddle_offset - ball_z) <= overlap_distance
+    return abs(paddle_position - ball_z) <= overlap_distance
 
 def is_moving_toward_side(velocity_x: float, side: str) -> bool:
     return velocity_x < 0 if side == "left" else velocity_x > 0
@@ -30,7 +30,7 @@ def is_hitting_paddle(state: SimState, side: str) -> bool:
     moving_toward_paddle = is_moving_toward_side(state.velocity_x, side)
     inside_hit_zone = is_ball_in_paddle_hit_zone(state.ball_x, side)
     overlaps_paddle = does_paddle_overlap_ball(
-        get_paddle_offset(state, side), state.ball_z
+        get_paddle_position(state, side), state.ball_z
     )
     return moving_toward_paddle and inside_hit_zone and overlaps_paddle
 
@@ -43,8 +43,8 @@ def bounce_on_border(state: SimState, border: str) -> None:
     state.velocity_z *= -1
 
 def get_paddle_hit_ratio(state: SimState, side: str) -> float:
-    paddle_offset = get_paddle_offset(state, side)
-    raw_ratio = (state.ball_z - paddle_offset) / TABLE["paddleHalfDepth"]
+    paddle_position = get_paddle_position(state, side)
+    raw_ratio = (state.ball_z - paddle_position) / TABLE["paddleHalfDepth"]
     return clamp(raw_ratio, -1, 1)
 
 def place_ball_on_paddle_face(state: SimState, side: str) -> None:

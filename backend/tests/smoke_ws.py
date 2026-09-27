@@ -150,14 +150,14 @@ def main() -> None:
     expect(20 <= fb <= 32, f"B recebe ~30 Hz (medido {fb}/s)")
     expect(a.snapshots[-1]["timestamp"] > 0, "snapshot tem timestamp")
 
-    a.emit("paddle:input", {"offset": 2.0, "sequence": 1})
-    b.emit("paddle:input", {"offset": -2.0, "sequence": 1})
+    a.emit("paddle:input", {"position": 2.0})
+    b.emit("paddle:input", {"position": -2.0})
     time.sleep(0.3)
-    left_last = a.snapshots[-1]["leftPaddleOffset"]
-    right_last = b.snapshots[-1]["rightPaddleOffset"]
-    expect(abs(left_last - 2.0) < 1e-6, f"A moveu paddle esquerda (offset={left_last})")
+    left_last = a.snapshots[-1]["leftPaddlePosition"]
+    right_last = b.snapshots[-1]["rightPaddlePosition"]
+    expect(abs(left_last - 2.0) < 1e-6, f"A moveu paddle esquerda (position={left_last})")
     expect(
-        abs(right_last - (-2.0)) < 1e-6, f"B moveu paddle direita (offset={right_last})"
+        abs(right_last - (-2.0)) < 1e-6, f"B moveu paddle direita (position={right_last})"
     )
 
     a.emit("queue:leave")
@@ -167,14 +167,14 @@ def main() -> None:
         "A queue:leave em partida → invalid",
     )
 
-    d.emit("paddle:input", {"offset": 1.0, "sequence": 1})
+    d.emit("paddle:input", {"position": 1.0})
     d.wait("game:error", 1, 3)
     expect(
         d.errors[0].get("reason") == "not_in_match",
         "D sem partida → not_in_match",
     )
 
-    d.emit("paddle:input", {"offset": "linha", "sequence": 1})
+    d.emit("paddle:input", {"position": "linha"})
     d.wait("game:error", 2, 3)
     expect(
         d.errors[-1].get("reason") == "malformed",

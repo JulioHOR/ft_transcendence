@@ -1,11 +1,10 @@
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   build: {
-    // three + r3f naturally exceed 500kb; split already isolates them from home
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {

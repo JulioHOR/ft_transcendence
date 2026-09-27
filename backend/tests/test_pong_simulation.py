@@ -15,9 +15,9 @@ from games.pong.constants import (
 from games.pong.paddles import (
     apply_paddle_input,
     decay_paddle_velocities,
-    get_paddle_offset,
+    get_paddle_position,
     get_paddle_velocity,
-    set_paddle_offset,
+    set_paddle_position,
 )
 from games.pong.scoring import resolve_goals
 from games.pong.state import create_initial_sim_state, stop_ball, to_snapshot
@@ -52,7 +52,7 @@ def test_hit_na_paddle_direita():
     state.velocity_x = 5
     state.ball_x = 9.0
     state.ball_z = 1.0
-    state.right_paddle_offset = 1.0
+    state.right_paddle_position = 1.0
 
     resolve_paddle_collisions(state)
 
@@ -65,7 +65,7 @@ def test_hit_ratio_transfere_velocidade_da_paddle():
     state.velocity_x = 5
     state.ball_x = 9.0
     state.ball_z = 1.0
-    state.right_paddle_offset = 1.5
+    state.right_paddle_position = 1.5
     state.right_paddle_velocity = 10.0
 
     resolve_paddle_collisions(state)
@@ -78,7 +78,7 @@ def test_sem_hit_fora_da_hit_zone():
     state.velocity_x = 5
     state.ball_x = 8.0
     state.ball_z = 0
-    state.right_paddle_offset = 0
+    state.right_paddle_position = 0
 
     resolve_paddle_collisions(state)
 
@@ -120,22 +120,22 @@ def test_input_de_paddle_calcula_velocidade():
     state = create_initial_sim_state()
 
     apply_paddle_input(state, "left", 3.0, 1000.0)
-    assert get_paddle_offset(state, "left") == 3.0
+    assert get_paddle_position(state, "left") == 3.0
     assert get_paddle_velocity(state, "left") == 0.0
 
     apply_paddle_input(state, "left", 4.0, 1100.0)
     assert get_paddle_velocity(state, "left") == 10.0
 
-def test_set_paddle_offset_atualiza_velocidade():
+def test_set_paddle_position_atualiza_velocidade():
     state = create_initial_sim_state()
 
-    set_paddle_offset(state, "right", 2.0, 0.2)
+    set_paddle_position(state, "right", 2.0, 0.2)
     assert get_paddle_velocity(state, "right") == 10.0
 
 def test_input_fora_da_mesa_deixa_passar_sem_crash_clamp_feito_no_handler():
     state = create_initial_sim_state()
     apply_paddle_input(state, "right", 99.0, 500.0)
-    assert get_paddle_offset(state, "right") == 99.0
+    assert get_paddle_position(state, "right") == 99.0
 
 def test_is_ball_past_border_e_hit_zone_limites():
     limit = TABLE["halfWidth"] - TABLE["ballRadius"]
@@ -155,8 +155,8 @@ def test_to_snapshot_shape_do_protocolo():
     snap = to_snapshot(state, 1234.5)
 
     assert snap == {
-        "leftPaddleOffset": 0.0,
-        "rightPaddleOffset": 0.0,
+        "leftPaddlePosition": 0.0,
+        "rightPaddlePosition": 0.0,
         "ball": {"x": 0.0, "z": 0.0},
         "score": {"left": 2, "right": 3},
         "winner": None,

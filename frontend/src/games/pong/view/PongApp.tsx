@@ -11,9 +11,12 @@ import {
 import type { GameSnapshot, MatchState, Transport } from "../protocol";
 import { createInitialMatchState, TABLE } from "../protocol";
 
+/** Metade da largura da visualização da mesa. */
 const VIEW_HALF_X = TABLE.halfLength * 1.2;
+/** Metade da altura da visualização da mesa. */
 const VIEW_HALF_Z = TABLE.halfWidth * 1.35;
 
+/** Hook para gerenciar o estado da partida. */
 function useMatchState(transport: Transport): MatchState {
   const [state, setState] = useState(createInitialMatchState);
 
@@ -25,7 +28,29 @@ function useMatchState(transport: Transport): MatchState {
 
   return state;
 }
+/** Calcula a distância da câmera para enquadrar a mesa. */
+function calculateCameraDistance(
+  verticalHalfSize: number,
+  horizontalHalfSize: number,
+  verticalFov: number,
+  horizontalFov: number,
+): number {
+  const verticalDistance =
+    verticalHalfSize / Math.tan(verticalFov / 2);
 
+  const horizontalDistance =
+    horizontalHalfSize / Math.tan(horizontalFov / 2);
+
+  const requiredDistance = Math.max(
+    verticalDistance,
+    horizontalDistance,
+  );
+
+  const CAMERA_MARGIN = 1.2;
+  return requiredDistance * CAMERA_MARGIN;
+}
+
+/** Ajusta a câmera para enquadrar a mesa na tela. */
 function frameTableCamera(
   camera: PerspectiveCamera,
   width: number,
@@ -34,9 +59,7 @@ function frameTableCamera(
   const aspect = width / Math.max(height, 1);
   const vFov = (camera.fov * Math.PI) / 180;
   const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect);
-  const distance =
-    Math.max(VIEW_HALF_Z / Math.tan(vFov / 2), VIEW_HALF_X / Math.tan(hFov / 2)) *
-    1.2;
+  const distance = calculateCameraDistance(VIEW_HALF_Z, VIEW_HALF_X, vFov, hFov);
   camera.position.set(0, distance * 0.72, distance * 0.72);
   camera.lookAt(0, 0, 0);
   camera.near = 0.1;
@@ -44,6 +67,14 @@ function frameTableCamera(
   camera.updateProjectionMatrix();
 }
 
+/**
+ * Mantém a câmera de perspectiva ajustada para enquadrar a mesa dentro do Canvas.
+ *
+ * O ajuste é reaplicado quando a câmera ou as dimensões do Canvas mudam,
+ * garantindo o enquadramento após redimensionamentos da tela.
+ *
+ * @returns `null`, pois o componente executa apenas lógica de configuração.
+ */
 function FitTableCamera() {
   const { camera, size } = useThree();
 
@@ -55,6 +86,7 @@ function FitTableCamera() {
   return null;
 }
 
+/** Componente para exibir a cena do jogo com a pontuação. */
 function PongStage({ snapshot }: { snapshot: GameSnapshot }) {
   return (
     <div className="relative h-full w-full min-h-0">
@@ -74,25 +106,41 @@ function PongStage({ snapshot }: { snapshot: GameSnapshot }) {
   );
 }
 
+/** Propriedades da fase atual da partida. */
 type PhaseViewProps = {
   state: MatchState;
   onRequestRematch: () => void;
 };
 
+/**
+ * Renderiza a visualização da fase atual da partida,
+ * exibindo a tela apropriada com base no estado do jogo.
+ * @param state - Estado atual da partida.
+ * @param onRequestRematch - Função chamada quando o jogador solicita um rematch.
+ * @returns Componente React representando a fase atual da partida.
+ */
 function PhaseView({ state, onRequestRematch }: PhaseViewProps): ReactNode {
-  if (state.phase === "connecting") return <StatusScreen title="Conectando…" />;
-  if (state.phase === "waiting") return <StatusScreen title="Aguardando oponente" />;
-  if (state.phase === "countdown") {
-    return <CountdownScreen playerSide={state.playerSide} startsAt={state.startsAt} />;
+  switch (state.phase) {
+    case "connecting": return <StatusScreen title="Conectando…" />;
+    case "waiting": return <StatusScreen title="Aguardando oponente" />;
+    case "countdown": return (
+      <CountdownScreen
+        playerSide={state.playerSide}
+        startsAt={state.startsAt}
+      />
+    );
+    case "playing": return <PongStage snapshot={state.snapshot} />;
+    case "finished": return <ResultScreen state={state} onRequestRematch={onRequestRematch} />;
+    case "opponent_left": return <StatusScreen title="Oponente saiu" />;
+    default: return <StatusScreen title={state.errorMessage ?? "Algo deu errado"} />;
   }
-  if (state.phase === "playing") return <PongStage snapshot={state.snapshot} />;
-  if (state.phase === "finished") {
-    return <ResultScreen state={state} onRequestRematch={onRequestRematch} />;
-  }
-  if (state.phase === "opponent_left") return <StatusScreen title="Oponente saiu" />;
-  return <StatusScreen title={state.errorMessage ?? "Algo deu errado"} />;
 }
 
+/**
+ * Componente principal do jogo.
+ * @param transport - Instância de transporte para comunicação com o servidor.
+ * @returns Componente React representando o jogo.
+ */
 export function PongApp({ transport }: { transport: Transport }) {
   const state = useMatchState(transport);
   usePaddleInput(transport, {

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { MatchState, Side } from "../protocol";
 import { ui } from "../../../ui/classes";
 
+/** Componente para exibir uma tela de status. */
 export function StatusScreen({
   title,
   children,
@@ -20,6 +21,7 @@ export function StatusScreen({
   );
 }
 
+/** Hook para calcular os segundos restantes na contagem regressiva. */
 function useCountdownSeconds(startsAt: number | null): number {
   const [seconds, setSeconds] = useState(5);
 
@@ -41,6 +43,7 @@ function sideLabel(side: Side | null): string {
   return "?";
 }
 
+/** Componente para exibir a tela de contagem regressiva. */
 export function CountdownScreen({
   playerSide,
   startsAt,
@@ -59,6 +62,7 @@ export function CountdownScreen({
   );
 }
 
+/** Componente para exibir o botão de rematch. */
 function RematchButton({
   accepted,
   onRequestRematch,
@@ -82,6 +86,7 @@ function opponentSide(playerSide: Side): Side {
   return playerSide === "left" ? "right" : "left";
 }
 
+/** Retorna os status de aceitação do rematch para o jogador e o oponente. */
 function rematchFlags(
   playerSide: Side | null,
   rematchAccepted: { left: boolean; right: boolean },
@@ -111,6 +116,7 @@ type ResultScreenProps = {
   onRequestRematch: () => void;
 };
 
+/** Componente para exibir a tela de resultado da partida. */
 export function ResultScreen({ state, onRequestRematch }: ResultScreenProps) {
   const side = state.playerSide;
   const flags = rematchFlags(side, state.rematchAccepted);

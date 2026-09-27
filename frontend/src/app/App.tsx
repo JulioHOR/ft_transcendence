@@ -3,11 +3,18 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { HomePage } from "../pages/HomePage";
 import { ui } from "../ui/classes";
 
+/**
+ * Carregamento preguiçoso do Jogo.
+ * Carrega o módulo do jogo somente quando acessado via rota.
+ */
 const PongPage = lazy(async () => {
   const module = await import("../pages/PongPage");
   return { default: module.PongPage };
 });
 
+/**
+ * Estrutura (componentes) de navegação da aplicação.
+ */
 function AppNav() {
   return (
     <nav aria-label="Principal" className={`flex gap-4 text-sm ${ui.bar}`}>
@@ -21,6 +28,9 @@ function AppNav() {
   );
 }
 
+/**
+ * Define as rotas da aplicação.
+ */
 function AppRoutes() {
   return (
     <Suspense fallback={<p className={`p-4 ${ui.muted}`}>Loading…</p>}>
@@ -32,6 +42,10 @@ function AppRoutes() {
   );
 }
 
+/**
+ * Componente principal da aplicação.
+ * Ponto de partida de toda a aplicação.
+ */
 export default function App() {
   return (
     <BrowserRouter>

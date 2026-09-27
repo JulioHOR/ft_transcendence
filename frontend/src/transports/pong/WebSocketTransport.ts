@@ -11,13 +11,26 @@ import {
   createInitialMatchState,
 } from "../../games/pong/protocol";
 
+/**
+ * Define o estado do servidor para o jogo.
+ */
 type ServerStatus = {
-  state: string;
+  /** Estado atual do servidor. */
+  state: string; 
+  /** Lado do jogador (esquerdo ou direito). */
   side?: Side;
+  /** Momento em que a contagem regressiva começa. */
   startsAt?: number;
+  /** Indica se o jogador aceitou o rematch. */
   accepted?: { left: boolean; right: boolean };
 };
 
+/**
+ * Cria o estado de contagem regressiva do jogo com base no status do servidor e no lado atual do jogador.
+ * @param status - Estado atual do servidor.
+ * @param currentSide - Lado atual do jogador (esquerdo ou direito).
+ * @returns 
+ */
 function countdownState(
   status: ServerStatus,
   currentSide: Side | null,

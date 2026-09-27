@@ -88,14 +88,14 @@ class PongMatch:
 
             time.sleep(max(0.0, TICK_INTERVAL - (time.monotonic() - started)))
 
-    def apply_input(self, sid: str, offset: float, timestamp_ms: float) -> bool:
+    def apply_input(self, sid: str, position: float, timestamp_ms: float) -> bool:
         side = self.sides.get(sid)
         if side is None:
             return False
         with self._lock:
             if self.phase != "playing":
                 return False
-            apply_paddle_input(self.sim, side, offset, timestamp_ms)
+            apply_paddle_input(self.sim, side, position, timestamp_ms)
         return True
 
     def accept_rematch(self, sid: str) -> RematchOutcome:

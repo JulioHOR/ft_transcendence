@@ -18,13 +18,10 @@ class MalformedInput(Exception):
 def _parse_input(data) -> float:
     if not isinstance(data, dict):
         raise MalformedInput()
-    offset = data.get("offset")
-    sequence = data.get("sequence")
-    if isinstance(offset, bool) or not isinstance(offset, (int, float)):
+    position = data.get("position")
+    if isinstance(position, bool) or not isinstance(position, (int, float)):
         raise MalformedInput()
-    if isinstance(sequence, bool) or not isinstance(sequence, int):
-        raise MalformedInput()
-    return offset
+    return position
 
 
 def emit_countdown(socketio, match) -> None:
@@ -68,7 +65,7 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> None:
     @socketio.on("paddle:input")
     def on_paddle_input(data):
         try:
-            offset = _parse_input(data)
+            position = _parse_input(data)
         except MalformedInput:
             emit_error(_sid(), "malformed", "Movimento inválido.")
             return None
@@ -78,7 +75,7 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> None:
             emit_error(_sid(), "not_in_match", "Espere a partida começar.")
             return None
 
-        match.apply_input(_sid(), clamp(offset, -INPUT_LIMIT, INPUT_LIMIT), now_ms())
+        match.apply_input(_sid(), clamp(position, -INPUT_LIMIT, INPUT_LIMIT), now_ms())
 
     @socketio.on("game:rematch")
     def on_game_rematch(_data=None):

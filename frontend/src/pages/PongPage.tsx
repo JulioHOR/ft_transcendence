@@ -3,6 +3,10 @@ import { PongApp } from "../games/pong/view/PongApp";
 import { WebSocketTransport } from "../transports/pong/WebSocketTransport";
 import { ui } from "../ui/classes";
 
+/**
+ * Página do Pong.
+ * Renderiza a interface do jogo e gerencia o transporte de comunicação.
+ */
 export function PongPage() {
   const transport = useMemo(() => new WebSocketTransport(), []);
   useEffect(() => () => transport.disconnect(), [transport]);

@@ -13,8 +13,8 @@ type PressedKeys = Record<MoveDirection, boolean>;
 type UsePaddleInputOptions = { enabled: boolean };
 
 /**
- * Converte um código de tecla em direção de movimento, ou `null`
- * se a tecla não controla a paddle.
+ * Converte um código de tecla em direção de movimento,
+ * ou `null` se a tecla não controla a paddle.
  */
 function getMoveDirection(code: string): MoveDirection | null {
   if (MOVE_UP_CODES.has(code)) return "moveUp";
@@ -25,10 +25,10 @@ function getMoveDirection(code: string): MoveDirection | null {
 /**
  * Limita a posição da paddle no eixo Z (largura) às bordas da mesa.
  *
- * @param offset - Posição candidata no eixo Z (largura)
+ * @param position - Posição candidata no eixo Z (largura)
  */
-function clampPaddleOffset(offset: number): number {
-  return clamp(offset, -TABLE.halfWidth, TABLE.halfWidth);
+function clampPaddlePosition(position: number): number {
+  return clamp(position, -TABLE.halfWidth, TABLE.halfWidth);
 }
 
 /**
@@ -45,19 +45,19 @@ function movementDelta(direction: MoveDirection, deltaSeconds: number): number {
 /**
  * Calcula a próxima posição da paddle no eixo Z (largura) a partir das teclas pressionadas.
  *
- * @param currentOffset - Posição atual no eixo Z (largura)
+ * @param currentPosition - Posição atual no eixo Z (largura)
  * @param pressed - Estado das teclas de movimento
  * @param deltaSeconds - Tempo decorrido, em segundos
  */
-function computeNextPaddleOffset(
-  currentOffset: number,
+function computeNextPaddlePosition(
+  currentPosition: number,
   pressed: PressedKeys,
   deltaSeconds: number,
 ): number {
-  let nextOffset = currentOffset;
-  if (pressed.moveUp) nextOffset += movementDelta("moveUp", deltaSeconds);
-  if (pressed.moveDown) nextOffset += movementDelta("moveDown", deltaSeconds);
-  return clampPaddleOffset(nextOffset);
+  let nextPosition = currentPosition;
+  if (pressed.moveUp) nextPosition += movementDelta("moveUp", deltaSeconds);
+  if (pressed.moveDown) nextPosition += movementDelta("moveDown", deltaSeconds);
+  return clampPaddlePosition(nextPosition);
 }
 
 /** Indica se há alguma tecla de movimento pressionada. */
@@ -66,8 +66,7 @@ function hasMovementInput(pressed: PressedKeys): boolean {
 }
 
 type InputLoopRefs = {
-  paddleOffset: MutableRefObject<number>;
-  inputSequence: MutableRefObject<number>;
+  paddlePosition: MutableRefObject<number>;
   pressed: MutableRefObject<PressedKeys>;
 };
 
@@ -85,16 +84,14 @@ function sendPaddleInput(
   pressed: PressedKeys,
   deltaSeconds: number,
 ): void {
-  const nextOffset = computeNextPaddleOffset(
-    refs.paddleOffset.current,
+  const nextPosition = computeNextPaddlePosition(
+    refs.paddlePosition.current,
     pressed,
     deltaSeconds,
   );
-  refs.paddleOffset.current = nextOffset;
-  refs.inputSequence.current += 1;
+  refs.paddlePosition.current = nextPosition;
   transport.sendInput({
-    offset: nextOffset,
-    sequence: refs.inputSequence.current,
+    position: nextPosition,
   });
 }
 
@@ -185,8 +182,7 @@ export function usePaddleInput(
   transport: Transport,
   { enabled }: UsePaddleInputOptions,
 ) {
-  const paddleOffset = useRef(0);
-  const inputSequence = useRef(0);
+  const paddlePosition = useRef(0);
   const pressed = useRef<PressedKeys>({ moveUp: false, moveDown: false });
 
   useEffect(() => {
@@ -194,7 +190,7 @@ export function usePaddleInput(
   }, [enabled]);
 
   useEffect(() => {
-    const refs = { paddleOffset, inputSequence, pressed };
+    const refs = { paddlePosition, pressed };
     const detachKeyboard = attachKeyboard(pressed);
     const stopLoop = startInputLoop(transport, refs, enabled);
     return () => {

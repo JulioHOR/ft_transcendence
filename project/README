@@ -4,5 +4,13 @@ https://threejs.org/manual/
 
 Warning: Node.js is a required dependency for bundling the package.
 
-sudo npm install -g typescript --save-dev
+``` shell
+# three.js
+npm install --save three
 
+# vite
+npm install --save-dev vite
+
+# to deploy the project:
+npx vite 
+```

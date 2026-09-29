@@ -1,7 +1,12 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
-import { HomePage } from "../pages/HomePage";
+
 import { ui } from "../ui/classes";
+import { HomePage } from "../pages/HomePage";
+import { LoginPage } from "../pages/LoginPage";
+import { NotFoundPage } from "../pages/NotFoundPage";
+import { AuthProvider } from "./AuthProvider";
+import { RequireAuth } from "./RequireAuth";
 
 /**
  * Carregamento preguiçoso do Jogo.
@@ -18,7 +23,10 @@ const PongPage = lazy(async () => {
 function AppNav() {
   return (
     <nav aria-label="Principal" className={`flex gap-4 text-sm ${ui.bar}`}>
-      <Link className={ui.link} to="/">
+      <Link className={ui.link} to="/login">
+        Login
+      </Link>
+      <Link className={ui.link} to="/home">
         Home
       </Link>
       <Link className={ui.link} to="/pong">
@@ -28,6 +36,11 @@ function AppNav() {
   );
 }
 
+/** Envolve a página com o guard de autenticação. */
+function protectedPage(page: ReactNode) {
+  return <RequireAuth>{page}</RequireAuth>;
+}
+
 /**
  * Define as rotas da aplicação.
  */
@@ -35,8 +48,11 @@ function AppRoutes() {
   return (
     <Suspense fallback={<p className={`p-4 ${ui.muted}`}>Loading…</p>}>
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/pong" element={<PongPage />} />
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/home" element={protectedPage(<HomePage />)} />
+        <Route path="/pong" element={protectedPage(<PongPage />)} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
   );
@@ -48,13 +64,15 @@ function AppRoutes() {
  */
 export default function App() {
   return (
-    <BrowserRouter>
-      <div className="flex h-svh w-full flex-col bg-zinc-900 text-zinc-200">
-        <AppNav />
-        <div className="min-h-0 flex-1">
-          <AppRoutes />
+    <AuthProvider>
+      <BrowserRouter>
+        <div className="flex h-svh w-full flex-col bg-zinc-900 text-zinc-200">
+          <AppNav />
+          <div className="min-h-0 flex-1">
+            <AppRoutes />
+          </div>
         </div>
-      </div>
-    </BrowserRouter>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

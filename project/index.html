@@ -7,11 +7,23 @@
       body { margin: 0; }
     </style>
   </head>
-  <body>
-    <script type="module" src="/main.js"></script>
+  <body style="background-color: grey;">
 
-    <div id="info">
-      Description
-    </div>
+    <div class="center">
+		<div class="threejs_example">
+      <div class="info" style="color:white">Description</div></div> 
+			<!-- <input type="range" default="20" min="0" max="100" step="1" onchange="changeLight(this.value)"/>
+			<input type="button" value="Change Color Tint" onclick="changeColorTint()"> -->
+				<canvas id="threejs_canvas" ></canvas>
+		</div>
+	</div>
+
+  <script type="module" src="/main.js"></script>
+    <!-- <canvas>
+      <script type="module" src="/main.js"></script>
+    </canvas>
+    <div class="content-overlay">
+     <div class="info">Description</div></div> -->
+
   </body>
 </html>

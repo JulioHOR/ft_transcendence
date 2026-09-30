@@ -1,8 +1,69 @@
-#info {
-        position: absolute;
+/* .info {
+        position: absolute !important;
         top: 10px;
         width: 100%;
         text-align: center;
-        z-index: 100;
+        z-index: 100 !important;
         display:block;
+}
+
+.canva {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+}
+
+#three-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 2; 
+    pointer-events: none;
+}
+
+#canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+
+.content-overlay {
+    position: relative;
+    z-index: 5; 
+    color: white;
+} */
+
+:root{
+	--main-bg-color: #9E9E9E;
+	--decor-color: #000000;
+	--bg-content-color: #611e1ea1;
+}
+
+html {
+	background-color: var(--main-bg-color);
+}
+
+body {
+	color: whitesmoke;
+	width: 100%;
+	height: 100%;
+	margin: auto;
+	padding: 0;
+}
+
+.center {
+	background-color: rgb(124 191 255);
+    width: 100%;
+	height: 100%;
+	display: grid;
+    align-items: center;
+
+}
+
+.threejs_example > * {
+	display: block;
+	/* width: 50%; */
+	margin: auto;
 }

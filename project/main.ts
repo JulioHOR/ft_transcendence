@@ -13,7 +13,12 @@ raycaster.firstHitOnly = true;
 
 // main init
 const scene = new THREE.Scene();
-const useCanvas = document.getElementById("threejs_canvas");  
+const useCanvas: HTMLElement | null = document.getElementById("threejs_canvas");
+
+if (useCanvas === null) {
+	throw new TypeError("useCanvas was null. P.S: It shouldn't!");
+}
+
 const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 25, 0);
 const renderer = new THREE.WebGLRenderer({ alpha: true, canvas: useCanvas });

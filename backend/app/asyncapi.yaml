@@ -1,0 +1,288 @@
+asyncapi: "3.0.0"
+info:
+  title: ft_transcendence WebSocket
+  version: 1.0.0
+  description: |
+    Eventos Socket.IO (flask-socketio, namespace padrão `/`) da fila de
+    matchmaker e da partida de Pong.
+
+    Convenção de direção: o documento descreve o backend. `action: receive`
+    são eventos enviados pelo cliente ao servidor; `action: send` são eventos
+    emitidos pelo servidor ao cliente.
+
+    Enquadramento Socket.IO: sobre o WebSocket cada evento é uma moldura cujo
+    payload é um array JSON `[nomeDoEvento, dados]`. Os handlers de
+    `queue:join` e `queue:leave` respondem pelo callback de ack do Socket.IO;
+    aqui essas respostas aparecem como mensagens de reply do próprio evento.
+
+    Estado da partida: `game:snapshot` chega a 30 Hz para os dois jogadores da
+    sala da partida. Coordenadas são centradas na mesa; `winner` vale `left`,
+    `right` ou `null`.
+servers:
+  backend:
+    host: "{host}"
+    pathname: /socket.io/
+    protocol: socketio
+    variables:
+      host:
+        default: localhost:8080
+        description: Host do backend exposto pelo nginx.
+channels:
+  matchmaking:
+    address: /
+    title: Canal único do namespace Socket.IO
+    description: |
+      Todos os eventos compartilham o namespace `/`. Uma conexão representa um
+      jogador identificado pelo `sid` do Socket.IO.
+    messages:
+      queueJoin:
+        $ref: "#/components/messages/queueJoin"
+      queueLeave:
+        $ref: "#/components/messages/queueLeave"
+      paddleInput:
+        $ref: "#/components/messages/paddleInput"
+      gameRestart:
+        $ref: "#/components/messages/gameRestart"
+      disconnect:
+        $ref: "#/components/messages/disconnect"
+      gameStatus:
+        $ref: "#/components/messages/gameStatus"
+      gameSnapshot:
+        $ref: "#/components/messages/gameSnapshot"
+      gameError:
+        $ref: "#/components/messages/gameError"
+operations:
+  joinQueue:
+    action: receive
+    channel:
+      $ref: "#/channels/matchmaking"
+    summary: Cliente entra na fila de matchmaker
+    description: |
+      Sem payload. Com dois jogadores na fila a partida começa: os dois entram
+      na sala e o servidor emite `game:status` com `state: playing`. Se o
+      cliente já estiver na fila ou em partida, o servidor emite `game:error`
+      com `reason: already_playing` e o ack é omitido.
+    messages:
+      - $ref: "#/channels/matchmaking/messages/queueJoin"
+  leaveQueue:
+    action: receive
+    channel:
+      $ref: "#/channels/matchmaking"
+    summary: Cliente sai da fila de espera
+    description: |
+      Sem payload. Fora da fila o servidor emite `game:error` com
+      `reason: invalid` e o ack é omitido.
+    messages:
+      - $ref: "#/channels/matchmaking/messages/queueLeave"
+  sendPaddleInput:
+    action: receive
+    channel:
+      $ref: "#/channels/matchmaking"
+    summary: Cliente envia a posição desejada da própria raquete
+    description: |
+      `offset` é limitado à metade da largura da mesa menos a meia profundidade
+      da raquete; fora disso é ajustado (clamp), não rejeitado. Payload
+      malformado gera `game:error` com `reason: malformed`; jogador fora de
+      partida gera `reason: not_in_match`; partida encerrada gera
+      `reason: invalid`. Não há ack.
+    messages:
+      - $ref: "#/channels/matchmaking/messages/paddleInput"
+  restartGame:
+    action: receive
+    channel:
+      $ref: "#/channels/matchmaking"
+    summary: Cliente reinicia a partida encerrada
+    description: |
+      Sem payload. Só vale após o fim da partida: o estado zera e o servidor
+      emite `game:status` com `state: playing`. Fora de partida gera
+      `reason: not_in_match`; partida ainda em jogo gera `reason: invalid`.
+    messages:
+      - $ref: "#/channels/matchmaking/messages/gameRestart"
+  clientDisconnect:
+    action: receive
+    channel:
+      $ref: "#/channels/matchmaking"
+    summary: Conexão do cliente encerra
+    description: |
+      Sem payload. Na fila, o cliente sai dela. Em partida, o adversário recebe
+      `game:status` com `state: opponent_left` e a partida é destruída.
+    messages:
+      - $ref: "#/channels/matchmaking/messages/disconnect"
+  sendGameStatus:
+    action: send
+    channel:
+      $ref: "#/channels/matchmaking"
+    summary: Servidor muda o estado da partida
+    messages:
+      - $ref: "#/channels/matchmaking/messages/gameStatus"
+  sendGameSnapshot:
+    action: send
+    channel:
+      $ref: "#/channels/matchmaking"
+    summary: Servidor envia o quadro da simulação
+    messages:
+      - $ref: "#/channels/matchmaking/messages/gameSnapshot"
+  sendGameError:
+    action: send
+    channel:
+      $ref: "#/channels/matchmaking"
+    summary: Servidor rejeita uma ação do cliente
+    messages:
+      - $ref: "#/channels/matchmaking/messages/gameError"
+components:
+  messages:
+    queueJoin:
+      name: "queue:join"
+      title: Entrar na fila
+      description: |
+        Resposta pelo callback de ack do Socket.IO: `{"status": "waiting"}`
+        quando ainda falta adversário, `{"status": "matched"}` quando a
+        partida começou.
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/EmptyPayload"
+    queueLeave:
+      name: "queue:leave"
+      title: Sair da fila
+      description: 'Resposta pelo ack do Socket.IO: `{"status": "left"}`.'
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/EmptyPayload"
+    paddleInput:
+      name: "paddle:input"
+      title: Input da raquete
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/PaddleInput"
+    gameRestart:
+      name: "game:restart"
+      title: Reiniciar partida
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/EmptyPayload"
+    disconnect:
+      name: disconnect
+      title: Desconexão
+      description: Evento do Socket.IO sem payload.
+    gameStatus:
+      name: "game:status"
+      title: Estado da partida
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/GameStatus"
+    gameSnapshot:
+      name: "game:snapshot"
+      title: Quadro da simulação
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/GameSnapshot"
+    gameError:
+      name: "game:error"
+      title: Erro de jogo
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/GameError"
+  schemas:
+    EmptyPayload:
+      title: Payload vazio
+      description: Evento enviado sem dados; o payload chega como `{}`.
+      type: object
+      additionalProperties: true
+    PaddleInput:
+      title: Input da raquete
+      type: object
+      required:
+        - offset
+        - sequence
+      properties:
+        offset:
+          type: number
+          description: Deslocamento desejado da raquete em relação ao centro.
+        sequence:
+          type: integer
+          description: Número sequencial do input, obrigatório no parser.
+    GameStatus:
+      title: Estado da partida
+      type: object
+      required:
+        - state
+      properties:
+        state:
+          type: string
+          enum:
+            - playing
+            - opponent_left
+          description: |
+            `playing` no início e no restart; `opponent_left` quando o
+            adversário desconecta.
+    GameSnapshot:
+      title: Quadro da simulação
+      type: object
+      required:
+        - leftPaddleOffset
+        - rightPaddleOffset
+        - ball
+        - score
+        - winner
+        - timestamp
+      properties:
+        leftPaddleOffset:
+          type: number
+          description: Deslocamento da raquete esquerda.
+        rightPaddleOffset:
+          type: number
+          description: Deslocamento da raquete direita.
+        ball:
+          type: object
+          required:
+            - x
+            - z
+          properties:
+            x:
+              type: number
+            z:
+              type: number
+        score:
+          type: object
+          required:
+            - left
+            - right
+          properties:
+            left:
+              type: integer
+            right:
+              type: integer
+        winner:
+          type:
+            - string
+            - "null"
+          enum:
+            - left
+            - right
+            - null
+          description: Lado vencedor; `null` enquanto a partida não terminou.
+        timestamp:
+          type: number
+          description: Momento do quadro, em milissegundos.
+    GameError:
+      title: Erro de jogo
+      type: object
+      required:
+        - reason
+        - message
+      properties:
+        reason:
+          type: string
+          enum:
+            - already_playing
+            - invalid
+            - malformed
+            - not_in_match
+          description: |
+            `already_playing` na fila com `queue:join` duplicado; `invalid`
+            fora da fila, com input após o fim ou restart fora de `finished`;
+            `malformed` em payload de input inválido; `not_in_match` para input
+            ou restart sem partida.
+        message:
+          type: string
+          description: Texto legível em português.

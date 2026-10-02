@@ -13,7 +13,7 @@ raycaster.firstHitOnly = true;
 
 // main init
 const scene = new THREE.Scene();
-const useCanvas: HTMLElement | null = document.getElementById("threejs_canvas");
+const useCanvas = document.getElementById("threejs_canvas");
 
 if (useCanvas === null) {
 	throw new TypeError("useCanvas was null. P.S: It shouldn't!");

@@ -7,6 +7,7 @@ import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { AuthProvider } from "./AuthProvider";
 import { RequireAuth } from "./RequireAuth";
+import { ProfilePage } from "../pages/ProfilePage";
 
 /**
  * Carregamento preguiçoso do Jogo.
@@ -29,8 +30,11 @@ function AppNav() {
       <Link className={ui.link} to="/home">
         Home
       </Link>
+      <Link className={ui.link} to="/profile">
+        Profile
+      </Link>
       <Link className={ui.link} to="/pong">
-        Pong
+        Ping Pong
       </Link>
     </nav>
   );
@@ -52,6 +56,7 @@ function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/home" element={protectedPage(<HomePage />)} />
         <Route path="/pong" element={protectedPage(<PongPage />)} />
+        <Route path="/profile" element={protectedPage(<ProfilePage />)} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>

@@ -23,6 +23,8 @@ export const Player = schema({
   y: t.number(),
   vx: t.number(),
   vy: t.number(),
+  yaw: t.number(),
+  pitch: t.number(),
 });
 export type Player = SchemaType<typeof Player>;
 

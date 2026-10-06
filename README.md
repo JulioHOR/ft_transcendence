@@ -26,3 +26,7 @@ Os scripts de `database/init/` rodam somente na criação do volume. Ao adiciona
 ```sh
 docker compose exec database psql -U ft_user -d ft_transcendence -f /docker-entrypoint-initdb.d/02-users.sql
 ```
+
+## Credits
+
+Credits for third-party assets: see [CREDITS.md](CREDITS.md).

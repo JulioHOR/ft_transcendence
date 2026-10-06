@@ -10,6 +10,28 @@ import type { MoveInput } from "../rooms/schema/MyRoomState.js";
 import { stepEntity } from "../shared/movement.js";
 import { ARENA_WIDTH } from '../shared/constants.js';
 
+// The glTF loader turns every model 180° around Y to convert it to Babylon's
+// left-handed system. If the penguin ends up facing backwards, set this to 0.
+const MODEL_YAW_OFFSET = Math.PI;
+
+// linux-char.glb: origin at the feet, about 0.76 tall and 0.56 wide.
+const PENGUIN_HEIGHT = 0.76;
+const PENGUIN_RADIUS = 0.28;
+// Camera height above the feet, roughly where the penguin's eyes are.
+const EYE_HEIGHT = 0.6;
+
+// ak-47.glb: ~1.92 long, lying along glTF +X, far from its own origin.
+// Grip position measured from the file, converted to Babylon space (x flipped by the loader).
+const GUN_GRIP = new BABYLON.Vector3(-4.33, 0.04, 0.38);
+const GUN_SCALE = 0.25;              // your own gun (first person), ~0.48 long
+const HELD_GUN_SCALE = 0.35;         // other players' guns, ~0.67 long next to a 0.76 penguin
+const GUN_YAW_OFFSET = Math.PI / 2;  // barrel from -X to +Z (forward); try -Math.PI / 2 if it points backwards
+// Where your own gun sits relative to the camera: right, down, forward.
+const VIEWMODEL_OFFSET = new BABYLON.Vector3(0.07, -0.1, -0.007);
+// Where other players' guns sit relative to their eyes: right, down, forward.
+// Further out than your own, so the gun shows outside the penguin's body.
+const HELD_GUN_OFFSET = new BABYLON.Vector3(0.12, -0.2, 0.15);
+
 // --- DOM & Status Elements ---
 const statusEl = document.getElementById("status")!;
 const useCanvas = document.getElementById("threejs_canvas") as HTMLCanvasElement;
@@ -46,7 +68,7 @@ scene.collisionsEnabled = true;
 
 // Camera Setup (Universal Camera for 3D navigation)
 const camera = new BABYLON.UniversalCamera("fpsCamera", new BABYLON.Vector3(0, 5, -10), scene);
-camera.minZ = 0.1;
+camera.minZ = 0.01; // the gun sits a few centimetres from the eye; 0.1 would cut it off
 camera.maxZ = 1000;
 camera.fov = 90 * (Math.PI / 180);
 camera.inertia = 0; // Remove floaty movement for crisp mouse look
@@ -99,6 +121,19 @@ floorMat.backFaceCulling = false;
 floor.material = floorMat;
 floor.checkCollisions = true;
 
+/** One AK: pivot (aim) → model (scale and turn) → glTF root, with the grip at the pivot. */
+function createGun(container: BABYLON.AssetContainer, name: string, scale: number): BABYLON.TransformNode {
+  const pivot = new BABYLON.TransformNode(`${name}_pivot`, scene);
+  const model = new BABYLON.TransformNode(`${name}_model`, scene);
+  model.parent = pivot;
+  model.scaling.setAll(scale);
+  model.rotation.y = GUN_YAW_OFFSET;
+  const root = container.instantiateModelsToScene().rootNodes[0] as BABYLON.TransformNode;
+  root.parent = model;
+  root.position = GUN_GRIP.negate();
+  return pivot;
+}
+
 async function main() {
   const room = await client.joinOrCreate("my_room");
   const predict = Predict.get(room);
@@ -122,10 +157,12 @@ async function main() {
 
   // 1. Declare your tracking map and callbacks first
   const playerMeshes = new Map<string, BABYLON.AbstractMesh>();
+  const playerHeads = new Map<string, BABYLON.TransformNode>();
   const callbacks = Callbacks.get(room);
 
   // 2. Load your container 
   const container = await LoadAssetContainerAsync("models/linux-char.glb", scene);
+  const gunContainer = await LoadAssetContainerAsync("models/ak-47.glb", scene);
 
   // 3. Now callbacks and playerMeshes are fully in scope and won't show squiggles
 callbacks.onAdd("players", (player, sessionId) => {
@@ -133,14 +170,19 @@ callbacks.onAdd("players", (player, sessionId) => {
       
       // Instantiates a copy of the model for this player
       const entries = container.instantiateModelsToScene();
-      // Explicitly cast as TransformNode so TypeScript recognizes .position
-      const playerMesh = entries.rootNodes[0] as BABYLON.TransformNode;
+      // The glTF root is a Mesh, so it has moveWithCollisions and the collision ellipsoid
+      const playerMesh = entries.rootNodes[0] as BABYLON.AbstractMesh;
       playerMesh.name = `player_${sessionId}`;
 
-      // Set initial position immediately so it doesn't start at height 0
+      // The loader stores that 180° turn in rotationQuaternion, and while it is set
+      // Babylon ignores .rotation. Swap it for the same turn as Euler so .rotation.y works.
+      playerMesh.rotationQuaternion = null;
+      playerMesh.rotation.y = MODEL_YAW_OFFSET;
+
+      // Set initial position immediately
       // playerMesh.position.x = player.x;
       // playerMesh.position.z = player.y; // Map schema Y to 3D Z
-      playerMesh.position.y = 1.75 / 2; // Initial ground height offset
+      playerMesh.position.y = 0; // model origin is at its feet
 
       if (isSelf) {
         // Get all child meshes under this root node and hide them for first-person view
@@ -150,10 +192,25 @@ callbacks.onAdd("players", (player, sessionId) => {
         // Also sync initial camera position to match
         // camera.position.x = player.x;
         // camera.position.z = player.y;
-        camera.position.y = playerMesh.position.y + 0.75;
+        // Ellipsoid values are radii around the mesh origin; lift it by half the height so it sits on the feet.
+        playerMesh.ellipsoid = new BABYLON.Vector3(PENGUIN_RADIUS, PENGUIN_HEIGHT / 2, PENGUIN_RADIUS);
+        playerMesh.ellipsoidOffset = new BABYLON.Vector3(0, PENGUIN_HEIGHT / 2, 0);
+        camera.position.y = playerMesh.position.y + EYE_HEIGHT;
+
+        // Your own gun rides on the camera, so it follows where you look for free.
+        const viewGun = createGun(gunContainer, "gun_self", GUN_SCALE);
+        viewGun.parent = camera;
+        viewGun.position.copyFrom(VIEWMODEL_OFFSET);
+      } else {
+        // Other players' guns hang from an invisible head that turns with their aim.
+        const head = new BABYLON.TransformNode(`head_${sessionId}`, scene);
+        const gun = createGun(gunContainer, `gun_${sessionId}`, HELD_GUN_SCALE);
+        gun.parent = head;
+        gun.position.copyFrom(HELD_GUN_OFFSET);
+        playerHeads.set(sessionId, head);
       }
 
-      playerMeshes.set(sessionId, playerMesh as unknown as BABYLON.AbstractMesh);
+      playerMeshes.set(sessionId, playerMesh);
     });
 
   callbacks.onRemove("players", (_player, sessionId) => {
@@ -162,12 +219,17 @@ callbacks.onAdd("players", (player, sessionId) => {
       mesh.dispose();
       playerMeshes.delete(sessionId);
     }
+    // Disposing the head takes its gun with it
+    playerHeads.get(sessionId)?.dispose();
+    playerHeads.delete(sessionId);
   });
 
   room.onLeave(() => {
     statusEl.textContent = "Disconnected";
     playerMeshes.forEach((mesh) => mesh.dispose());
     playerMeshes.clear();
+    playerHeads.forEach((head) => head.dispose());
+    playerHeads.clear();
   });
   
 
@@ -279,17 +341,25 @@ callbacks.onAdd("players", (player, sessionId) => {
         // 3. Lock camera to the collision-safe mesh position
         camera.position.x = mesh.position.x;
         camera.position.z = mesh.position.z;
-        camera.position.y = mesh.position.y + 0.75;
+        camera.position.y = mesh.position.y + EYE_HEIGHT;
 
         // 4. Send your *actual* collision-checked position to the server
-        room.send("updatePosition", { x: mesh.position.x, y: mesh.position.z });
+        room.send("updatePosition", { x: mesh.position.x, y: mesh.position.z, yaw: camera.rotation.y, pitch: camera.rotation.x });
       } else {
         // Remote players update normally from server state interpolation
         const posX = predict.value(player, "x");
         const posZ = predict.value(player, "y"); 
         mesh.position.x = posX;
         mesh.position.z = posZ;
-        mesh.position.y = 1.75 / 2;
+        mesh.position.y = 0;
+        mesh.rotation.y = player.yaw + MODEL_YAW_OFFSET;
+
+        // The head follows the penguin at eye level and turns like their camera
+        const head = playerHeads.get(sessionId);
+        if (head) {
+          head.position.set(posX, EYE_HEIGHT, posZ);
+          head.rotation.set(player.pitch, player.yaw, 0);
+        }
       }
     }
     scene.render();

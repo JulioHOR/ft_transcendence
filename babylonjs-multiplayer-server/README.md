@@ -1,5 +1,30 @@
 # Welcome to Colyseus!
 
+## Clean install
+
+Install the tools (here, the steps for an Arch distribution):
+
+```sh
+sudo pacman -S nodejs npm
+```
+
+Then go to the babylon folder and run:
+
+```sh
+cd babylonjs-multiplayer-server
+npm install
+npm run dev
+```
+
+`npm install` reads this folder's `package.json` and `package-lock.json` and
+downloads the dependencies into `node_modules/`.
+
+`npm run dev` runs the `dev` script from `package.json`, which here is Vite. With
+the `colyseus/vite` plugin, it starts both the client (the game page) and the
+Colyseus server (`src/app.config.ts`) in a single process. The address shows up
+in the terminal. In another folder, `npm run dev` runs whatever that folder's
+`package.json` defines.
+
 This project was created with [⚔️ `create-colyseus-app`](https://github.com/colyseus/create-colyseus-app/).
 
 [Documentation](https://docs.colyseus.io/)

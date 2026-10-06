@@ -8,6 +8,7 @@ import { Predict } from "@colyseus/sdk/predict";
 import type { default as server } from "../app.config.js";
 import type { MoveInput } from "../rooms/schema/MyRoomState.js";
 import { stepEntity } from "../shared/movement.js";
+import { ARENA_WIDTH } from '../shared/constants.js';
 
 // --- DOM & Status Elements ---
 const statusEl = document.getElementById("status")!;
@@ -39,6 +40,10 @@ const engine = new BABYLON.Engine(useCanvas, true, { preserveDrawingBuffer: true
 const scene = new BABYLON.Scene(engine);
 scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.1, 1);
 
+// Enable physics/collision engine
+scene.gravity = new BABYLON.Vector3(0, -0.98, 0);
+scene.collisionsEnabled = true;
+
 // Camera Setup (Universal Camera for 3D navigation)
 const camera = new BABYLON.UniversalCamera("fpsCamera", new BABYLON.Vector3(0, 5, -10), scene);
 camera.minZ = 0.1;
@@ -48,6 +53,11 @@ camera.inertia = 0; // Remove floaty movement for crisp mouse look
 
 // Adjust mouse sensitivity (lower number = more sensitive)
 camera.angularSensibility = 200;
+
+// --- Collision Settings for Camera ---
+// camera.checkCollisions = true;
+// camera.applyGravity = false;
+// camera.ellipsoid = new BABYLON.Vector3(0.5, 1.0, 0.5); // Player size: width, height, depth
 
 // Disable camera controls on keys to avoid conflicts with Colyseus input
 camera.keysUp = [];
@@ -118,18 +128,29 @@ async function main() {
   const container = await LoadAssetContainerAsync("models/linux-char.glb", scene);
 
   // 3. Now callbacks and playerMeshes are fully in scope and won't show squiggles
-  callbacks.onAdd("players", (_player, sessionId) => {
+callbacks.onAdd("players", (player, sessionId) => {
       const isSelf = sessionId === room.sessionId;
       
       // Instantiates a copy of the model for this player
       const entries = container.instantiateModelsToScene();
-      const playerMesh = entries.rootNodes[0];
+      // Explicitly cast as TransformNode so TypeScript recognizes .position
+      const playerMesh = entries.rootNodes[0] as BABYLON.TransformNode;
       playerMesh.name = `player_${sessionId}`;
+
+      // Set initial position immediately so it doesn't start at height 0
+      // playerMesh.position.x = player.x;
+      // playerMesh.position.z = player.y; // Map schema Y to 3D Z
+      playerMesh.position.y = 1.75 / 2; // Initial ground height offset
 
       if (isSelf) {
         // Get all child meshes under this root node and hide them for first-person view
         const childMeshes = playerMesh.getChildMeshes();
         childMeshes.forEach(m => m.isVisible = false);
+        
+        // Also sync initial camera position to match
+        // camera.position.x = player.x;
+        // camera.position.z = player.y;
+        camera.position.y = playerMesh.position.y + 0.75;
       }
 
       playerMeshes.set(sessionId, playerMesh as unknown as BABYLON.AbstractMesh);
@@ -156,15 +177,17 @@ async function main() {
   const buildingRoot = buildingEntries.rootNodes[0] as BABYLON.TransformNode;
 
   // 2. Place it in the world
-  buildingRoot.position = new BABYLON.Vector3(0, 0, 10); // X (right/left), Y (up/down), Z (forward/backward)
+  // buildingRoot.position = new BABYLON.Vector3(ARENA_WIDTH / 2, 0.1, ARENA_WIDTH / 2); // X (right/left), Y (up/down), Z (forward/backward)
+  buildingRoot.position = new BABYLON.Vector3(0, 0.1, 0); // X (right/left), Y (up/down), Z (forward/backward)
+
   // buildingRoot.rotation = new BABYLON.Vector3(0, Math.PI / 4, 0);
   // buildingRoot.scaling = new BABYLON.Vector3(1.5, 1.5, 1.5);
 
   // Enable collisions on every sub-mesh of the building
-  // const buildingMeshes = buildingRoot.getChildMeshes();
-  // buildingMeshes.forEach((mesh) => {
-  //   mesh.checkCollisions = true;
-  // });
+  const buildingMeshes = buildingRoot.getChildMeshes();
+  buildingMeshes.forEach((mesh) => {
+    mesh.checkCollisions = true;
+  });
 
   // --- Main Game Loop (Integrated with Babylon Render Loop) ---
   engine.runRenderLoop(() => {
@@ -173,52 +196,100 @@ async function main() {
     // Drives prediction, interpolation, and the reconciler
     const steps = predict.tick(now);
 
-    for (let i = 0; i < steps; i++) {
+    // for (let i = 0; i < steps; i++) {
 
-      const rawForward = axis(["s", "arrowdown"], ["w", "arrowup"]);
-      const rawRight = axis(["a", "arrowleft"], ["d", "arrowright"]);
+    //   const rawForward = axis(["s", "arrowdown"], ["w", "arrowup"]);
+    //   const rawRight = axis(["a", "arrowleft"], ["d", "arrowright"]);
 
-      const yaw = camera.rotation.y;
-      const sin = Math.sin(yaw);
-      const cos = Math.cos(yaw);
+    //   const yaw = camera.rotation.y;
+    //   const sin = Math.sin(yaw);
+    //   const cos = Math.cos(yaw);
 
-      const moveX = rawForward * sin + rawRight * cos;
-      const moveY = rawForward * cos - rawRight * sin;
+    //   const moveX = rawForward * sin + rawRight * cos;
+    //   const moveY = rawForward * cos - rawRight * sin;
 
-      const length = Math.hypot(moveX, moveY);
-      if (length > 1) {
-        input.data.moveX = moveX / length;
-        input.data.moveY = moveY / length;
-      } else {
-        input.data.moveX = moveX;
-        input.data.moveY = moveY;
-      }
+    //   const length = Math.hypot(moveX, moveY);
+    //   if (length > 1) {
+    //     input.data.moveX = moveX / length;
+    //     input.data.moveY = moveY / length;
+    //   } else {
+    //     input.data.moveX = moveX;
+    //     input.data.moveY = moveY;
+    //   }
 
-      input.send();
+    //   input.send();
 
-      // input.data.moveX = axis(["a", "arrowleft"], ["d", "arrowright"]);
-      // input.data.moveY = axis(["s", "arrowdown"], ["w", "arrowup"]);
-      // input.send();
-    }
+    //   // input.data.moveX = axis(["a", "arrowleft"], ["d", "arrowright"]);
+    //   // input.data.moveY = axis(["s", "arrowdown"], ["w", "arrowup"]);
+    //   // input.send();
+    // }
 
-    // Sync network positions to 3D player meshes
+    // // Sync network positions to 3D player meshes
+    // for (const [sessionId, player] of room.state.players) {
+    //   const mesh = playerMeshes.get(sessionId);
+    //   if (!mesh) { continue; }
+
+    //   const posX = predict.value(player, "x");
+    //   const posZ = predict.value(player, "y"); 
+
+    //   // If it's the local player, let the mesh handle collisions, then sync the camera
+    //   if (sessionId === room.sessionId) {
+    //     // 1. Calculate the movement delta from network prediction
+    //     const targetPosition = new BABYLON.Vector3(posX, mesh.position.y, posZ);
+    //     const displacement = targetPosition.subtract(mesh.position);
+
+    //     // 2. AbstractMesh has moveWithCollisions — slides against building walls
+    //     mesh.moveWithCollisions(displacement);
+
+    //     // 3. Lock the camera to the collision-safe mesh position (eye level)
+    //     camera.position.x = mesh.position.x;
+    //     camera.position.z = mesh.position.z;
+    //     camera.position.y = mesh.position.y + 0.75; 
+    //   } else {
+    //     // Remote players update normally from network values
+    //     mesh.position.x = posX;
+    //     mesh.position.z = posZ;
+    //     mesh.position.y = 1.75 / 2;
+    //   }
+    // }
+
+    // In your engine.runRenderLoop:
     for (const [sessionId, player] of room.state.players) {
       const mesh = playerMeshes.get(sessionId);
       if (!mesh) { continue; }
 
-      // Map Colyseus 2D coordinates (x, y) into Babylon 3D space (x, z)
-      const posX = predict.value(player, "x");
-      const posZ = predict.value(player, "y"); // Map 2D Y to 3D Z plane
-
-      mesh.position.x = posX;
-      mesh.position.z = posZ;
-      mesh.position.y = 1.75 / 2; // Keep feet on the floor
-
-      // If it's the local player, lock the camera to eye level (First-Person view)
       if (sessionId === room.sessionId) {
-        camera.position.x = posX;
-        camera.position.z = posZ;
-        camera.position.y = 1.5; // Eye-level height inside the 1.75 capsule
+        // 1. Calculate input movement delta based on keys & camera yaw
+        const rawForward = axis(["s", "arrowdown"], ["w", "arrowup"]);
+        const rawRight = axis(["a", "arrowleft"], ["d", "arrowright"]);
+        const yaw = camera.rotation.y;
+        // const sin = Math.sin(yaw);
+        // const cos = Math.cos(yaw);
+
+        // const moveX = rawForward * sin + rawRight * cos;
+        // const moveZ = rawForward * cos - rawRight * sin;
+
+        const moveX = (rawForward * Math.sin(yaw) + rawRight * Math.cos(yaw)) * 0.1; // adjust speed as needed
+        const moveZ = (rawForward * Math.cos(yaw) - rawRight * Math.sin(yaw)) * 0.1;
+
+        // 2. Apply Babylon's native mesh collision sliding
+        const displacement = new BABYLON.Vector3(moveX, 0, moveZ);
+        mesh.moveWithCollisions(displacement);
+
+        // 3. Lock camera to the collision-safe mesh position
+        camera.position.x = mesh.position.x;
+        camera.position.z = mesh.position.z;
+        camera.position.y = mesh.position.y + 0.75;
+
+        // 4. Send your *actual* collision-checked position to the server
+        room.send("updatePosition", { x: mesh.position.x, y: mesh.position.z });
+      } else {
+        // Remote players update normally from server state interpolation
+        const posX = predict.value(player, "x");
+        const posZ = predict.value(player, "y"); 
+        mesh.position.x = posX;
+        mesh.position.z = posZ;
+        mesh.position.y = 1.75 / 2;
       }
     }
     scene.render();

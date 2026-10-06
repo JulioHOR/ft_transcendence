@@ -1,8 +1,8 @@
 /** Simulation rate in Hz. One input advances exactly one step at this rate. */
 export const TICK_RATE = 30;
 
-export const ARENA_WIDTH = 50;
-export const ARENA_HEIGHT = 50;
+export const ARENA_WIDTH = 500;
+export const ARENA_HEIGHT = 500;
 
 /** Half-extent of a player square, used for wall clamping. */
 export const PLAYER_HALF = 12;

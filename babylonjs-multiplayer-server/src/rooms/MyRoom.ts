@@ -26,6 +26,16 @@ export class MyRoom extends Room<{ state: MyRoomState, input: MoveInput }> {
 
   onCreate(options: any) {
     this.setFixedTimestep((ctx) => this.step(ctx), TICK_RATE);
+
+    // Accept client-authoritative position updates from Babylon collisions
+    this.onMessage("updatePosition", (client, data) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player) {
+        // Optional safety check: ensure the client isn't teleporting across the map instantly
+        player.x = data.x;
+        player.y = data.y; // maps to schema Y (3D Z plane)
+      }
+    });
   }
 
   onJoin(client: Client, options: any) {
@@ -34,8 +44,8 @@ export class MyRoom extends Room<{ state: MyRoomState, input: MoveInput }> {
     // Deterministic spawn ring, so two players never start on top of each other.
     const angle = this.joinCount++ * 2.399963;
     this.state.players.set(client.sessionId, new Player({
-      x: ARENA_WIDTH / 2 + Math.cos(angle) * 80,
-      y: ARENA_HEIGHT / 2 + Math.sin(angle) * 80,
+      x: ARENA_WIDTH / 2 + Math.cos(angle) * 1,
+      y: ARENA_HEIGHT / 2 + Math.sin(angle) * 1,
       vx: 0,
       vy: 0,
     }));
@@ -49,6 +59,8 @@ export class MyRoom extends Room<{ state: MyRoomState, input: MoveInput }> {
   onDispose() {
     console.log("room", this.roomId, "disposing...");
   }
+
+  
 
   /**
    * One shared `stepEntity` per received input, so the set the client predicted

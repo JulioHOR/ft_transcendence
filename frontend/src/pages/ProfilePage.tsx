@@ -1,33 +1,11 @@
 import { useEffect, useState, type SubmitEvent } from "react";
-import { profile } from "../api/client";
+import { getProfile, updateNickname } from "../api/profile";
+import { useAuth } from "../app/auth-session";
 import type { User } from "../api/types";
+import { ErrorText } from "../ui/ErrorText";
 import { ui } from "../ui/classes";
 
-type NicknameFormProps = {
-  user: User;
-  onSaved: (user: User) => void;
-};
-
-type NicknameFormViewProps = {
-  email: string;
-  nickname: string;
-  pending: boolean;
-  error: string | null;
-  onNickname: (value: string) => void;
-  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
-};
-
-/** Exibe erro de formulário/página, se houver. */
-function FormError({ error }: { error: string | null }) {
-  if (error === null) return null;
-  return (
-    <p className="text-sm text-red-400" role="alert">
-      {error}
-    </p>
-  );
-}
-
-/** Persiste o nickname via camada profile. */
+/** Persiste o nickname e atualiza o estado da página. */
 async function saveNickname(
   event: SubmitEvent<HTMLFormElement>,
   nickname: string,
@@ -39,74 +17,119 @@ async function saveNickname(
   setError(null);
   setPending(true);
   try {
-    onSaved(await profile.updateNickname(nickname));
-  } catch (err) {
-    setError(err instanceof Error ? err.message : "falha ao salvar");
+    onSaved(await updateNickname(nickname));
+  } catch (failure: unknown) {
+    setError(failure instanceof Error ? failure.message : "falha ao salvar");
   } finally {
     setPending(false);
   }
 }
 
-/** UI do formulário de nickname. */
-function NicknameFormView(p: NicknameFormViewProps) {
+/** Props dos campos do formulário de nickname. */
+type NicknameFieldsProps = {
+  email: string;
+  nickname: string;
+  pending: boolean;
+  onNickname: (value: string) => void;
+};
+
+/** Campos de email (somente leitura) e nickname. */
+function NicknameFields(props: NicknameFieldsProps) {
   return (
-    <form className="flex max-w-sm flex-col gap-2" onSubmit={p.onSubmit}>
-      <p className={ui.muted}>Email: {p.email}</p>
+    <>
+      <p className={ui.muted}>Email: {props.email}</p>
       <input
         className={ui.field}
-        value={p.nickname}
-        onChange={(e) => p.onNickname(e.target.value)}
+        value={props.nickname}
         placeholder="nickname"
+        onChange={(event) => props.onNickname(event.target.value)}
       />
-      <button className={ui.btn} type="submit" disabled={p.pending}>
-        {p.pending ? "Salvando…" : "Salvar"}
+      <button className={ui.btn} type="submit" disabled={props.pending}>
+        {props.pending ? "Salvando…" : "Salvar"}
       </button>
-      <FormError error={p.error} />
+    </>
+  );
+}
+
+/** Props do formulário de nickname. */
+type NicknameFormProps = {
+  user: User;
+  onSaved: (user: User) => void;
+};
+
+/** Estado e envio do formulário de nickname. */
+function NicknameForm(props: NicknameFormProps) {
+  const [nickname, setNickname] = useState(props.user.nickname);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const onSubmit = (event: SubmitEvent<HTMLFormElement>) => {
+    void saveNickname(event, nickname, props.onSaved, setError, setPending);
+  };
+  return (
+    <form className="flex max-w-sm flex-col gap-2" onSubmit={onSubmit}>
+      <NicknameFields
+        email={props.user.email}
+        nickname={nickname}
+        pending={pending}
+        onNickname={setNickname}
+      />
+      <ErrorText error={error} />
     </form>
   );
 }
 
-/** Estado do formulário de nickname. */
-function NicknameForm({ user, onSaved }: NicknameFormProps) {
-  const [nickname, setNickname] = useState(user.nickname);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-  return (
-    <NicknameFormView
-      email={user.email}
-      nickname={nickname}
-      pending={pending}
-      error={error}
-      onNickname={setNickname}
-      onSubmit={(e) => void saveNickname(e, nickname, onSaved, setError, setPending)}
-    />
-  );
-}
-
-/** Conteúdo da página conforme loading/erro/dados. */
-function ProfileBody(props: {
+/** Props do corpo da página de perfil. */
+type ProfileBodyProps = {
   user: User | null;
   error: string | null;
   onSaved: (user: User) => void;
-}) {
-  if (props.error !== null) return <FormError error={props.error} />;
-  if (props.user === null) return <p className={ui.muted}>Loading…</p>;
+};
+
+/** Conteúdo da página conforme loading, erro ou dados. */
+function ProfileBody(props: ProfileBodyProps) {
+  if (props.error) return <ErrorText error={props.error} />;
+  if (!props.user) return <p className={ui.muted}>Loading…</p>;
   return <NicknameForm user={props.user} onSaved={props.onSaved} />;
+}
+
+/** Atualiza o perfil local e a sessão (useAuth) após salvar. */
+function applySavedUser(
+  nextUser: User,
+  setProfileUser: (user: User) => void,
+  setSessionUser: (user: User | null) => void,
+): void {
+  setProfileUser(nextUser);
+  setSessionUser(nextUser);
+}
+
+/** Carrega o perfil na montagem da página. */
+function useLoadProfile(
+  setUser: (user: User) => void,
+  setError: (value: string | null) => void,
+): void {
+  useEffect(() => {
+    void getProfile()
+      .then(setUser)
+      .catch((failure: unknown) => {
+        setError(failure instanceof Error ? failure.message : "Falha ao carregar perfil");
+      });
+  }, [setUser, setError]);
 }
 
 /** Página do perfil do usuário. */
 export function ProfilePage() {
+  const { setUser: setSessionUser } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    void profile.getProfile().then(setUser).catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Falha ao carregar perfil");
-    });
-  }, []);
+  useLoadProfile(setUser, setError);
   return (
     <main className={`${ui.page} gap-4 p-4 sm:p-6`}>
       <h1 className={ui.title}>Perfil</h1>
-      <ProfileBody user={user} error={error} onSaved={setUser} />
+      <ProfileBody
+        user={user}
+        error={error}
+        onSaved={(nextUser) => applySavedUser(nextUser, setUser, setSessionUser)}
+      />
     </main>
   );
 }

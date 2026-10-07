@@ -8,6 +8,7 @@ import { NotFoundPage } from "../pages/NotFoundPage";
 import { AuthProvider } from "./AuthProvider";
 import { RequireAuth } from "./RequireAuth";
 import { ProfilePage } from "../pages/ProfilePage";
+import { ChatPage } from "../pages/ChatPage";
 
 /**
  * Carregamento preguiçoso do Jogo.
@@ -24,18 +25,11 @@ const PongPage = lazy(async () => {
 function AppNav() {
   return (
     <nav aria-label="Principal" className={`flex gap-4 text-sm ${ui.bar}`}>
-      <Link className={ui.link} to="/login">
-        Login
-      </Link>
-      <Link className={ui.link} to="/home">
-        Home
-      </Link>
-      <Link className={ui.link} to="/profile">
-        Profile
-      </Link>
-      <Link className={ui.link} to="/pong">
-        Ping Pong
-      </Link>
+      <Link className={ui.link} to="/login">Login</Link>
+      <Link className={ui.link} to="/home">Home</Link>
+      <Link className={ui.link} to="/profile">Profile</Link>
+      <Link className={ui.link} to="/chat">Chat</Link>
+      <Link className={ui.link} to="/pong">Ping Pong</Link>
     </nav>
   );
 }
@@ -57,6 +51,7 @@ function AppRoutes() {
         <Route path="/home" element={protectedPage(<HomePage />)} />
         <Route path="/pong" element={protectedPage(<PongPage />)} />
         <Route path="/profile" element={protectedPage(<ProfilePage />)} />
+        <Route path="/chat" element={protectedPage(<ChatPage />)} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>

@@ -47,6 +47,14 @@ services:
       - database
     restart: unless-stopped
 
+  mock-api:
+    build:
+      context: ./mock-api
+      dockerfile: Dockerfile
+    networks:
+      - ft_transcendence
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
@@ -59,4 +67,5 @@ services:
       - .env
     depends_on:
       - backend
+      - mock-api
     restart: unless-stopped

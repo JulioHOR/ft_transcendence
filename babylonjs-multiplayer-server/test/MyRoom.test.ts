@@ -39,6 +39,8 @@ describe("testing your Colyseus app", () => {
     const client1 = await colyseus.connectTo(room);
 
     const player = room.state.players.get(client1.sessionId);
+
+    assert(player, "Failed to get player.");
     const startX = player.x;
 
     // A modified client claiming a huge axis value: sanitize clamps it to 1.

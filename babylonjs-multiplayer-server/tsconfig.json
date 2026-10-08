@@ -9,7 +9,7 @@
       "DOM.Iterable"
     ],
     "strict": true,
-    "strictNullChecks": false,
+    "strictNullChecks": true,
     "noEmit": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -17,12 +17,13 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": false,
     "experimentalDecorators": true,
-    "useDefineForClassFields": false
+    "useDefineForClassFields": false,
+    "types": ["node", "mocha"],  
   },
   "include": [
     "src",
     "test",
     "loadtest",
     "vite.config.ts"
-  ]
+  ],
 }

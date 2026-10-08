@@ -147,6 +147,10 @@ async function main() {
   await new Promise<void>((resolve) => room.onStateChange.once(() => resolve()));
   const self = room.state.players.get(room.sessionId);
 
+  if (!self) {
+    throw new Error("Failed to get our own player data.");
+  }
+
   predict.reconciler(self, {
     input,
     fields: ["x", "y", "vx", "vy"],
@@ -368,5 +372,5 @@ callbacks.onAdd("players", (player, sessionId) => {
 
 main().catch((e) => {
   console.error(e);
-  statusEl.textContent = "Could not connect";
+  statusEl.textContent = e.message;
 });

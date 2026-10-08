@@ -2,6 +2,42 @@
 
 Grouped by commit, so each change can be found in `git log`. Newest first.
 
+## Commit title: `strict null checks, mocha types for TS 6, real errors on screen`
+
+**Date:** 2026-10-07 · **Author:** Julio
+
+- **Your own player is checked before use**
+
+  `main()` took your player from `room.state.players.get(...)` and handed it
+  straight to the reconciler, but `.get()` returns `undefined` when the key is
+  missing. It now throws a clear error instead of carrying on with nothing.
+
+- **Startup errors show up on the page**
+
+  Any error inside `main()` used to show "Could not connect", even when it had
+  nothing to do with the connection. The status line now shows the real error
+  message, and the console still gets the full error with its stack trace.
+
+- **Test globals load in newer editors**
+
+  VS Code ships its own TypeScript (6.0 or newer), which no longer loads every
+  `@types` package on its own, so `describe`, `it` and `beforeEach` showed up as
+  unknown in the tests. `tsconfig.json` now lists them explicitly with
+  `"types": ["node", "mocha"]`. It changes nothing for the project's own
+  TypeScript 5, and it's ready for an upgrade to 6.
+
+- **Null checks are back on**
+
+  The template had turned off `strictNullChecks`. It's on again, so TypeScript
+  now warns when something might be `undefined`. For that to work, we now check
+  for `undefined` where it was missing: your own player in `main()` and the
+  player in the tests.
+
+- **Voice chat groundwork**
+
+  New `src/client/voice.ts` with `startMic`, which asks for the microphone.
+  It isn't called anywhere yet.
+
 ## Commit title: `npm 12 setup, synced rotation, grounded penguins, AK-47 in hand`
 
 **Date:** 2026-10-06 · **Author:** Julio

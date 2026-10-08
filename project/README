@@ -14,5 +14,5 @@ npm install --save-dev vite
 npm install --save three-mesh-bvh
 
 # to deploy the project:
-npx vite 
+npx vite
 ```

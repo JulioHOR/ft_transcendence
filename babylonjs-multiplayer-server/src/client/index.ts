@@ -15,17 +15,20 @@ import { ARENA_WIDTH } from "../shared/constants.js";
 // left-handed system. If the penguin ends up facing backwards, set this to 0.
 const MODEL_YAW_OFFSET = Math.PI;
 
-// linux-char.glb: origin at the feet, about 0.76 tall and 0.56 wide.
-const PENGUIN_HEIGHT = 0.76;
-const PENGUIN_RADIUS = 0.28;
-// Camera height above the feet, roughly where the penguin's eyes are.
-const EYE_HEIGHT = 0.6;
+// character.glb: Mixamo rig, origin at the feet, standing ~1.8 tall.
+const CHARACTER_HEIGHT = 1.8;
+const CHARACTER_RADIUS = 0.3;
+// Camera height above the feet, roughly where the character's eyes are.
+const EYE_HEIGHT = 1.65;
+
+// The idle animation baked into character.glb, played in a loop on every instance.
+const IDLE_ANIMATION_NAME = "Armature|mixamo.com|Layer0";
 
 // ak-47.glb: ~1.92 long, lying along glTF +X, far from its own origin.
 // Grip position measured from the file, converted to Babylon space (x flipped by the loader).
 const GUN_GRIP = new BABYLON.Vector3(-4.33, 0.04, 0.38);
 const GUN_SCALE = 0.25; // your own gun (first person), ~0.48 long
-const HELD_GUN_SCALE = 0.35; // other players' guns, ~0.67 long next to a 0.76 penguin
+const HELD_GUN_SCALE = 0.85; // other players' guns, sized for the ~1.8 tall character
 const GUN_YAW_OFFSET = Math.PI / 2; // barrel from -X to +Z (forward); try -Math.PI / 2 if it points backwards
 // Where your own gun sits relative to the camera: right, down, forward.
 const VIEWMODEL_OFFSET = new BABYLON.Vector3(0.07, -0.1, -0.007);
@@ -197,11 +200,12 @@ async function main() {
   // 1. Declare your tracking map and callbacks first
   const playerMeshes = new Map<string, BABYLON.AbstractMesh>();
   const playerHeads = new Map<string, BABYLON.TransformNode>();
+  const playerAnimations = new Map<string, BABYLON.AnimationGroup[]>();
   const callbacks = Callbacks.get(room);
 
   // 2. Load your container
   const container = await LoadAssetContainerAsync(
-    "models/linux-char.glb",
+    "models/character.glb",
     scene,
   );
   const gunContainer = await LoadAssetContainerAsync("models/ak-47.glb", scene);
@@ -215,6 +219,13 @@ async function main() {
     // The glTF root is a Mesh, so it has moveWithCollisions and the collision ellipsoid
     const playerMesh = entries.rootNodes[0] as BABYLON.AbstractMesh;
     playerMesh.name = `player_${sessionId}`;
+
+    // Each instance gets its own clone of the animation groups, targeting its own skeleton.
+    const idleAnim = entries.animationGroups.find(
+      (a) => a.name === IDLE_ANIMATION_NAME,
+    );
+    idleAnim?.play(true);
+    playerAnimations.set(sessionId, entries.animationGroups);
 
     // The loader stores that 180° turn in rotationQuaternion, and while it is set
     // Babylon ignores .rotation. Swap it for the same turn as Euler so .rotation.y works.
@@ -236,13 +247,13 @@ async function main() {
       // camera.position.z = player.y;
       // Ellipsoid values are radii around the mesh origin; lift it by half the height so it sits on the feet.
       playerMesh.ellipsoid = new BABYLON.Vector3(
-        PENGUIN_RADIUS,
-        PENGUIN_HEIGHT / 2,
-        PENGUIN_RADIUS,
+        CHARACTER_RADIUS,
+        CHARACTER_HEIGHT / 2,
+        CHARACTER_RADIUS,
       );
       playerMesh.ellipsoidOffset = new BABYLON.Vector3(
         0,
-        PENGUIN_HEIGHT / 2,
+        CHARACTER_HEIGHT / 2,
         0,
       );
       camera.position.y = playerMesh.position.y + EYE_HEIGHT;
@@ -272,6 +283,10 @@ async function main() {
     // Disposing the head takes its gun with it
     playerHeads.get(sessionId)?.dispose();
     playerHeads.delete(sessionId);
+
+    // Animation groups aren't children of the mesh, so they need their own disposal
+    playerAnimations.get(sessionId)?.forEach((anim) => anim.dispose());
+    playerAnimations.delete(sessionId);
   });
 
   room.onLeave(() => {
@@ -280,6 +295,10 @@ async function main() {
     playerMeshes.clear();
     playerHeads.forEach((head) => head.dispose());
     playerHeads.clear();
+    playerAnimations.forEach((anims) =>
+      anims.forEach((anim) => anim.dispose()),
+    );
+    playerAnimations.clear();
   });
 
   // level loading meshes

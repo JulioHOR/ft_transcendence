@@ -3,7 +3,7 @@ import { MyRoomState, Player, MoveInput } from "./schema/MyRoomState.js";
 import { stepEntity } from "../shared/movement.js";
 import { TICK_RATE, ARENA_WIDTH, ARENA_HEIGHT } from "../shared/constants.js";
 
-export class MyRoom extends Room<{ state: MyRoomState, input: MoveInput }> {
+export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput }> {
   maxClients = 8;
   state = new MyRoomState();
 
@@ -34,8 +34,12 @@ export class MyRoom extends Room<{ state: MyRoomState, input: MoveInput }> {
         // Optional safety check: ensure the client isn't teleporting across the map instantly
         player.x = data.x;
         player.y = data.y; // maps to schema Y (3D Z plane)
-        if (Number.isFinite(data.yaw)) { player.yaw = data.yaw; }
-        if (Number.isFinite(data.pitch)) { player.pitch = data.pitch; }
+        if (Number.isFinite(data.yaw)) {
+          player.yaw = data.yaw;
+        }
+        if (Number.isFinite(data.pitch)) {
+          player.pitch = data.pitch;
+        }
       }
     });
   }
@@ -45,14 +49,17 @@ export class MyRoom extends Room<{ state: MyRoomState, input: MoveInput }> {
 
     // Deterministic spawn ring, so two players never start on top of each other.
     const angle = this.joinCount++ * 2.399963;
-    this.state.players.set(client.sessionId, new Player({
-      x: ARENA_WIDTH / 2 + Math.cos(angle) * 1,
-      y: ARENA_HEIGHT / 2 + Math.sin(angle) * 1,
-      vx: 0,
-      vy: 0,
-      yaw: 0,
-      pitch: 0,
-    }));
+    this.state.players.set(
+      client.sessionId,
+      new Player({
+        x: ARENA_WIDTH / 2 + Math.cos(angle) * 1,
+        y: ARENA_HEIGHT / 2 + Math.sin(angle) * 1,
+        vx: 0,
+        vy: 0,
+        yaw: 0,
+        pitch: 0,
+      }),
+    );
   }
 
   onLeave(client: Client, code: CloseCode) {
@@ -64,8 +71,6 @@ export class MyRoom extends Room<{ state: MyRoomState, input: MoveInput }> {
     console.log("room", this.roomId, "disposing...");
   }
 
-  
-
   /**
    * One shared `stepEntity` per received input, so the set the client predicted
    * is exactly the set the server applied. A client that sends nothing simply
@@ -74,7 +79,9 @@ export class MyRoom extends Room<{ state: MyRoomState, input: MoveInput }> {
   private step(ctx: StepContext) {
     for (const [sessionId, player] of this.state.players) {
       const channel = this.inputs.get(sessionId);
-      if (!channel) { continue; }
+      if (!channel) {
+        continue;
+      }
 
       for (const input of channel) {
         stepEntity(player, input, ctx.dt);

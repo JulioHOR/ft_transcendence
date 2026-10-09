@@ -1,15 +1,28 @@
-import { ARENA_WIDTH, ARENA_HEIGHT, PLAYER_HALF, PLAYER_SPEED } from "./constants.js";
+import {
+  ARENA_WIDTH,
+  ARENA_HEIGHT,
+  PLAYER_HALF,
+  PLAYER_SPEED,
+} from "./constants.js";
 
 /**
  * Structural types on purpose: the same step runs on a server Schema instance
  * and on the client reconciler's plain predicted copy, with no schema runtime
  * involved in the simulation.
  */
-export interface EntityState { x: number; y: number; vx: number; vy: number; }
-export interface MoveInputLike { moveX: number; moveY: number; }
+export interface EntityState {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+}
+export interface MoveInputLike {
+  moveX: number;
+  moveY: number;
+}
 
 const clamp = (value: number, min: number, max: number) =>
-  (value < min ? min : value > max ? max : value);
+  value < min ? min : value > max ? max : value;
 
 /**
  * The single movement step, run identically by the server (once per received
@@ -19,7 +32,11 @@ const clamp = (value: number, min: number, max: number) =>
  * outside its arguments. That is the whole contract — break it and the client's
  * prediction drifts from the server every time.
  */
-export function stepEntity(entity: EntityState, input: MoveInputLike, dt: number): void {
+export function stepEntity(
+  entity: EntityState,
+  input: MoveInputLike,
+  dt: number,
+): void {
   let dirX = input.moveX;
   let dirY = input.moveY;
 
@@ -40,8 +57,12 @@ export function stepEntity(entity: EntityState, input: MoveInputLike, dt: number
 
   // Hitting a wall also kills the velocity heading into it, so the reconciler
   // replays the same stop the server did.
-  if (clampedX !== x) { vx = 0; }
-  if (clampedY !== y) { vy = 0; }
+  if (clampedX !== x) {
+    vx = 0;
+  }
+  if (clampedY !== y) {
+    vy = 0;
+  }
 
   entity.x = clampedX;
   entity.y = clampedY;

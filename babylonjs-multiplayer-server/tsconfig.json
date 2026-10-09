@@ -3,11 +3,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "strict": true,
     "strictNullChecks": true,
     "noEmit": true,
@@ -18,12 +14,7 @@
     "verbatimModuleSyntax": false,
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
-    "types": ["node", "mocha"],  
+    "types": ["node", "mocha"]
   },
-  "include": [
-    "src",
-    "test",
-    "loadtest",
-    "vite.config.ts"
-  ],
+  "include": ["src", "test", "loadtest", "vite.config.ts"]
 }

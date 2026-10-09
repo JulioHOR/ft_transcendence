@@ -2,13 +2,16 @@ import assert from "assert";
 import { ColyseusTestServer, boot } from "@colyseus/testing";
 
 import appConfig from "../src/app.config.js";
-import { MyRoomState, type MoveInput } from "../src/rooms/schema/MyRoomState.js";
+import {
+  MyRoomState,
+  type MoveInput,
+} from "../src/rooms/schema/MyRoomState.js";
 import { PLAYER_SPEED, TICK_RATE } from "../src/shared/constants.js";
 
 describe("testing your Colyseus app", () => {
   let colyseus: ColyseusTestServer<typeof appConfig>;
 
-  before(async () => colyseus = await boot(appConfig));
+  before(async () => (colyseus = await boot(appConfig)));
   after(async () => colyseus.shutdown());
 
   beforeEach(async () => {
@@ -28,7 +31,7 @@ describe("testing your Colyseus app", () => {
     input.data.moveY = 0;
     input.send();
 
-    await room.waitForNextMessage();  // the input reaches the server
+    await room.waitForNextMessage(); // the input reaches the server
     await room.waitForNextTimestep(); // the step that consumes it runs
 
     assert.ok(player.x > startX, "the buffered input advanced the player");

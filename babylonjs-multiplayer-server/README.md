@@ -73,7 +73,7 @@ src/client/          browser code
 `npm run build:client` skips the server, for deploying the client to a static
 host while the server runs elsewhere.
 
-Express runs *in front of* Vite in development, so `/` belongs to the client and
+Express runs _in front of_ Vite in development, so `/` belongs to the client and
 the playground moved to `/playground`. The direct `@colyseus/playground`
 dependency floors the version at 0.18.3, which redirects the slash-less
 `/playground` itself — older versions render it blank.
@@ -109,8 +109,8 @@ when the Vite layout is chosen) or the netcode guide:
 
 `src/client/index.ts` runs the same `stepEntity` the server runs. Every input is
 applied locally the instant it is sent, so your own square responds with zero
-latency; when the server's next patch acknowledges input *N*, the reconciler
-rewinds to the authoritative state and replays inputs *N+1…* through that same
+latency; when the server's next patch acknowledges input _N_, the reconciler
+rewinds to the authoritative state and replays inputs _N+1…_ through that same
 function.
 
 One `predict.tick(now)` per frame drives everything, and it returns how many
@@ -134,9 +134,15 @@ it. Clients join the lobby to render a live room browser:
 
 ```ts
 const lobby = await client.joinOrCreate("lobby");
-lobby.onMessage("rooms", (rooms) => { /* full list on join */ });
-lobby.onMessage("+", ([roomId, room]) => { /* added or updated */ });
-lobby.onMessage("-", (roomId) => { /* removed */ });
+lobby.onMessage("rooms", (rooms) => {
+  /* full list on join */
+});
+lobby.onMessage("+", ([roomId, room]) => {
+  /* added or updated */
+});
+lobby.onMessage("-", (roomId) => {
+  /* removed */
+});
 ```
 
 - https://docs.colyseus.io/matchmaker/lobby

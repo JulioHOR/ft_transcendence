@@ -29,8 +29,6 @@ export const Player = schema({
 export type Player = SchemaType<typeof Player>;
 
 export const MyRoomState = schema({
-
   players: t.map(Player),
-
 });
 export type MyRoomState = SchemaType<typeof MyRoomState>;

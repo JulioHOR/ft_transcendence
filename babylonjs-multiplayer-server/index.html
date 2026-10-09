@@ -6,33 +6,45 @@
     <link rel="icon" href="data:," />
     <title>Colyseus + Babylon.js</title>
     <style>
-      body { font: 16px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 848px; padding: 0 1rem; background: #1a1a1a; color: #f0f0f0; }
-      #status { font-weight: 600; }
-      #threejs_canvas { 
-        width: 800px; 
-        height: 600px; 
-        max-width: 100%; 
-        background: #111; 
-        border-radius: .5rem; 
-        display: block; 
-        outline: none; 
+      body {
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+        margin: 2rem auto;
+        max-width: 848px;
+        padding: 0 1rem;
+        background: #1a1a1a;
+        color: #f0f0f0;
       }
-      a { color: #4ea1ff; }
+      #status {
+        font-weight: 600;
+      }
+      #threejs_canvas {
+        width: 800px;
+        height: 600px;
+        max-width: 100%;
+        background: #111;
+        border-radius: 0.5rem;
+        display: block;
+        outline: none;
+      }
+      a {
+        color: #4ea1ff;
+      }
     </style>
   </head>
   <body>
     <h1>Colyseus + Babylon.js</h1>
     <p id="status">Connecting…</p>
     <canvas id="threejs_canvas"></canvas>
-    <p>Click the canvas to lock mouse. Move with <kbd>WASD</kbd>. Open a second tab to see another player.</p>
+    <p>
+      Click the canvas to lock mouse. Move with <kbd>WASD</kbd>. Open a second
+      tab to see another player.
+    </p>
     <p><a href="/playground">Playground</a> · <a href="/monitor">Monitor</a></p>
     <script type="module" src="/src/client/index.ts"></script>
   </body>
 </html>
-
-
-
-
 
 <!-- <!doctype html>
 <html lang="en">

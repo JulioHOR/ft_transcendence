@@ -3,11 +3,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "strict": true,
     "strictNullChecks": false,
     "noEmit": true,
@@ -19,10 +15,5 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false
   },
-  "include": [
-    "src",
-    "test",
-    "loadtest",
-    "vite.config.ts"
-  ]
+  "include": ["src", "test", "loadtest", "vite.config.ts"]
 }

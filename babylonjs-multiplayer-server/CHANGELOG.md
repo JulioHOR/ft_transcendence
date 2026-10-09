@@ -1,6 +1,52 @@
 # Changelog
 
-Grouped by commit, so each change can be found in `git log`. Newest first.
+Newest first. Each section is one batch of related work, usually what went up
+in one push. It lists the commit titles it covers, so every change can still be
+found in `git log`, and describes each change once, however many commits it
+took. Older sections, written one per commit, are kept as they were.
+
+## Voice signaling, Fred's animated character, Prettier
+
+**Date:** 2026-10-09 · **Author:** Julio, merging Fred's branch
+
+**Commits:** `wip: voice, and formatting our code` ·
+`Merge branch 'babylon-player-animation' into feature/babylon` ·
+`wip:browser negotiation`
+
+- **The microphone is requested when the page loads**
+
+  `startMic` runs once at startup and does nothing if the mic is already open.
+  If permission is denied, the status line says so.
+
+- **The server relays voice signaling messages**
+
+  `MyRoom` has a new `"signal"` handler. A client sends `{ to, data }`, the
+  server finds the `to` client with `this.clients.get()` and forwards
+  `{ from, data }` to it. The server fills in `from` itself, so nobody can pose
+  as someone else, and it never reads `data`. WebRTC will use this channel to
+  exchange offers, answers and ICE candidates.
+
+- **Test message between clients (temporary)**
+
+  Every client logs the `"signal"` messages it gets, and sends a test one to
+  each other player who shows up. With two tabs open, each console should log
+  one message. The test send goes away once the real WebRTC messages use this
+  channel.
+
+- **Fred's animated character is in**
+
+  From Fred's `babylon-player-animation` branch: the penguin is replaced by
+  `character.glb` (Mixamo, ~1.8 tall) playing an idle animation.
+  `HELD_GUN_OFFSET` was tuned for the 0.76 penguin, so other players' guns
+  probably need adjusting.
+
+- **Prettier on the whole babylon folder**
+
+  Prettier is now a dev dependency and every file was formatted, so most of
+  this diff is formatting only. It was also run on Fred's branch before the
+  merge, to cut down on conflicts. It uses Prettier's defaults, which match the
+  `frontend/` config. To run it: `npx prettier --write .` in
+  `babylonjs-multiplayer-server`.
 
 ## Commit title: `strict null checks, mocha types for TS 6, real errors on screen`
 

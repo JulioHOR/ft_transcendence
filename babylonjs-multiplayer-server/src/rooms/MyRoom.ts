@@ -42,6 +42,16 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput }> {
         }
       }
     });
+
+    this.onMessage("signal", (client, data) => {
+      const connectionToOtherPlayer = this.clients.get(data.to);
+      if (connectionToOtherPlayer) {
+        connectionToOtherPlayer.send("signal", {
+          from: client.sessionId,
+          data: data.data,
+        });
+      }
+    });
   }
 
   onJoin(client: Client, options: any) {

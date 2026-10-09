@@ -11,6 +11,8 @@ import type { MoveInput } from "../rooms/schema/MyRoomState.js";
 import { stepEntity } from "../shared/movement.js";
 import { ARENA_WIDTH } from "../shared/constants.js";
 
+const otherPeersConnections = new Map<string, RTCPeerConnection>();
+
 // The glTF loader turns every model 180° around Y to convert it to Babylon's
 // left-handed system. If the penguin ends up facing backwards, set this to 0.
 const MODEL_YAW_OFFSET = Math.PI;
@@ -170,6 +172,10 @@ async function main() {
   const room = await client.joinOrCreate("my_room");
   const predict = Predict.get(room);
 
+  room.onMessage("signal", (message) => {
+    console.log("signal from", message.from, ":", message.data);
+  });
+
   // Interpolate other players smoothly
   predict.attachAll("players", {
     mode: "lerp",
@@ -269,6 +275,11 @@ async function main() {
       gun.parent = head;
       gun.position.copyFrom(HELD_GUN_OFFSET);
       playerHeads.set(sessionId, head);
+
+      room.send("signal", {
+        to: sessionId,
+        data: "a signal, so we can validate",
+      });
     }
 
     playerMeshes.set(sessionId, playerMesh);

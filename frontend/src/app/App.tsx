@@ -10,6 +10,9 @@ import { RequireAuth } from "./RequireAuth";
 import { ProfilePage } from "../pages/ProfilePage";
 import { ChatPage } from "../pages/ChatPage";
 
+import { FriendsProvider } from "./FriendsProvider";
+import { FriendsPage } from "../pages/FriendsPage";
+
 /**
  * Carregamento preguiçoso do Jogo.
  * Carrega o módulo do jogo somente quando acessado via rota.
@@ -29,6 +32,7 @@ function AppNav() {
       <Link className={ui.link} to="/home">Home</Link>
       <Link className={ui.link} to="/profile">Profile</Link>
       <Link className={ui.link} to="/chat">Chat</Link>
+      <Link className={ui.link} to="/friends">Friends</Link>
       <Link className={ui.link} to="/pong">Ping Pong</Link>
     </nav>
   );
@@ -52,6 +56,7 @@ function AppRoutes() {
         <Route path="/pong" element={protectedPage(<PongPage />)} />
         <Route path="/profile" element={protectedPage(<ProfilePage />)} />
         <Route path="/chat" element={protectedPage(<ChatPage />)} />
+        <Route path="/friends" element={protectedPage(<FriendsPage />)} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
@@ -65,14 +70,16 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <div className="flex h-svh w-full flex-col bg-zinc-900 text-zinc-200">
-          <AppNav />
-          <div className="min-h-0 flex-1">
-            <AppRoutes />
+      <FriendsProvider>
+        <BrowserRouter>
+          <div className="flex h-svh w-full flex-col bg-zinc-900 text-zinc-200">
+            <AppNav />
+            <div className="min-h-0 flex-1">
+              <AppRoutes />
+            </div>
           </div>
-        </div>
-      </BrowserRouter>
+        </BrowserRouter>
+      </FriendsProvider>
     </AuthProvider>
   );
 }

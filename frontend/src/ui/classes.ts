@@ -24,4 +24,8 @@ export const ui = {
   page: "flex h-full flex-col",
   /** Linha responsiva de controles (empilha no mobile). */
   row: "flex flex-col gap-2 sm:flex-row sm:flex-wrap",
+  /** Status online na lista de friends. */
+  online: "text-sm text-green-400",
+  /** Status offline na lista de friends. */
+  offline: "text-sm text-zinc-500",
 } as const;

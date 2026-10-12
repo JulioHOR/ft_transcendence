@@ -4,8 +4,15 @@ export const profileUrl =
 
 /** Path do Socket.IO do chat: mock-api ou backend real. */
 export const chatSocketPath =
-  import.meta.env.VITE_MOCK_CHAT === "true" ? "/mock/chat/" : "/socket.io/";
+  import.meta.env.VITE_MOCK_CHAT === "true"
+    ? "/mock/chat/socket/"
+    : "/socket.io/";
 
+/** URL HTTP do histórico de chat: mock-api ou backend real. */
+export const chatHistoryUrl =
+  import.meta.env.VITE_MOCK_CHAT === "true"
+    ? "/mock/chat/history"
+    : "/api/chat/history";
 
 /** Path do Socket.IO de friends/presença: mock-api ou backend real. */
 export const friendsSocketPath =

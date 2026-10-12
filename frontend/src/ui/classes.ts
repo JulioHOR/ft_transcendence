@@ -28,4 +28,10 @@ export const ui = {
   online: "text-sm text-green-400",
   /** Status offline na lista de friends. */
   offline: "text-sm text-zinc-500",
+  /** Aba inativa do chat. */
+  tab: `rounded border border-zinc-700 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-800 ${focus}`,
+  /** Aba ativa do chat. */
+  tabActive: `rounded border border-zinc-500 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 ${focus}`,
+  /** Botão para fechar aba de chat privado. */
+  tabClose: `rounded border border-zinc-700 px-2 py-1.5 text-sm text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 ${focus}`,
 } as const;

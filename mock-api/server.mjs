@@ -14,6 +14,11 @@ const users = new Map();
 /** Relações: { fromId, toId, status: "pending" | "accepted" } */
 const edges = [];
 
+/** Mensagens do chat global. */
+const globalChatMessages = [];
+/** Mensagens privadas por conversationId. */
+const privateChatMessages = new Map();
+
 const app = express();
 app.use(express.json());
 
@@ -230,10 +235,92 @@ app.post("/mock/friends/:fromId/reject", async (req, res) => {
   res.status(204).end();
 });
 
+/** Identificador estável da conversa privada (par de user ids ordenados). */
+function privateConversationId(userIdA, userIdB) {
+  return [userIdA, userIdB].sort((left, right) => left - right).join(":");
+}
+
+/** True se A e B têm edge accepted (amizade bilateral). */
+function areAcceptedFriends(userIdA, userIdB) {
+  return edges.some(
+    (edge) =>
+      edge.status === "accepted" &&
+      ((edge.fromId === userIdA && edge.toId === userIdB) ||
+        (edge.fromId === userIdB && edge.toId === userIdA)),
+  );
+}
+
+/** Outro participante a partir do conversationId "a:b". */
+function otherUserIdFromConversation(conversationId, userId) {
+  const [left, right] = conversationId.split(":").map(Number);
+  if (left === userId) return right;
+  if (right === userId) return left;
+  return null;
+}
+
+/** Histórico de chat visível para o usuário autenticado. */
+function chatHistoryFor(userId) {
+  const conversations = [];
+  for (const [conversationId, messages] of privateChatMessages) {
+    const otherUserId = otherUserIdFromConversation(conversationId, userId);
+    if (otherUserId == null) continue;
+    const other = users.get(otherUserId);
+    conversations.push({
+      conversationId,
+      otherUserId,
+      otherNickname: other?.nickname ?? `user ${otherUserId}`,
+      messages,
+    });
+  }
+  return { global: globalChatMessages, conversations };
+}
+
+/** Persiste e devolve mensagem do chat global. */
+function storeGlobalMessage(userId, nickname, text) {
+  const message = {
+    id: randomUUID(),
+    userId,
+    nickname,
+    text,
+    createdAt: Date.now(),
+  };
+  globalChatMessages.push(message);
+  return message;
+}
+
+/** Persiste e devolve mensagem privada (só se forem friends). */
+function storePrivateMessage(userId, nickname, otherUserId, text) {
+  if (!areAcceptedFriends(userId, otherUserId)) return null;
+  const conversationId = privateConversationId(userId, otherUserId);
+  const message = {
+    id: randomUUID(),
+    userId,
+    nickname,
+    otherUserId,
+    conversationId,
+    text,
+    createdAt: Date.now(),
+  };
+  const list = privateChatMessages.get(conversationId) ?? [];
+  list.push(message);
+  privateChatMessages.set(conversationId, list);
+  return message;
+}
+
+app.get("/mock/chat/history", async (req, res) => {
+  const user = await resolveUser(req.headers.cookie);
+  if (user == null) {
+    res.status(401).end();
+    return;
+  }
+  users.set(user.id, { id: user.id, nickname: user.nickname });
+  res.json(chatHistoryFor(user.id));
+});
+
 const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
-  path: "/mock/chat/",
+  path: "/mock/chat/socket/",
   cors: { origin: "*" },
 });
 
@@ -251,17 +338,50 @@ function broadcastFriends() {
 }
 
 io.on("connection", (socket) => {
+  void resolveUser(socket.handshake.headers.cookie).then((user) => {
+    if (user == null) {
+      socket.disconnect();
+      return;
+    }
+    socket.data.userId = user.id;
+    socket.data.nickname = user.nickname;
+    users.set(user.id, { id: user.id, nickname: user.nickname });
+    socket.join(`user:${user.id}`);
+  });
+
+  /** Chat global: grava e emite para todos. */
   socket.on("chat:send", (payload) => {
     const text = typeof payload?.text === "string" ? payload.text.trim() : "";
-    if (!text) return;
-
-    io.emit("chat:message", {
-      id: randomUUID(),
-      userId: Number(payload?.userId) || 0,
-      nickname: String(payload?.nickname ?? "anon"),
+    if (!text || socket.data.userId == null) return;
+    const message = storeGlobalMessage(
+      socket.data.userId,
+      socket.data.nickname,
       text,
-      createdAt: Date.now(),
-    });
+    );
+    io.emit("chat:message", message);
+  });
+
+  /** Chat privado: grava se friends; emite só para o par. */
+  socket.on("chat:private:send", (payload) => {
+    const otherUserId = Number(payload?.otherUserId);
+    const text = typeof payload?.text === "string" ? payload.text.trim() : "";
+    if (!Number.isFinite(otherUserId) || !text || socket.data.userId == null) {
+      return;
+    }
+    const message = storePrivateMessage(
+      socket.data.userId,
+      socket.data.nickname,
+      otherUserId,
+      text,
+    );
+    if (message == null) {
+      socket.emit("chat:private:error", {
+        message: "só é possível conversar com friends aceitos",
+      });
+      return;
+    }
+    io.to(`user:${socket.data.userId}`).emit("chat:private:message", message);
+    io.to(`user:${otherUserId}`).emit("chat:private:message", message);
   });
 });
 

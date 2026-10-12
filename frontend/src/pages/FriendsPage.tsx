@@ -7,8 +7,10 @@ import {
   type Friend,
 } from "../api/friends";
 import { useFriends } from "../app/friends-session";
+import { buildPrivateChatPath } from "../chat/privateChat";
 import { ErrorText } from "../ui/ErrorText";
 import { ui } from "../ui/classes";
+import { Link } from "react-router-dom";
 
 /** Envia o nickname para adicionar um friend e limpa o campo. */
 async function submitAddFriend(
@@ -113,10 +115,14 @@ function FriendActions(props: FriendRowProps) {
       />
     );
   }
+  const label = props.friend.relation === "outgoing" ? "Cancelar" : "Remover";
   return (
-    <button className={ui.btn} type="button" onClick={() => props.onRemove(props.friend.id)}>
-      Remover
-    </button>
+    <>
+      <FriendPrivateChatLink friend={props.friend} />
+      <button className={ui.btn} type="button" onClick={() => props.onRemove(props.friend.id)}>
+        {label}
+      </button>
+    </>
   );
 }
 
@@ -142,6 +148,34 @@ type FriendsListProps = {
   onRemove: (friendId: number) => void;
 };
 
+/** Filtra friends por relation. */
+function byRelation(friends: Friend[], relation: Friend["relation"]): Friend[] {
+  return friends.filter((friend) => friend.relation === relation);
+}
+
+type FriendSectionProps = {
+  title: string;
+  friends: Friend[];
+  onAccept: (fromId: number) => void;
+  onReject: (fromId: number) => void;
+  onRemove: (friendId: number) => void;
+};
+
+function FriendSection(props: FriendSectionProps) {
+  if (props.friends.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className={ui.title}>{props.title}</h2>
+      <FriendsList
+        friends={props.friends}
+        onAccept={props.onAccept}
+        onReject={props.onReject}
+        onRemove={props.onRemove}
+      />
+    </section>
+  );
+}
+
 /** Lista de friends do contexto. */
 function FriendsList(props: FriendsListProps) {
   if (props.friends.length === 0) {
@@ -162,33 +196,47 @@ function FriendsList(props: FriendsListProps) {
   );
 }
 
-/** Dispara uma ação de friend e reporta erro. */
-function runFriendAction(
-  action: () => Promise<unknown>,
-  setError: (value: string | null) => void,
-  fallback: string,
-): void {
-  setError(null);
-  void action().catch((failure: unknown) => {
-    setError(failure instanceof Error ? failure.message : fallback);
-  });
+/** Link para abrir conversa privada com um friend aceito. */
+function FriendPrivateChatLink({ friend }: { friend: Friend }) {
+  if (friend.relation !== "friend") return null;
+  return (
+    <Link className={ui.btn} to={buildPrivateChatPath(friend.id, friend.nickname)}>
+      Chat
+    </Link>
+  );
+}
+
+/** Handlers dos botões de convite/remoção. */
+function friendHandlers(setError: (value: string | null) => void) {
+  const run = (action: () => Promise<unknown>, fallback: string) => {
+    setError(null);
+    void action().catch((failure: unknown) => {
+      setError(failure instanceof Error ? failure.message : fallback);
+    });
+  };
+  return {
+    onAccept: (fromId: number) =>
+      run(() => acceptFriend(fromId), "falha ao aceitar"),
+    onReject: (fromId: number) =>
+      run(() => rejectFriend(fromId), "falha ao recusar"),
+    onRemove: (friendId: number) =>
+      run(() => removeFriend(friendId), "falha ao remover"),
+  };
 }
 
 /** Página de friends/presença e convites. */
 export function FriendsPage() {
   const { friends } = useFriends();
   const [actionError, setActionError] = useState<string | null>(null);
+  const handlers = friendHandlers(setActionError);
   return (
     <main className={`${ui.page} gap-4 p-4 sm:p-6`}>
       <h1 className={ui.title}>Friends</h1>
       <AddFriendForm />
       <ErrorText error={actionError} />
-      <FriendsList
-        friends={friends}
-        onAccept={(fromId) => runFriendAction(() => acceptFriend(fromId), setActionError, "falha ao aceitar")}
-        onReject={(fromId) => runFriendAction(() => rejectFriend(fromId), setActionError, "falha ao recusar")}
-        onRemove={(friendId) => runFriendAction(() => removeFriend(friendId), setActionError, "falha ao remover")}
-      />
+      <FriendSection title="Convites recebidos" friends={byRelation(friends, "incoming")} {...handlers} />
+      <FriendSection title="Convites enviados" friends={byRelation(friends, "outgoing")} {...handlers} />
+      <FriendSection title="Friends" friends={byRelation(friends, "friend")} {...handlers} />
     </main>
   );
 }

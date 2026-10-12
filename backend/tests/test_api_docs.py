@@ -107,7 +107,7 @@ def test_asyncapi_e_valido_no_arquivo_fonte():
         "queue:join",
         "queue:leave",
         "paddle:input",
-        "game:restart",
+        "game:rematch",
         "disconnect",
         "game:status",
         "game:snapshot",

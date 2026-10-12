@@ -41,8 +41,8 @@ channels:
         $ref: "#/components/messages/queueLeave"
       paddleInput:
         $ref: "#/components/messages/paddleInput"
-      gameRestart:
-        $ref: "#/components/messages/gameRestart"
+      gameRematch:
+        $ref: "#/components/messages/gameRematch"
       disconnect:
         $ref: "#/components/messages/disconnect"
       gameStatus:
@@ -87,7 +87,7 @@ operations:
       `reason: invalid`. Não há ack.
     messages:
       - $ref: "#/channels/matchmaking/messages/paddleInput"
-  restartGame:
+  requestRematch:
     action: receive
     channel:
       $ref: "#/channels/matchmaking"
@@ -97,7 +97,7 @@ operations:
       emite `game:status` com `state: playing`. Fora de partida gera
       `reason: not_in_match`; partida ainda em jogo gera `reason: invalid`.
     messages:
-      - $ref: "#/channels/matchmaking/messages/gameRestart"
+      - $ref: "#/channels/matchmaking/messages/gameRematch"
   clientDisconnect:
     action: receive
     channel:
@@ -154,8 +154,8 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/PaddleInput"
-    gameRestart:
-      name: "game:restart"
+    gameRematch:
+      name: "game:rematch"
       title: Reiniciar partida
       contentType: application/json
       payload:

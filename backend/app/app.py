@@ -1,11 +1,11 @@
-
 import os
 
-from flask import Flask, jsonify, request
+from flask import Flask
 from flask_socketio import SocketIO
 
-from auth.routes import SESSION_COOKIE_OPTIONS, auth_bp
-from db import db_cursor, read_secret, wait_db
+from apidocs import init_api
+from auth.routes import SESSION_COOKIE_OPTIONS
+from db import read_secret, wait_db
 
 app = Flask(__name__)
 socketio = SocketIO(app, async_mode="threading", cors_allowed_origins=[])
@@ -13,9 +13,8 @@ socketio = SocketIO(app, async_mode="threading", cors_allowed_origins=[])
 app.secret_key = read_secret("flask_secret_key")
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 app.config.update(SESSION_COOKIE_OPTIONS)
-CONTENT_LIMIT = 1000
 
-app.register_blueprint(auth_bp)
+init_api(app)
 
 def register_game_routes():
     from games.pong.handlers import register_pong_handlers
@@ -34,32 +33,6 @@ def register_game_routes():
     register_pong_handlers(socketio, Matchmaker(match_factory))
 
 register_game_routes()
-
-
-@app.get("/api/messages")
-def get_messages():
-    with db_cursor() as cur:
-        cur.execute("SELECT id, content FROM messages ORDER BY id;")
-        rows = [{"id": row[0], "content": row[1]} for row in cur.fetchall()]
-    return jsonify(rows)
-
-@app.post("/api/messages")
-def post_message():
-    content = (request.get_json(silent=True) or {}).get("content", "")
-    if not isinstance(content, str):
-        return jsonify({"error": "content deve ser texto"}), 400
-    if len(content) > CONTENT_LIMIT:
-        return jsonify({"error": "content excede o limite"}), 400
-    with db_cursor() as cur:
-        cur.execute(
-            "INSERT INTO messages (content) VALUES (%s) RETURNING id;",
-            (content,),
-        )
-        row = cur.fetchone()
-        if row is None:
-            raise RuntimeError("INSERT RETURNING sem linha")
-        new_id = row[0]
-    return jsonify({"id": new_id, "content": content}), 201
 
 if __name__ == "__main__":
     wait_db()

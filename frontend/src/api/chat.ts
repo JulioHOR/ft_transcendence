@@ -51,13 +51,15 @@ function disconnectChat(state: ChatSocketState): void {
 
 /** Envia uma mensagem no chat com os dados do perfil atual. */
 function sendChatMessage(state: ChatSocketState, text: string): void {
-  void getProfile().then((user) => {
-    state.socket?.emit("chat:send", {
-      text,
-      userId: user.id,
-      nickname: user.nickname,
-    });
-  });
+  void getProfile()
+    .then((user) => {
+      state.socket?.emit("chat:send", {
+        text,
+        userId: user.id,
+        nickname: user.nickname,
+      });
+    })
+    .catch(() => undefined);
 }
 
 /** Cria o transporte de chat apontando para o path em endpoints. */

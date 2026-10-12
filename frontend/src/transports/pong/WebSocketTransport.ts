@@ -16,7 +16,7 @@ import {
  */
 type ServerStatus = {
   /** Estado atual do servidor. */
-  state: string; 
+  state: string;
   /** Lado do jogador (esquerdo ou direito). */
   side?: Side;
   /** Momento em que a contagem regressiva começa. */
@@ -29,7 +29,6 @@ type ServerStatus = {
  * Cria o estado de contagem regressiva do jogo com base no status do servidor e no lado atual do jogador.
  * @param status - Estado atual do servidor.
  * @param currentSide - Lado atual do jogador (esquerdo ou direito).
- * @returns 
  */
 function countdownState(
   status: ServerStatus,
@@ -45,16 +44,22 @@ function countdownState(
   };
 }
 
+/**
+ * Transporte Socket.IO do Pong.
+ * Conecta ao servidor, sincroniza o estado da partida e envia entrada do jogador.
+ */
 export class WebSocketTransport implements Transport {
   private socket: Socket | null = null;
   private onStateChange: ((state: MatchState) => void) | null = null;
   private state: MatchState = createInitialMatchState();
 
+  /** Aplica um patch parcial ao estado local e notifica o listener. */
   private setState(patch: Partial<MatchState>): void {
     this.state = { ...this.state, ...patch };
     this.onStateChange?.(this.state);
   }
 
+  /** Atualiza o estado com um snapshot recebido do servidor. */
   private onSnapshot(snapshot: GameSnapshot): void {
     if (this.state.phase !== "playing" && this.state.phase !== "finished") return;
     this.setState({
@@ -63,6 +68,7 @@ export class WebSocketTransport implements Transport {
     });
   }
 
+  /** Interpreta eventos de status do servidor e atualiza a fase da partida. */
   private onStatus(status: ServerStatus): void {
     if (status.state === "countdown") {
       this.setState(countdownState(status, this.state.playerSide));
@@ -84,6 +90,7 @@ export class WebSocketTransport implements Transport {
     }
   }
 
+  /** Marca a partida em erro, exceto quando já finalizada. */
   private onError(message?: string): void {
     if (this.state.phase === "finished" || this.state.snapshot.winner !== null) {
       return;
@@ -94,6 +101,7 @@ export class WebSocketTransport implements Transport {
     });
   }
 
+  /** Aguarda o socket conectar ou rejeita em falha de conexão. */
   private waitUntilConnected(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.socket?.once("connect", () => resolve());
@@ -101,6 +109,7 @@ export class WebSocketTransport implements Transport {
     });
   }
 
+  /** Entra na fila de matchmaking e devolve o ack do servidor. */
   private joinQueue(): Promise<{ status: string }> {
     return new Promise((resolve, reject) => {
       this.socket?.emit("queue:join", {}, (ack: { status: string } | null) => {
@@ -110,6 +119,7 @@ export class WebSocketTransport implements Transport {
     });
   }
 
+  /** Conecta ao servidor Socket.IO e entra na fila de partida. */
   async connect(): Promise<void> {
     this.state = createInitialMatchState();
     this.setState({ phase: "connecting" });
@@ -122,20 +132,24 @@ export class WebSocketTransport implements Transport {
     if (ack.status === "waiting") this.setState({ phase: "waiting" });
   }
 
+  /** Encerra a conexão Socket.IO e limpa o listener de estado. */
   disconnect(): void {
     this.socket?.disconnect();
     this.socket = null;
     this.onStateChange = null;
   }
 
+  /** Solicita rematch ao servidor. */
   requestRematch(): void {
     this.socket?.emit("game:rematch");
   }
 
+  /** Envia a entrada da paddle ao servidor. */
   sendInput(input: PaddleInput): void {
     this.socket?.emit("paddle:input", input);
   }
 
+  /** Registra o listener de atualizações de estado da partida. */
   onState(listener: (state: MatchState) => void): void {
     this.onStateChange = listener;
   }

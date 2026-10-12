@@ -1,10 +1,26 @@
-import { useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
+import { useState, type Dispatch, type SubmitEvent, type SetStateAction } from "react";
+import { useNavigate } from "react-router-dom";
+
+import { logout } from "../api/auth";
+import { useAuth } from "../app/auth-session";
+import type { User } from "../api/types";
 import { ui } from "../ui/classes";
 
-type Message = { id: number; content: string };
+/** Mensagem da demo REST /api/messages. */
+type Message = {
+  /** Identificador da mensagem. */
+  id: number;
+  /** Conteúdo textual da mensagem. */
+  content: string;
+};
+
+/** Setter de estado para valores em texto. */
 type SetString = Dispatch<SetStateAction<string>>;
+
+/** Setter de estado para mensagem de erro opcional. */
 type SetError = Dispatch<SetStateAction<string | null>>;
 
+/** Envia uma nova mensagem para /api/messages. */
 async function postMessage(content: string): Promise<void> {
   await fetch("/api/messages", {
     method: "POST",
@@ -13,11 +29,13 @@ async function postMessage(content: string): Promise<void> {
   });
 }
 
+/** Busca as mensagens e devolve uma listagem textual para exibição. */
 async function fetchListing(): Promise<string> {
   const rows: Message[] = await (await fetch("/api/messages")).json();
   return rows.map((m) => `${m.id}: ${m.content}`).join(" | ");
 }
 
+/** Campo de formulário com label acessível (somente leitores de tela). */
 function LabeledInput(
   props: { id: string; label: string } & React.ComponentProps<"input">,
 ) {
@@ -32,8 +50,9 @@ function LabeledInput(
   );
 }
 
+/** Trata o envio do formulário de nova mensagem. */
 async function sendMessage(
-  event: FormEvent,
+  event: SubmitEvent<HTMLFormElement>,
   draft: string,
   setDraft: SetString,
   setError: SetError,
@@ -48,6 +67,7 @@ async function sendMessage(
   }
 }
 
+/** Carrega a listagem de mensagens a partir da API. */
 async function loadMessages(setListing: SetString, setError: SetError): Promise<void> {
   setError(null);
   try {
@@ -57,12 +77,17 @@ async function loadMessages(setListing: SetString, setError: SetError): Promise<
   }
 }
 
+/** Propriedades do formulário de envio de mensagem. */
 type MessageFormProps = {
+  /** Texto digitado da mensagem. */
   draft: string;
+  /** Atualiza o texto digitado. */
   setDraft: SetString;
+  /** Atualiza a mensagem de erro da board. */
   setError: SetError;
 };
 
+/** Formulário para enviar uma mensagem à demo /api/messages. */
 function MessageForm({ draft, setDraft, setError }: MessageFormProps) {
   return (
     <form
@@ -83,12 +108,17 @@ function MessageForm({ draft, setDraft, setError }: MessageFormProps) {
   );
 }
 
+/** Propriedades da listagem de mensagens. */
 type MessageListingProps = {
+  /** Listagem textual já formatada. */
   listing: string;
+  /** Atualiza a listagem exibida. */
   setListing: SetString;
+  /** Atualiza a mensagem de erro da board. */
   setError: SetError;
 };
 
+/** Exibe a listagem de mensagens e permite recarregá-la. */
 function MessageListing({ listing, setListing, setError }: MessageListingProps) {
   return (
     <div className={ui.row}>
@@ -104,6 +134,7 @@ function MessageListing({ listing, setListing, setError }: MessageListingProps) 
   );
 }
 
+/** Exibe o erro da board, se houver. */
 function BoardError({ error }: { error: string | null }) {
   if (error === null) return null;
   return (
@@ -113,14 +144,52 @@ function BoardError({ error }: { error: string | null }) {
   );
 }
 
+/** Encerra a sessão no servidor e limpa o usuário no frontend. */
+async function endSession(
+  setUser: (user: User | null) => void,
+  navigate: ReturnType<typeof useNavigate>,
+): Promise<void> {
+  try {
+    await logout();
+  } finally {
+    setUser(null);
+    navigate("/login");
+  }
+}
+
+/** Saudação e botão de logout do usuário autenticado. */
+function HomeSessionBar() {
+  const { user, setUser } = useAuth();
+  const navigate = useNavigate();
+  if (user === null) {
+    return <p className={ui.muted}>Não logado</p>;
+  }
+  return (
+    <>
+      <p className={ui.muted}>Olá, {user.nickname}</p>
+      <button
+        className={ui.btn}
+        type="button"
+        onClick={() => void endSession(setUser, navigate)}
+      >
+        Sair
+      </button>
+    </>
+  );
+}
+
+/**
+ * Página inicial após autenticação.
+ * Exibe o usuário da sessão, logout e a demo de /api/messages.
+ */
 export function HomePage() {
   const [draft, setDraft] = useState("");
   const [listing, setListing] = useState("");
   const [error, setError] = useState<string | null>(null);
-
   return (
     <main className={`${ui.page} gap-4 p-4 sm:p-6`}>
       <h1 className={ui.title}>ft_transcendence</h1>
+      <HomeSessionBar />
       <MessageForm draft={draft} setDraft={setDraft} setError={setError} />
       <MessageListing listing={listing} setListing={setListing} setError={setError} />
       <BoardError error={error} />

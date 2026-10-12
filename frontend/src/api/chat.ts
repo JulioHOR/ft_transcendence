@@ -7,6 +7,7 @@ export type ChatMessage = {
   id: string;
   userId: number;
   nickname: string;
+  avatarUrl?: string | null;
   text: string;
   createdAt: number;
   otherUserId?: number;
@@ -27,22 +28,42 @@ export type ChatHistory = {
   conversations: PrivateConversationHistory[];
 };
 
+/** Evento de digitação no chat privado. */
+export type PrivateTypingEvent = {
+  userId: number;
+  nickname: string;
+  conversationId: string;
+  isTyping: boolean;
+};
+
+/** Evento de leitura no chat privado. */
+export type PrivateReadEvent = {
+  userId: number;
+  conversationId: string;
+  lastMessageId: string;
+};
+
 /** Transporte Socket.IO do chat. */
 export type ChatTransport = {
   connect(): Promise<void>;
   disconnect(): void;
   sendGlobalMessage(text: string): void;
   sendPrivateMessage(otherUserId: number, text: string): void;
+  sendPrivateTyping(otherUserId: number, isTyping: boolean): void;
+  sendPrivateRead(otherUserId: number, lastMessageId: string): void;
   onGlobalMessage(handler: (message: ChatMessage) => void): void;
   onPrivateMessage(handler: (message: ChatMessage) => void): void;
   onPrivateError(handler: (message: string) => void): void;
+  onPrivateTyping(handler: (event: PrivateTypingEvent) => void): void;
+  onPrivateRead(handler: (event: PrivateReadEvent) => void): void;
 };
 
-type ChatSocketState = {
-  socket: Socket | null;
-  globalMessageHandler: ((message: ChatMessage) => void) | null;
-  privateMessageHandler: ((message: ChatMessage) => void) | null;
-  privateErrorHandler: ((message: string) => void) | null;
+type ChatHandlers = {
+  onGlobal: ((message: ChatMessage) => void) | null;
+  onPrivate: ((message: ChatMessage) => void) | null;
+  onError: ((message: string) => void) | null;
+  onTyping: ((event: PrivateTypingEvent) => void) | null;
+  onRead: ((event: PrivateReadEvent) => void) | null;
 };
 
 /** Monta o id da conversa privada a partir do par de users. */
@@ -70,76 +91,106 @@ function waitForConnection(socket: Socket): Promise<void> {
   });
 }
 
-/** Abre a conexão Socket.IO do chat. */
-async function connectChat(state: ChatSocketState): Promise<void> {
-  state.socket = io({ path: chatSocketPath, withCredentials: true });
-  state.socket.on("chat:message", (message: ChatMessage) => {
-    state.globalMessageHandler?.(message);
+/** Liga os eventos Socket.IO aos handlers. */
+function attachSocketListeners(socket: Socket, handlers: ChatHandlers): void {
+  socket.on("chat:message", (message: ChatMessage) => handlers.onGlobal?.(message));
+  socket.on("chat:private:message", (message: ChatMessage) => {
+    handlers.onPrivate?.(message);
   });
-  state.socket.on("chat:private:message", (message: ChatMessage) => {
-    state.privateMessageHandler?.(message);
+  socket.on("chat:private:error", (payload: { message?: string }) => {
+    handlers.onError?.(payload?.message ?? "falha no chat privado");
   });
-  state.socket.on("chat:private:error", (payload: { message?: string }) => {
-    state.privateErrorHandler?.(payload?.message ?? "falha no chat privado");
+  socket.on("chat:private:typing", (event: PrivateTypingEvent) => {
+    handlers.onTyping?.(event);
   });
-  await waitForConnection(state.socket);
-}
-
-/** Encerra a conexão Socket.IO do chat. */
-function disconnectChat(state: ChatSocketState): void {
-  state.socket?.disconnect();
-  state.socket = null;
-  state.globalMessageHandler = null;
-  state.privateMessageHandler = null;
-  state.privateErrorHandler = null;
+  socket.on("chat:private:read", (event: PrivateReadEvent) => {
+    handlers.onRead?.(event);
+  });
 }
 
 /** Métodos de envio do transporte. */
-function chatSendMethods(
-  state: ChatSocketState,
-): Pick<ChatTransport, "sendGlobalMessage" | "sendPrivateMessage"> {
+function chatSendApi(getSocket: () => Socket | null): Pick<
+  ChatTransport,
+  | "sendGlobalMessage"
+  | "sendPrivateMessage"
+  | "sendPrivateTyping"
+  | "sendPrivateRead"
+> {
   return {
-    sendGlobalMessage: (text) => {
-      state.socket?.emit("chat:send", { text });
-    },
-    sendPrivateMessage: (otherUserId, text) => {
-      state.socket?.emit("chat:private:send", { otherUserId, text });
-    },
+    sendGlobalMessage: (text) => getSocket()?.emit("chat:send", { text }),
+    sendPrivateMessage: (otherUserId, text) =>
+      getSocket()?.emit("chat:private:send", { otherUserId, text }),
+    sendPrivateTyping: (otherUserId, isTyping) =>
+      getSocket()?.emit("chat:private:typing", { otherUserId, isTyping }),
+    sendPrivateRead: (otherUserId, lastMessageId) =>
+      getSocket()?.emit("chat:private:read", { otherUserId, lastMessageId }),
   };
 }
 
-/** Métodos de registro de handlers do transporte. */
-function chatHandlerMethods(
-  state: ChatSocketState,
-): Pick<
+/** Handlers de mensagem e erro. */
+function chatMessageHandlers(handlers: ChatHandlers): Pick<
   ChatTransport,
   "onGlobalMessage" | "onPrivateMessage" | "onPrivateError"
 > {
   return {
     onGlobalMessage: (handler) => {
-      state.globalMessageHandler = handler;
+      handlers.onGlobal = handler;
     },
     onPrivateMessage: (handler) => {
-      state.privateMessageHandler = handler;
+      handlers.onPrivate = handler;
     },
     onPrivateError: (handler) => {
-      state.privateErrorHandler = handler;
+      handlers.onError = handler;
     },
   };
 }
 
-/** Cria o transporte Socket.IO do chat. */
+/** Handlers de typing e read. */
+function chatPresenceHandlers(handlers: ChatHandlers): Pick<
+  ChatTransport,
+  "onPrivateTyping" | "onPrivateRead"
+> {
+  return {
+    onPrivateTyping: (handler) => {
+      handlers.onTyping = handler;
+    },
+    onPrivateRead: (handler) => {
+      handlers.onRead = handler;
+    },
+  };
+}
+
+/** Abre a conexão do transporte. */
+async function connectTransport(
+  handlers: ChatHandlers,
+  setSocket: (socket: Socket) => void,
+): Promise<void> {
+  const socket = io({ path: chatSocketPath, withCredentials: true });
+  setSocket(socket);
+  attachSocketListeners(socket, handlers);
+  await waitForConnection(socket);
+}
+
+/** Cria um transporte de chat via Socket.IO. */
 export function createChatTransport(): ChatTransport {
-  const state: ChatSocketState = {
-    socket: null,
-    globalMessageHandler: null,
-    privateMessageHandler: null,
-    privateErrorHandler: null,
+  let socket: Socket | null = null;
+  const handlers: ChatHandlers = {
+    onGlobal: null,
+    onPrivate: null,
+    onError: null,
+    onTyping: null,
+    onRead: null,
   };
   return {
-    connect: () => connectChat(state),
-    disconnect: () => disconnectChat(state),
-    ...chatSendMethods(state),
-    ...chatHandlerMethods(state),
+    connect: () => connectTransport(handlers, (next) => {
+      socket = next;
+    }),
+    disconnect() {
+      socket?.disconnect();
+      socket = null;
+    },
+    ...chatSendApi(() => socket),
+    ...chatMessageHandlers(handlers),
+    ...chatPresenceHandlers(handlers),
   };
 }

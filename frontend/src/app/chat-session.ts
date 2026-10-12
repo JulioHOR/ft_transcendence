@@ -8,10 +8,15 @@ export type ChatContextValue = {
   privateMessagesByConversation: Record<string, ChatMessage[]>;
   privateChatTabs: PrivateChatTab[];
   unreadByConversation: Record<string, number>;
+  /** Nickname de quem está digitando, por conversa. */
+  typingByConversation: Record<string, string | null>;
+  peerReadByConversation: Record<string, string>;
   unreadTotal: number;
   error: string | null;
   sendGlobalMessage: (text: string) => void;
   sendPrivateMessage: (otherUserId: number, text: string) => void;
+  sendPrivateTyping: (otherUserId: number, isTyping: boolean) => void;
+  notifyPrivateRead: (otherUserId: number, lastMessageId: string) => void;
   openPrivateTab: (tab: PrivateChatTab) => void;
   closePrivateTab: (conversationId: string) => void;
   setViewingConversationId: (conversationId: string | null) => void;

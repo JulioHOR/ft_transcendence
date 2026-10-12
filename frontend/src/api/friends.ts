@@ -6,6 +6,7 @@ import { errorMessage } from "./http";
 export type Friend = {
   id: number;
   nickname: string;
+  avatarUrl: string | null;
   online: boolean;
   status: "pending" | "accepted";
   relation: "outgoing" | "incoming" | "friend";

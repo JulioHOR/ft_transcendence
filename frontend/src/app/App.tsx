@@ -73,6 +73,7 @@ function AppRoutes() {
         <Route path="/home" element={protectedPage(<HomePage />)} />
         <Route path="/pong" element={protectedPage(<PongPage />)} />
         <Route path="/profile" element={protectedPage(<ProfilePage />)} />
+        <Route path="/profile/:userId" element={protectedPage(<ProfilePage />)} />
         <Route path="/chat" element={protectedPage(<ChatPage />)} />
         <Route path="/friends" element={protectedPage(<FriendsPage />)} />
         <Route path="*" element={<NotFoundPage />} />

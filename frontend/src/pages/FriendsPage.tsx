@@ -1,4 +1,5 @@
 import { useState, type SubmitEvent } from "react";
+import { Link } from "react-router-dom";
 import {
   addFriend,
   acceptFriend,
@@ -8,9 +9,9 @@ import {
 } from "../api/friends";
 import { useFriends } from "../app/friends-session";
 import { buildPrivateChatPath } from "../chat/privateChat";
+import { Avatar } from "../ui/Avatar";
 import { ErrorText } from "../ui/ErrorText";
 import { ui } from "../ui/classes";
-import { Link } from "react-router-dom";
 
 /** Envia o nickname para adicionar um friend e limpa o campo. */
 async function submitAddFriend(
@@ -33,6 +34,27 @@ async function submitAddFriend(
   }
 }
 
+/** Input com label do nickname do friend. */
+function FriendNicknameField(props: {
+  nickname: string;
+  onNickname: (value: string) => void;
+}) {
+  return (
+    <div className={ui.fieldBlock}>
+      <label className={ui.label} htmlFor="friend-nickname">
+        Nickname
+      </label>
+      <input
+        id="friend-nickname"
+        className={ui.field}
+        value={props.nickname}
+        placeholder="nickname do friend"
+        onChange={(event) => props.onNickname(event.target.value)}
+      />
+    </div>
+  );
+}
+
 /** Campos do formulário de adicionar friend. */
 function AddFriendFields(props: {
   nickname: string;
@@ -42,12 +64,7 @@ function AddFriendFields(props: {
   const label = props.pending ? "Adicionando…" : "Adicionar";
   return (
     <>
-      <input
-        className={ui.field}
-        value={props.nickname}
-        placeholder="nickname do friend"
-        onChange={(event) => props.onNickname(event.target.value)}
-      />
+      <FriendNicknameField nickname={props.nickname} onNickname={props.onNickname} />
       <button className={ui.btn} type="submit" disabled={props.pending}>
         {label}
       </button>
@@ -64,10 +81,12 @@ function AddFriendForm() {
     void submitAddFriend(event, nickname, setNickname, setError, setPending);
   };
   return (
-    <form className={`${ui.row} max-w-md items-end`} onSubmit={onSubmit}>
-      <AddFriendFields nickname={nickname} pending={pending} onNickname={setNickname} />
+    <div className={ui.stack}>
+      <form className={ui.row} onSubmit={onSubmit}>
+        <AddFriendFields nickname={nickname} pending={pending} onNickname={setNickname} />
+      </form>
       <ErrorText error={error} />
-    </form>
+    </div>
   );
 }
 
@@ -126,13 +145,28 @@ function FriendActions(props: FriendRowProps) {
   );
 }
 
-/** Linha: nickname, online, relação e ações. */
+/** Link para o perfil público do friend. */
+function FriendProfileLink({ friend }: { friend: Friend }) {
+  return (
+    <Link className={ui.nameLink} to={`/profile/${friend.id}`}>
+      {friend.nickname}
+    </Link>
+  );
+}
+
+/** Linha: avatar, nickname, online, relação e ações. */
 function FriendRow(props: FriendRowProps) {
   const statusClass = props.friend.online ? ui.online : ui.offline;
   const statusLabel = props.friend.online ? "online" : "offline";
   return (
-    <li className={`flex flex-wrap items-center gap-3 ${ui.muted}`}>
-      <strong className="text-zinc-200">{props.friend.nickname}</strong>
+    <li className={`${ui.listRow} ${ui.muted}`}>
+      <Avatar
+        userId={props.friend.id}
+        avatarUrl={props.friend.avatarUrl}
+        alt={props.friend.nickname}
+        size="sm"
+      />
+      <FriendProfileLink friend={props.friend} />
       <span className={statusClass}>{statusLabel}</span>
       <span>{relationLabel(props.friend)}</span>
       <FriendActions {...props} />
@@ -164,7 +198,7 @@ type FriendSectionProps = {
 function FriendSection(props: FriendSectionProps) {
   if (props.friends.length === 0) return null;
   return (
-    <section className="flex flex-col gap-2">
+    <section className={ui.stack}>
       <h2 className={ui.title}>{props.title}</h2>
       <FriendsList
         friends={props.friends}
@@ -182,7 +216,7 @@ function FriendsList(props: FriendsListProps) {
     return <p className={ui.muted}>Nenhum friend na lista ainda.</p>;
   }
   return (
-    <ul className="flex flex-col gap-2">
+    <ul className={ui.stack}>
       {props.friends.map((friend) => (
         <FriendRow
           key={`${friend.id}-${friend.relation}-${friend.status}`}
@@ -230,13 +264,17 @@ export function FriendsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const handlers = friendHandlers(setActionError);
   return (
-    <main className={`${ui.page} gap-4 p-4 sm:p-6`}>
+    <main className={ui.pageShell}>
       <h1 className={ui.title}>Friends</h1>
-      <AddFriendForm />
-      <ErrorText error={actionError} />
-      <FriendSection title="Convites recebidos" friends={byRelation(friends, "incoming")} {...handlers} />
-      <FriendSection title="Convites enviados" friends={byRelation(friends, "outgoing")} {...handlers} />
-      <FriendSection title="Friends" friends={byRelation(friends, "friend")} {...handlers} />
+      <div className={ui.content}>
+        <div className={ui.panel}>
+          <AddFriendForm />
+        </div>
+        <ErrorText error={actionError} />
+        <FriendSection title="Convites recebidos" friends={byRelation(friends, "incoming")} {...handlers} />
+        <FriendSection title="Convites enviados" friends={byRelation(friends, "outgoing")} {...handlers} />
+        <FriendSection title="Friends" friends={byRelation(friends, "friend")} {...handlers} />
+      </div>
     </main>
   );
 }

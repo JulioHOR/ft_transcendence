@@ -3,7 +3,6 @@ import {
   useRef,
   useState,
   type Dispatch,
-  type MutableRefObject,
   type ReactNode,
   type SetStateAction,
 } from "react";
@@ -26,177 +25,28 @@ type ChatProviderProps = {
   children: ReactNode;
 };
 
-type ChatState = {
+type ChatSetters = {
+  setGlobal: Dispatch<SetStateAction<ChatMessage[]>>;
+  setPrivate: Dispatch<SetStateAction<Record<string, ChatMessage[]>>>;
+  setTabs: Dispatch<SetStateAction<PrivateChatTab[]>>;
+  setUnread: Dispatch<SetStateAction<Record<string, number>>>;
+  setTyping: Dispatch<SetStateAction<Record<string, string | null>>>;
+  setPeerRead: Dispatch<SetStateAction<Record<string, string>>>;
+  setError: Dispatch<SetStateAction<string | null>>;
+};
+
+type ChatProviderState = {
   globalMessages: ChatMessage[];
   privateMessagesByConversation: Record<string, ChatMessage[]>;
   privateChatTabs: PrivateChatTab[];
   unreadByConversation: Record<string, number>;
+  typingByConversation: Record<string, string | null>;
+  peerReadByConversation: Record<string, string>;
   error: string | null;
-  setGlobalMessages: Dispatch<SetStateAction<ChatMessage[]>>;
-  setPrivateMessages: Dispatch<SetStateAction<Record<string, ChatMessage[]>>>;
-  setPrivateChatTabs: Dispatch<SetStateAction<PrivateChatTab[]>>;
-  setUnread: Dispatch<SetStateAction<Record<string, number>>>;
-  setError: Dispatch<SetStateAction<string | null>>;
+  setters: ChatSetters;
+  transportRef: { current: ChatTransport | null };
+  viewingRef: { current: string | null };
 };
-
-/** Estado do chat no frontend. */
-function useChatState(): ChatState {
-  const [globalMessages, setGlobalMessages] = useState<ChatMessage[]>([]);
-  const [privateMessagesByConversation, setPrivateMessages] = useState<
-    Record<string, ChatMessage[]>
-  >({});
-  const [privateChatTabs, setPrivateChatTabs] = useState<PrivateChatTab[]>([]);
-  const [unreadByConversation, setUnread] = useState<Record<string, number>>(
-    {},
-  );
-  const [error, setError] = useState<string | null>(null);
-  return {
-    globalMessages,
-    privateMessagesByConversation,
-    privateChatTabs,
-    unreadByConversation,
-    error,
-    setGlobalMessages,
-    setPrivateMessages,
-    setPrivateChatTabs,
-    setUnread,
-    setError,
-  };
-}
-
-/** Zera o estado ao sair da sessão. */
-function clearChatState(state: ChatState): void {
-  state.setGlobalMessages([]);
-  state.setPrivateMessages({});
-  state.setPrivateChatTabs([]);
-  state.setUnread({});
-  state.setError(null);
-}
-
-/** Aplica GET /chat/history no estado. */
-function loadChatHistory(
-  cancelled: () => boolean,
-  state: ChatState,
-): void {
-  void fetchChatHistory()
-    .then((history) => {
-      if (cancelled()) return;
-      const mapped = historyToClientState(history);
-      state.setGlobalMessages(history.global);
-      state.setPrivateMessages(mapped.privateMessagesByConversation);
-      state.setPrivateChatTabs(mapped.privateChatTabs);
-      state.setError(null);
-    })
-    .catch((failure: unknown) => {
-      if (!cancelled()) {
-        state.setError(
-          failure instanceof Error ? failure.message : "falha no chat",
-        );
-      }
-    });
-}
-
-/** Aplica mensagem privada recebida do socket. */
-function applyPrivateLiveMessage(
-  message: ChatMessage,
-  userId: number,
-  viewingRef: MutableRefObject<string | null>,
-  state: ChatState,
-): void {
-  state.setPrivateMessages((current) => appendPrivateMessage(current, message));
-  if (message.userId === userId || message.conversationId == null) return;
-  const conversationId = message.conversationId;
-  state.setPrivateChatTabs((current) =>
-    upsertPrivateChatTab(current, {
-      conversationId,
-      otherUserId: message.userId,
-      otherNickname: message.nickname,
-    }),
-  );
-  if (viewingRef.current === conversationId) return;
-  state.setUnread((current) => ({
-    ...current,
-    [conversationId]: (current[conversationId] ?? 0) + 1,
-  }));
-}
-
-/** Registra handlers e abre o socket. */
-function bindAndConnectSocket(
-  transport: ChatTransport,
-  userId: number,
-  viewingRef: MutableRefObject<string | null>,
-  cancelled: () => boolean,
-  state: ChatState,
-): void {
-  transport.onGlobalMessage((message) => {
-    state.setGlobalMessages((current) => [...current, message]);
-  });
-  transport.onPrivateMessage((message) => {
-    applyPrivateLiveMessage(message, userId, viewingRef, state);
-  });
-  transport.onPrivateError(state.setError);
-  void transport.connect().catch((failure: unknown) => {
-    if (!cancelled()) {
-      state.setError(
-        failure instanceof Error ? failure.message : "falha no chat",
-      );
-    }
-  });
-}
-
-/** Inicia histórico + socket; devolve cleanup. */
-function startChatSession(
-  userId: number,
-  viewingRef: MutableRefObject<string | null>,
-  transportRef: MutableRefObject<ChatTransport | null>,
-  state: ChatState,
-): () => void {
-  let cancelled = false;
-  const isCancelled = () => cancelled;
-  const transport = createChatTransport();
-  transportRef.current = transport;
-  loadChatHistory(isCancelled, state);
-  bindAndConnectSocket(transport, userId, viewingRef, isCancelled, state);
-  return () => {
-    cancelled = true;
-    transport.disconnect();
-    transportRef.current = null;
-  };
-}
-
-/**
- * Carrega o histórico e conecta o socket conforme a sessão.
- * Mesmo papel do useFriendsConnection.
- */
-function useChatConnection(
-  userId: number | null,
-  ready: boolean,
-  viewingRef: MutableRefObject<string | null>,
-  transportRef: MutableRefObject<ChatTransport | null>,
-  state: ChatState,
-): void {
-  useEffect(() => {
-    if (!ready || userId == null) {
-      clearChatState(state);
-      return;
-    }
-    return startChatSession(userId, viewingRef, transportRef, state);
-  }, [ready, userId]);
-}
-
-/** Ações de envio. */
-function chatSendActions(
-  transportRef: MutableRefObject<ChatTransport | null>,
-): Pick<ChatContextValue, "sendGlobalMessage" | "sendPrivateMessage"> {
-  return {
-    sendGlobalMessage: (text) => {
-      transportRef.current?.sendGlobalMessage(text);
-    },
-    sendPrivateMessage: (otherUserId, text) => {
-      transportRef.current?.sendPrivateMessage(otherUserId, text);
-    },
-  };
-}
 
 /** Remove a contagem de não lidas de uma conversa. */
 function dropUnread(
@@ -209,45 +59,263 @@ function dropUnread(
   return next;
 }
 
-/** Ações de abrir/fechar aba. */
-function chatOpenCloseActions(
-  setPrivateChatTabs: Dispatch<SetStateAction<PrivateChatTab[]>>,
-  setUnread: Dispatch<SetStateAction<Record<string, number>>>,
-): Pick<ChatContextValue, "openPrivateTab" | "closePrivateTab"> {
+/** Aplica mensagem privada recebida ao vivo. */
+function applyPrivateMessage(
+  message: ChatMessage,
+  userId: number,
+  viewingRef: { current: string | null },
+  setters: ChatSetters,
+): void {
+  setters.setPrivate((current) => appendPrivateMessage(current, message));
+  if (message.userId === userId || message.conversationId == null) return;
+  const id = message.conversationId;
+  setters.setTabs((current) =>
+    upsertPrivateChatTab(current, {
+      conversationId: id,
+      otherUserId: message.userId,
+      otherNickname: message.nickname,
+    }),
+  );
+  setters.setTyping((current) => ({ ...current, [id]: null }));
+  if (viewingRef.current === id) return;
+  setters.setUnread((current) => ({
+    ...current,
+    [id]: (current[id] ?? 0) + 1,
+  }));
+}
+
+/** Typing e recibos de leitura no socket privado. */
+function bindPrivateSignals(transport: ChatTransport, setters: ChatSetters): void {
+  transport.onPrivateTyping((event) => {
+    setters.setTyping((current) => ({
+      ...current,
+      [event.conversationId]: event.isTyping ? event.nickname : null,
+    }));
+  });
+  transport.onPrivateRead((event) => {
+    setters.setPeerRead((current) => ({
+      ...current,
+      [event.conversationId]: event.lastMessageId,
+    }));
+  });
+}
+
+/** Liga handlers do socket. */
+function bindTransport(
+  transport: ChatTransport,
+  userId: number,
+  viewingRef: { current: string | null },
+  setters: ChatSetters,
+): void {
+  transport.onGlobalMessage((message) => {
+    setters.setGlobal((current) => [...current, message]);
+  });
+  transport.onPrivateMessage((message) => {
+    applyPrivateMessage(message, userId, viewingRef, setters);
+  });
+  transport.onPrivateError(setters.setError);
+  bindPrivateSignals(transport, setters);
+}
+
+/** Limpa estado ao sair. */
+function clearState(setters: ChatSetters): void {
+  setters.setGlobal([]);
+  setters.setPrivate({});
+  setters.setTabs([]);
+  setters.setUnread({});
+  setters.setTyping({});
+  setters.setPeerRead({});
+  setters.setError(null);
+}
+
+/** Carrega histórico HTTP. */
+function loadHistory(cancelled: () => boolean, setters: ChatSetters): void {
+  void fetchChatHistory()
+    .then((history) => {
+      if (cancelled()) return;
+      const mapped = historyToClientState(history);
+      setters.setGlobal(history.global);
+      setters.setPrivate(mapped.privateMessagesByConversation);
+      setters.setTabs(mapped.privateChatTabs);
+      setters.setError(null);
+    })
+    .catch((failure: unknown) => {
+      if (!cancelled()) {
+        setters.setError(
+          failure instanceof Error ? failure.message : "falha no chat",
+        );
+      }
+    });
+}
+
+/** Abre transporte e devolve cleanup. */
+function openChatTransport(
+  userId: number,
+  transportRef: { current: ChatTransport | null },
+  viewingRef: { current: string | null },
+  setters: ChatSetters,
+): () => void {
+  let cancelled = false;
+  const transport = createChatTransport();
+  transportRef.current = transport;
+  bindTransport(transport, userId, viewingRef, setters);
+  loadHistory(() => cancelled, setters);
+  void transport.connect().catch((failure: unknown) => {
+    if (!cancelled) {
+      setters.setError(
+        failure instanceof Error ? failure.message : "falha no chat",
+      );
+    }
+  });
+  return () => {
+    cancelled = true;
+    transport.disconnect();
+    transportRef.current = null;
+  };
+}
+
+/** Conecta histórico + socket (mesmo papel do useFriendsConnection). */
+function useChatConnection(
+  userId: number | null,
+  ready: boolean,
+  transportRef: { current: ChatTransport | null },
+  viewingRef: { current: string | null },
+  setters: ChatSetters,
+): void {
+  useEffect(() => {
+    if (!ready || userId == null) {
+      clearState(setters);
+      return;
+    }
+    return openChatTransport(userId, transportRef, viewingRef, setters);
+  }, [ready, userId]);
+}
+
+/** Envio via socket. */
+function transportSendActions(transportRef: {
+  current: ChatTransport | null;
+}): Pick<
+  ChatContextValue,
+  | "sendGlobalMessage"
+  | "sendPrivateMessage"
+  | "sendPrivateTyping"
+  | "notifyPrivateRead"
+> {
+  return {
+    sendGlobalMessage: (text) => transportRef.current?.sendGlobalMessage(text),
+    sendPrivateMessage: (id, text) =>
+      transportRef.current?.sendPrivateMessage(id, text),
+    sendPrivateTyping: (id, isTyping) =>
+      transportRef.current?.sendPrivateTyping(id, isTyping),
+    notifyPrivateRead: (id, lastMessageId) =>
+      transportRef.current?.sendPrivateRead(id, lastMessageId),
+  };
+}
+
+/** Abas e leitura local. */
+function tabViewActions(
+  viewingRef: { current: string | null },
+  setters: ChatSetters,
+): Pick<
+  ChatContextValue,
+  "openPrivateTab" | "closePrivateTab" | "setViewingConversationId" | "markConversationRead"
+> {
   return {
     openPrivateTab: (tab) => {
-      setPrivateChatTabs((current) => upsertPrivateChatTab(current, tab));
+      setters.setTabs((current) => upsertPrivateChatTab(current, tab));
     },
     closePrivateTab: (conversationId) => {
-      setPrivateChatTabs((current) =>
+      setters.setTabs((current) =>
         current.filter((tab) => tab.conversationId !== conversationId),
       );
-      setUnread((current) => dropUnread(current, conversationId));
+      setters.setUnread((current) => dropUnread(current, conversationId));
+    },
+    setViewingConversationId: (id) => {
+      viewingRef.current = id;
+    },
+    markConversationRead: (id) => {
+      setters.setUnread((current) => dropUnread(current, id));
     },
   };
 }
 
-/** Ações de foco e leitura. */
-function chatViewActions(
-  viewingRef: MutableRefObject<string | null>,
-  setUnread: Dispatch<SetStateAction<Record<string, number>>>,
-): Pick<ChatContextValue, "setViewingConversationId" | "markConversationRead"> {
+/** Mensagens e abas privadas. */
+function useChatListsState() {
+  const [globalMessages, setGlobal] = useState<ChatMessage[]>([]);
+  const [privateMessagesByConversation, setPrivate] = useState<
+    Record<string, ChatMessage[]>
+  >({});
+  const [privateChatTabs, setTabs] = useState<PrivateChatTab[]>([]);
   return {
-    setViewingConversationId: (conversationId) => {
-      viewingRef.current = conversationId;
-    },
-    markConversationRead: (conversationId) => {
-      setUnread((current) => dropUnread(current, conversationId));
-    },
+    globalMessages,
+    privateMessagesByConversation,
+    privateChatTabs,
+    setGlobal,
+    setPrivate,
+    setTabs,
   };
 }
 
-/** Monta o valor publicado no ChatContext. */
-function buildChatContextValue(
-  state: ChatState,
-  transportRef: MutableRefObject<ChatTransport | null>,
-  viewingRef: MutableRefObject<string | null>,
-): ChatContextValue {
+/** Não lidas, typing, leitura e erro. */
+function useChatMetaState() {
+  const [unreadByConversation, setUnread] = useState<Record<string, number>>({});
+  const [typingByConversation, setTyping] = useState<
+    Record<string, string | null>
+  >({});
+  const [peerReadByConversation, setPeerRead] = useState<Record<string, string>>(
+    {},
+  );
+  const [error, setError] = useState<string | null>(null);
+  return {
+    unreadByConversation,
+    typingByConversation,
+    peerReadByConversation,
+    error,
+    setUnread,
+    setTyping,
+    setPeerRead,
+    setError,
+  };
+}
+
+/** Monta setters a partir dos hooks de estado. */
+function chatSettersFrom(
+  lists: ReturnType<typeof useChatListsState>,
+  meta: ReturnType<typeof useChatMetaState>,
+): ChatSetters {
+  return {
+    setGlobal: lists.setGlobal,
+    setPrivate: lists.setPrivate,
+    setTabs: lists.setTabs,
+    setUnread: meta.setUnread,
+    setTyping: meta.setTyping,
+    setPeerRead: meta.setPeerRead,
+    setError: meta.setError,
+  };
+}
+
+/** Estado React do provedor de chat. */
+function useChatProviderState(): ChatProviderState {
+  const lists = useChatListsState();
+  const meta = useChatMetaState();
+  const transportRef = useRef<ChatTransport | null>(null);
+  const viewingRef = useRef<string | null>(null);
+  return {
+    globalMessages: lists.globalMessages,
+    privateMessagesByConversation: lists.privateMessagesByConversation,
+    privateChatTabs: lists.privateChatTabs,
+    unreadByConversation: meta.unreadByConversation,
+    typingByConversation: meta.typingByConversation,
+    peerReadByConversation: meta.peerReadByConversation,
+    error: meta.error,
+    setters: chatSettersFrom(lists, meta),
+    transportRef,
+    viewingRef,
+  };
+}
+
+/** Valor exposto no contexto. */
+function buildChatContextValue(state: ChatProviderState): ChatContextValue {
   const unreadTotal = Object.values(state.unreadByConversation).reduce(
     (total, count) => total + count,
     0,
@@ -257,21 +325,29 @@ function buildChatContextValue(
     privateMessagesByConversation: state.privateMessagesByConversation,
     privateChatTabs: state.privateChatTabs,
     unreadByConversation: state.unreadByConversation,
+    typingByConversation: state.typingByConversation,
+    peerReadByConversation: state.peerReadByConversation,
     unreadTotal,
     error: state.error,
-    ...chatSendActions(transportRef),
-    ...chatOpenCloseActions(state.setPrivateChatTabs, state.setUnread),
-    ...chatViewActions(viewingRef, state.setUnread),
+    ...transportSendActions(state.transportRef),
+    ...tabViewActions(state.viewingRef, state.setters),
   };
 }
 
 /** Provedor do histórico e socket de chat. */
 export function ChatProvider({ children }: ChatProviderProps) {
   const { user, ready } = useAuth();
-  const state = useChatState();
-  const transportRef = useRef<ChatTransport | null>(null);
-  const viewingRef = useRef<string | null>(null);
-  useChatConnection(user?.id ?? null, ready, viewingRef, transportRef, state);
-  const value = buildChatContextValue(state, transportRef, viewingRef);
-  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
+  const state = useChatProviderState();
+  useChatConnection(
+    user?.id ?? null,
+    ready,
+    state.transportRef,
+    state.viewingRef,
+    state.setters,
+  );
+  return (
+    <ChatContext.Provider value={buildChatContextValue(state)}>
+      {children}
+    </ChatContext.Provider>
+  );
 }

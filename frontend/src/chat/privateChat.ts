@@ -22,6 +22,9 @@ export type ChatSession = {
   globalMessages: ChatMessage[];
   privateMessagesByConversation: Record<string, ChatMessage[]>;
   unreadByConversation: Record<string, number>;
+  typingNickname: string | null;
+  peerLastReadMessageId: string | null;
+  currentUserId: number | undefined;
   draft: string;
   error: string | null;
   canSendOnActiveTab: boolean;

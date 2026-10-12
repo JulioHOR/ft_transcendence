@@ -2,6 +2,15 @@
 export const profileUrl =
   import.meta.env.VITE_MOCK_PROFILE === "true" ? "/mock/profile" : "/api/profile";
 
+/** URL HTTP do upload de avatar: mock-api ou backend real. */
+export const profileAvatarUrl =
+  import.meta.env.VITE_MOCK_PROFILE === "true"
+    ? "/mock/profile/avatar"
+    : "/api/profile/avatar";
+
+/** Path do avatar padrão quando o usuário não tem foto. */
+export const defaultAvatarUrl = "/default-avatar.svg";
+
 /** Path do Socket.IO do chat: mock-api ou backend real. */
 export const chatSocketPath =
   import.meta.env.VITE_MOCK_CHAT === "true"

@@ -7,8 +7,12 @@ const backendMeUrl = process.env.BACKEND_ME_URL ?? "http://backend:8000/api/me";
 const port = Number(process.env.PORT ?? 3001);
 
 const nicknames = new Map();
+/** Avatares (data URL) por id de usuário. */
+const avatars = new Map();
+/** Versão do avatar para cache-bust na URL pública. */
+const avatarVersions = new Map();
 const presence = new Map();
-/** Catálogo de users (simula tabela users do BD). */
+/** Catálogo de usuários conhecidos pelo mock. */
 const users = new Map();
 
 /** Relações: { fromId, toId, status: "pending" | "accepted" } */
@@ -20,7 +24,7 @@ const globalChatMessages = [];
 const privateChatMessages = new Map();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 
 async function resolveUser(cookieHeader) {
   if (!cookieHeader) return null;
@@ -35,11 +39,20 @@ async function resolveUser(cookieHeader) {
   const nickname = String(data.nickname ?? "").trim();
   if (!Number.isFinite(id) || !nickname) return null;
 
+  nicknames.set(id, nickname);
+  users.set(id, { id, nickname });
   return { id, nickname };
 }
 
 function isOnline(userId) {
   return presence.get(userId)?.online === true;
+}
+
+/** URL pública leve do avatar (evita mandar base64 no socket). */
+function publicAvatarUrl(userId) {
+  if (!avatars.has(userId)) return null;
+  const version = avatarVersions.get(userId) ?? 0;
+  return `/mock/avatar/${userId}?v=${version}`;
 }
 
 function friendsListFor(userId) {
@@ -65,6 +78,7 @@ function friendsListFor(userId) {
     list.push({
       id: profile.id,
       nickname: profile.nickname,
+      avatarUrl: publicAvatarUrl(otherId),
       online: isOnline(otherId),
       status: edge.status,
       relation,
@@ -74,14 +88,40 @@ function friendsListFor(userId) {
   return list;
 }
 
+/** Resolve o nickname de um usuário pelo id. */
+function nicknameFor(id) {
+  return nicknames.get(id) ?? users.get(id)?.nickname ?? null;
+}
+
+app.get("/mock/avatar/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const dataUrl = avatars.get(id);
+  if (!Number.isFinite(id) || dataUrl == null) {
+    res.status(404).end();
+    return;
+  }
+  const match = /^data:(image\/[\w.+-]+);base64,(.+)$/s.exec(dataUrl);
+  if (match == null) {
+    res.status(500).end();
+    return;
+  }
+  res.setHeader("Content-Type", match[1]);
+  res.setHeader("Cache-Control", "no-cache");
+  res.send(Buffer.from(match[2], "base64"));
+});
+
 app.get("/mock/profile", (req, res) => {
   const id = Number(req.query.id);
-  const nickname = nicknames.get(id);
+  const nickname = nicknameFor(id);
   if (!Number.isFinite(id) || nickname == null) {
     res.status(404).end();
     return;
   }
-  res.json({ id, nickname });
+  res.json({
+    id,
+    nickname,
+    avatarUrl: publicAvatarUrl(id),
+  });
 });
 
 app.patch("/mock/profile", (req, res) => {
@@ -92,7 +132,42 @@ app.patch("/mock/profile", (req, res) => {
     return;
   }
   nicknames.set(id, nickname);
-  res.json({ id, email: String(req.body?.email ?? ""), nickname });
+  const profile = users.get(id);
+  if (profile) users.set(id, { ...profile, nickname });
+  res.json({
+    id,
+    email: String(req.body?.email ?? ""),
+    nickname,
+    avatarUrl: publicAvatarUrl(id),
+  });
+});
+
+app.post("/mock/profile/avatar", async (req, res) => {
+  const user = await resolveUser(req.headers.cookie);
+  if (user == null) {
+    res.status(401).end();
+    return;
+  }
+  const avatarDataUrl = String(req.body?.avatarDataUrl ?? "").trim();
+  if (!avatarDataUrl.startsWith("data:image/")) {
+    res.status(400).json({ error: "avatarDataUrl inválido" });
+    return;
+  }
+  if (avatarDataUrl.length > 800_000) {
+    res.status(400).json({ error: "imagem muito grande (máx. 600KB)" });
+    return;
+  }
+  avatars.set(user.id, avatarDataUrl);
+  avatarVersions.set(user.id, Date.now());
+  nicknames.set(user.id, user.nickname);
+  users.set(user.id, { id: user.id, nickname: user.nickname });
+  const avatarUrl = publicAvatarUrl(user.id);
+  broadcastFriends();
+  res.json({
+    id: user.id,
+    nickname: user.nickname,
+    avatarUrl,
+  });
 });
 
 app.post("/mock/friends", async (req, res) => {
@@ -281,6 +356,7 @@ function storeGlobalMessage(userId, nickname, text) {
     id: randomUUID(),
     userId,
     nickname,
+    avatarUrl: publicAvatarUrl(userId),
     text,
     createdAt: Date.now(),
   };
@@ -296,6 +372,7 @@ function storePrivateMessage(userId, nickname, otherUserId, text) {
     id: randomUUID(),
     userId,
     nickname,
+    avatarUrl: publicAvatarUrl(userId),
     otherUserId,
     conversationId,
     text,
@@ -382,6 +459,32 @@ io.on("connection", (socket) => {
     }
     io.to(`user:${socket.data.userId}`).emit("chat:private:message", message);
     io.to(`user:${otherUserId}`).emit("chat:private:message", message);
+  });
+
+  socket.on("chat:private:typing", (payload) => {
+    const otherUserId = Number(payload?.otherUserId);
+    const isTyping = payload?.isTyping === true;
+    if (!Number.isFinite(otherUserId) || socket.data.userId == null) return;
+    if (!areAcceptedFriends(socket.data.userId, otherUserId)) return;
+    io.to(`user:${otherUserId}`).emit("chat:private:typing", {
+      userId: socket.data.userId,
+      nickname: socket.data.nickname,
+      conversationId: privateConversationId(socket.data.userId, otherUserId),
+      isTyping,
+    });
+  });
+
+  socket.on("chat:private:read", (payload) => {
+    const otherUserId = Number(payload?.otherUserId);
+    const lastMessageId = String(payload?.lastMessageId ?? "");
+    if (!Number.isFinite(otherUserId) || !lastMessageId) return;
+    if (socket.data.userId == null) return;
+    if (!areAcceptedFriends(socket.data.userId, otherUserId)) return;
+    io.to(`user:${otherUserId}`).emit("chat:private:read", {
+      userId: socket.data.userId,
+      conversationId: privateConversationId(socket.data.userId, otherUserId),
+      lastMessageId,
+    });
   });
 });
 

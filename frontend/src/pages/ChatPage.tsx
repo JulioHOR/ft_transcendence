@@ -1,79 +1,186 @@
 import { type SubmitEvent } from "react";
+import { Link } from "react-router-dom";
 import type { ChatMessage } from "../api/chat";
+import type { Friend } from "../api/friends";
+import { liveAvatarUrl } from "../api/profile";
 import { useAuth } from "../app/auth-session";
+import { useFriends } from "../app/friends-session";
 import { GLOBAL_CHAT_TAB_ID, type ChatSession } from "../chat/privateChat";
 import { useChatSession } from "../chat/useChatSession";
+import { Avatar } from "../ui/Avatar";
 import { ErrorText } from "../ui/ErrorText";
 import { ui } from "../ui/classes";
 
-/** Lista as mensagens da aba ativa. */
-function MessageList({ messages }: { messages: ChatMessage[] }) {
+type MessageReceiptInfo = {
+  messageId: string;
+  kind: "entregue" | "visualizado";
+};
+
+/** Recibo da última mensagem própria (entregue / visualizado). */
+function lastOwnReceipt(
+  messages: ChatMessage[],
+  currentUserId: number | undefined,
+  peerLastReadMessageId: string | null,
+): MessageReceiptInfo | null {
+  if (currentUserId == null) return null;
+  const lastOwn = messages.findLast((message) => message.userId === currentUserId);
+  if (lastOwn == null) return null;
+  if (peerLastReadMessageId == null) {
+    return { messageId: lastOwn.id, kind: "entregue" };
+  }
+  const readIndex = messages.findIndex((m) => m.id === peerLastReadMessageId);
+  const ownIndex = messages.findIndex((m) => m.id === lastOwn.id);
+  const seen = readIndex >= 0 && ownIndex >= 0 && ownIndex <= readIndex;
+  return { messageId: lastOwn.id, kind: seen ? "visualizado" : "entregue" };
+}
+
+/** Avatar atual do autor (sessão / friends, com fallback da mensagem). */
+function messageAvatarUrl(
+  message: ChatMessage,
+  selfId: number | undefined,
+  selfAvatarUrl: string | null | undefined,
+  friends: Friend[],
+): string | null {
+  return liveAvatarUrl(message.userId, {
+    selfId,
+    selfAvatarUrl,
+    friends,
+    fallback: message.avatarUrl,
+  });
+}
+
+/** Ícone de recibo: ✓ entregue, ✓✓ visualizado. */
+function MessageReceipt(props: { kind: "entregue" | "visualizado" }) {
+  const className =
+    props.kind === "visualizado" ? ui.receiptSeen : ui.receiptDelivered;
+  const marks = props.kind === "visualizado" ? "✓✓" : "✓";
   return (
-    <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-      {messages.map((message) => (
-        <li key={message.id} className={ui.muted}>
-          <strong className="text-zinc-200">{message.nickname}</strong>: {message.text}
-        </li>
-      ))}
-    </ul>
+    <span className={className} aria-label={props.kind}>
+      {marks}
+    </span>
   );
 }
 
-/** Campo de digitação e botão de envio. */
-function MessageComposer(props: {
-  value: string;
-  disabled: boolean;
-  onChange: (value: string) => void;
-  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
+/** Uma mensagem: avatar, nome, texto e recibo opcional. */
+function MessageItem(props: {
+  message: ChatMessage;
+  avatarUrl: string | null;
+  receipt: "entregue" | "visualizado" | null;
 }) {
   return (
-    <form className="flex gap-2" onSubmit={props.onSubmit}>
-      <input
-        className={ui.field}
-        value={props.value}
-        disabled={props.disabled}
-        onChange={(event) => props.onChange(event.target.value)}
-        placeholder="mensagem"
+    <li className={ui.messageRow}>
+      <Avatar
+        userId={props.message.userId}
+        avatarUrl={props.avatarUrl}
+        alt={props.message.nickname}
+        size="sm"
       />
-      <button className={ui.btn} type="submit" disabled={props.disabled}>Enviar</button>
-    </form>
+      <p className={ui.muted}>
+        <Link className={ui.nameLink} to={`/profile/${props.message.userId}`}>
+          {props.message.nickname}
+        </Link>
+        : {props.message.text}
+        {props.receipt ? <MessageReceipt kind={props.receipt} /> : null}
+      </p>
+    </li>
   );
 }
 
-/** Rótulo da aba com contagem de não lidas, se houver. */
-function tabLabel(label: string, unread: number | undefined): string {
-  if (unread == null || unread <= 0) return label;
-  return `${label} (${unread})`;
-}
-
-/** Botão de uma aba do chat. */
-function ChatTabButton(props: {
-  label: string;
-  tabId: string;
-  activeTabId: string;
-  unread?: number;
-  onSelect: (tabId: string) => void;
+/** Itens da lista de mensagens. */
+function MessageListItems(props: {
+  messages: ChatMessage[];
+  currentUserId: number | undefined;
+  selfAvatarUrl: string | null | undefined;
+  friends: Friend[];
+  receipt: MessageReceiptInfo | null;
 }) {
-  const className = props.activeTabId === props.tabId ? ui.tabActive : ui.tab;
+  return props.messages.map((message) => (
+    <MessageItem
+      key={message.id}
+      message={message}
+      avatarUrl={messageAvatarUrl(
+        message,
+        props.currentUserId,
+        props.selfAvatarUrl,
+        props.friends,
+      )}
+      receipt={
+        props.receipt != null && props.receipt.messageId === message.id
+          ? props.receipt.kind
+          : null
+      }
+    />
+  ));
+}
+
+/** Rodapé do quadro: alguém está digitando. */
+function TypingFooter({ nickname }: { nickname: string | null }) {
+  if (nickname == null) return null;
   return (
-    <button type="button" className={className} onClick={() => props.onSelect(props.tabId)}>
-      {tabLabel(props.label, props.unread)}
-    </button>
+    <p className={ui.messageFooter} role="status">
+      {nickname} está digitando…
+    </p>
   );
+}
+
+/** Recibo da aba privada, ou null no global. */
+function privateTabReceipt(
+  session: ChatSession,
+  messages: ChatMessage[],
+  isPrivate: boolean,
+): MessageReceiptInfo | null {
+  if (!isPrivate) return null;
+  return lastOwnReceipt(
+    messages,
+    session.currentUserId,
+    session.peerLastReadMessageId,
+  );
+}
+
+/** Quadro de mensagens com “digitando…” no rodapé. */
+function MessageList(props: {
+  session: ChatSession;
+  selfAvatarUrl: string | null | undefined;
+  friends: Friend[];
+  isPrivate: boolean;
+}) {
+  const messages = activeTabMessages(props.session);
+  return (
+    <div className={ui.messagePanel}>
+      <ul className={ui.messageList}>
+        <MessageListItems
+          messages={messages}
+          currentUserId={props.session.currentUserId}
+          selfAvatarUrl={props.selfAvatarUrl}
+          friends={props.friends}
+          receipt={privateTabReceipt(props.session, messages, props.isPrivate)}
+        />
+      </ul>
+      <TypingFooter
+        nickname={props.isPrivate ? props.session.typingNickname : null}
+      />
+    </div>
+  );
+}
+
+/** Rótulo da aba privada com contagem de não lidas. */
+function privateTabLabel(
+  tab: ChatSession["privateChatTabs"][number],
+  unreadByConversation: ChatSession["unreadByConversation"],
+): string {
+  const unread = unreadByConversation[tab.conversationId];
+  if (unread != null && unread > 0) return `${tab.otherNickname} (${unread})`;
+  return tab.otherNickname;
 }
 
 /** Botão × para fechar aba privada. */
-function CloseTabButton(props: {
-  label: string;
-  tabId: string;
-  onClose: (tabId: string) => void;
-}) {
+function TabCloseButton(props: { label: string; onClose: () => void }) {
   return (
     <button
       type="button"
       className={ui.tabClose}
       aria-label={`Fechar chat com ${props.label}`}
-      onClick={() => props.onClose(props.tabId)}
+      onClick={props.onClose}
     >
       ×
     </button>
@@ -84,90 +191,98 @@ function CloseTabButton(props: {
 function PrivateTabChip(props: {
   label: string;
   tabId: string;
-  activeTabId: string;
-  unread?: number;
+  active: boolean;
   onSelect: (tabId: string) => void;
   onClose: (tabId: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-1">
-      <ChatTabButton {...props} />
-      <CloseTabButton
+    <div className={ui.inlineCenter}>
+      <button
+        type="button"
+        className={props.active ? ui.tabActive : ui.tab}
+        onClick={() => props.onSelect(props.tabId)}
+      >
+        {props.label}
+      </button>
+      <TabCloseButton
         label={props.label}
-        tabId={props.tabId}
-        onClose={props.onClose}
+        onClose={() => props.onClose(props.tabId)}
       />
     </div>
   );
 }
 
-/** Abas privadas abertas na sessão. */
-function PrivateTabButtons(props: {
-  activeTabId: string;
-  privateChatTabs: ChatSession["privateChatTabs"];
-  unreadByConversation: ChatSession["unreadByConversation"];
-  onSelect: (tabId: string) => void;
-  onClose: (tabId: string) => void;
-}) {
-  return props.privateChatTabs.map((tab) => (
-    <PrivateTabChip
-      key={tab.conversationId}
-      label={tab.otherNickname}
-      tabId={tab.conversationId}
-      activeTabId={props.activeTabId}
-      unread={props.unreadByConversation[tab.conversationId]}
-      onSelect={props.onSelect}
-      onClose={props.onClose}
-    />
-  ));
-}
-
-/** Barra de abas: global + conversas privadas. */
-function ChatTabBar(props: {
-  activeTabId: string;
-  privateChatTabs: ChatSession["privateChatTabs"];
-  unreadByConversation: ChatSession["unreadByConversation"];
-  onSelect: (tabId: string) => void;
-  onClose: (tabId: string) => void;
-}) {
+/** Barra de abas: Global + conversas privadas abertas. */
+function ChatTabBar({ session }: { session: ChatSession }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <ChatTabButton
-        label="Global"
-        tabId={GLOBAL_CHAT_TAB_ID}
-        activeTabId={props.activeTabId}
-        onSelect={props.onSelect}
-      />
-      <PrivateTabButtons {...props} />
+    <div className={ui.wrap}>
+      <button
+        type="button"
+        className={
+          session.activeTabId === GLOBAL_CHAT_TAB_ID ? ui.tabActive : ui.tab
+        }
+        onClick={() => session.selectTab(GLOBAL_CHAT_TAB_ID)}
+      >
+        Global
+      </button>
+      {session.privateChatTabs.map((tab) => (
+        <PrivateTabChip
+          key={tab.conversationId}
+          label={privateTabLabel(tab, session.unreadByConversation)}
+          tabId={tab.conversationId}
+          active={session.activeTabId === tab.conversationId}
+          onSelect={session.selectTab}
+          onClose={session.closeTab}
+        />
+      ))}
     </div>
   );
 }
 
-/** Mensagens exibidas conforme a aba selecionada. */
-function messagesForActiveTab(session: ChatSession): ChatMessage[] {
+/** Campo de texto do composer. */
+function ChatDraftInput({ session }: { session: ChatSession }) {
+  return (
+    <input
+      id="chat-draft"
+      className={ui.field}
+      value={session.draft}
+      disabled={!session.canSendOnActiveTab}
+      onChange={(event) => session.setDraft(event.target.value)}
+      placeholder="mensagem"
+      aria-label="Mensagem"
+    />
+  );
+}
+
+/** Formulário de envio na aba ativa. */
+function ChatComposer({ session }: { session: ChatSession }) {
+  function onSubmit(event: SubmitEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    session.submitDraft();
+  }
+  return (
+    <form className={ui.inline} onSubmit={onSubmit}>
+      <ChatDraftInput session={session} />
+      <button
+        className={ui.btn}
+        type="submit"
+        disabled={!session.canSendOnActiveTab}
+      >
+        Enviar
+      </button>
+    </form>
+  );
+}
+
+/** Mensagens da aba ativa (global ou conversa privada). */
+function activeTabMessages(session: ChatSession): ChatMessage[] {
   if (session.activeTabId === GLOBAL_CHAT_TAB_ID) return session.globalMessages;
   return session.privateMessagesByConversation[session.activeTabId] ?? [];
 }
 
-/** Composer ligado ao submit da sessão. */
-function SessionComposer({ session }: { session: ChatSession }) {
-  return (
-    <MessageComposer
-      value={session.draft}
-      disabled={!session.canSendOnActiveTab}
-      onChange={session.setDraft}
-      onSubmit={(event) => {
-        event.preventDefault();
-        session.submitDraft();
-      }}
-    />
-  );
-}
-
-/** Aviso quando a aba privada não permite envio. */
-function PrivateSendBlockedHint({ session }: { session: ChatSession }) {
-  if (session.activeTabId === GLOBAL_CHAT_TAB_ID) return null;
-  if (session.canSendOnActiveTab) return null;
+/** Aviso quando a amizade encerrou e o envio está bloqueado. */
+function EndedFriendshipNotice(props: { show: boolean }) {
+  if (!props.show) return null;
   return (
     <p className={ui.muted} role="status">
       amizade encerrada — não é possível enviar mensagens neste chat
@@ -175,28 +290,42 @@ function PrivateSendBlockedHint({ session }: { session: ChatSession }) {
   );
 }
 
-/** Corpo visual da página de chat. */
-function ChatPageView(session: ChatSession) {
+/** Conteúdo da página (abas, lista, composer). */
+function ChatContent(props: {
+  session: ChatSession;
+  selfAvatarUrl: string | null | undefined;
+  friends: Friend[];
+}) {
+  const { session } = props;
+  const isPrivate = session.activeTabId !== GLOBAL_CHAT_TAB_ID;
   return (
-    <main className={`${ui.page} gap-4 p-4 sm:p-6`}>
-      <h1 className={ui.title}>Chat</h1>
-      <ChatTabBar
-        activeTabId={session.activeTabId}
-        privateChatTabs={session.privateChatTabs}
-        unreadByConversation={session.unreadByConversation}
-        onSelect={session.selectTab}
-        onClose={session.closeTab}
-      />
+    <div className={ui.content}>
+      <ChatTabBar session={session} />
       <ErrorText error={session.error} />
-      <PrivateSendBlockedHint session={session} />
-      <MessageList messages={messagesForActiveTab(session)} />
-      <SessionComposer session={session} />
-    </main>
+      <EndedFriendshipNotice show={isPrivate && !session.canSendOnActiveTab} />
+      <MessageList
+        session={session}
+        selfAvatarUrl={props.selfAvatarUrl}
+        friends={props.friends}
+        isPrivate={isPrivate}
+      />
+      <ChatComposer session={session} />
+    </div>
   );
 }
 
 /** Página de chat global e conversas privadas. */
 export function ChatPage() {
   const { user } = useAuth();
-  return <ChatPageView {...useChatSession(user?.id)} />;
+  const { friends } = useFriends();
+  return (
+    <main className={ui.pageShell}>
+      <h1 className={ui.title}>Chat</h1>
+      <ChatContent
+        session={useChatSession(user?.id)}
+        selfAvatarUrl={user?.avatarUrl}
+        friends={friends}
+      />
+    </main>
+  );
 }

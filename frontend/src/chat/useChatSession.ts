@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useChat } from "../app/chat-session";
 import { useFriends } from "../app/friends-session";
+import { useLatestRef } from "../app/useLatestRef";
 import type { Friend } from "../api/friends";
 import {
   GLOBAL_CHAT_TAB_ID,
@@ -54,6 +55,7 @@ function useOpenTabFromQuery(
   setActiveTabId: (tabId: string) => void,
 ): void {
   const [searchParams] = useSearchParams();
+  const chatRef = useLatestRef(chat);
   useEffect(() => {
     if (currentUserId == null) return;
     const tab = privateChatTabFromQuery(
@@ -62,20 +64,22 @@ function useOpenTabFromQuery(
       searchParams.get("otherNickname"),
     );
     if (tab == null || !isAcceptedFriend(friends, tab.otherUserId)) return;
-    chat.openPrivateTab(tab);
+    chatRef.current.openPrivateTab(tab);
     setActiveTabId(tab.conversationId);
-    markPrivateRead(tab.conversationId, chat);
-  }, [currentUserId, friends, searchParams, setActiveTabId]);
+    markPrivateRead(tab.conversationId, chatRef.current);
+  }, [currentUserId, friends, searchParams, setActiveTabId, chatRef]);
 }
 
 /** Sincroniza aba visível / leitura. */
 function useSyncViewing(activeTabId: string, chat: ChatApi): void {
   const count = chat.privateMessagesByConversation[activeTabId]?.length ?? 0;
+  const chatRef = useLatestRef(chat);
   useEffect(() => {
-    chat.setViewingConversationId(activeTabId);
-    markPrivateRead(activeTabId, chat);
-    return () => chat.setViewingConversationId(null);
-  }, [activeTabId, count]);
+    const api = chatRef.current;
+    api.setViewingConversationId(activeTabId);
+    markPrivateRead(activeTabId, api);
+    return () => api.setViewingConversationId(null);
+  }, [activeTabId, count, chatRef]);
 }
 
 /** Volta ao global se a aba privada foi fechada. */

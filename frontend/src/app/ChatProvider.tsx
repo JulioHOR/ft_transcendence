@@ -20,6 +20,7 @@ import {
 } from "../chat/privateChat";
 import { useAuth } from "./auth-session";
 import { ChatContext, type ChatContextValue } from "./chat-session";
+import { useLatestRef } from "./useLatestRef";
 
 type ChatProviderProps = {
   children: ReactNode;
@@ -182,13 +183,19 @@ function useChatConnection(
   viewingRef: { current: string | null },
   setters: ChatSetters,
 ): void {
+  const settersRef = useLatestRef(setters);
   useEffect(() => {
     if (!ready || userId == null) {
-      clearState(setters);
+      clearState(settersRef.current);
       return;
     }
-    return openChatTransport(userId, transportRef, viewingRef, setters);
-  }, [ready, userId]);
+    return openChatTransport(
+      userId,
+      transportRef,
+      viewingRef,
+      settersRef.current,
+    );
+  }, [ready, userId, transportRef, viewingRef, settersRef]);
 }
 
 /** Envio via socket. */

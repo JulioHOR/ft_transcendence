@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type ChangeEvent, type SubmitEvent } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type RefObject,
+  type SubmitEvent,
+} from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   getProfile,
@@ -123,7 +131,7 @@ async function saveAvatarFile(
 
 /** Botão que abre o seletor de arquivo de avatar. */
 function AvatarPickButton(props: {
-  inputRef: { current: HTMLInputElement | null };
+  inputRef: RefObject<HTMLInputElement | null>;
   pending: boolean;
   hasAvatar: boolean;
 }) {
@@ -145,10 +153,10 @@ function AvatarPickButton(props: {
 }
 
 /** Input oculto de arquivo de avatar. */
-function AvatarFileInput(props: {
-  inputRef: { current: HTMLInputElement | null };
-  onFile: (file: File | undefined) => void;
-}) {
+const AvatarFileInput = forwardRef<
+  HTMLInputElement,
+  { onFile: (file: File | undefined) => void }
+>(function AvatarFileInput(props, ref) {
   function onChange(event: ChangeEvent<HTMLInputElement>): void {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -156,14 +164,14 @@ function AvatarFileInput(props: {
   }
   return (
     <input
-      ref={props.inputRef}
+      ref={ref}
       type="file"
       accept="image/*"
       className={ui.fileInput}
       onChange={onChange}
     />
   );
-}
+});
 
 /** Upload / troca de avatar do próprio perfil. */
 function AvatarEditor(props: {
@@ -181,7 +189,7 @@ function AvatarEditor(props: {
     <div className={ui.stack}>
       <span className={ui.label}>Avatar</span>
       <Avatar avatarUrl={props.avatarUrl} alt={props.nickname} size="lg" />
-      <AvatarFileInput inputRef={inputRef} onFile={onFile} />
+      <AvatarFileInput ref={inputRef} onFile={onFile} />
       <AvatarPickButton
         inputRef={inputRef}
         pending={pending}

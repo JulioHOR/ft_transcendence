@@ -1,29 +1,87 @@
 import { io, type Socket } from "socket.io-client";
-import { chatSocketPath } from "./endpoints";
-import { getProfile } from "./profile";
+import { chatHistoryUrl, chatSocketPath } from "./endpoints";
+import { errorMessage } from "./http";
 
-/** Mensagem do chat global. */
+/** Mensagem do chat global ou de uma conversa privada. */
 export type ChatMessage = {
   id: string;
   userId: number;
   nickname: string;
+  avatarUrl?: string | null;
   text: string;
   createdAt: number;
+  otherUserId?: number;
+  conversationId?: string;
 };
 
-/** Interface de transporte do chat. */
+/** Conversa privada retornada pelo histórico. */
+export type PrivateConversationHistory = {
+  conversationId: string;
+  otherUserId: number;
+  otherNickname: string;
+  messages: ChatMessage[];
+};
+
+/** Resposta de GET /chat/history. */
+export type ChatHistory = {
+  global: ChatMessage[];
+  conversations: PrivateConversationHistory[];
+};
+
+/** Evento de digitação no chat privado. */
+export type PrivateTypingEvent = {
+  userId: number;
+  nickname: string;
+  conversationId: string;
+  isTyping: boolean;
+};
+
+/** Evento de leitura no chat privado. */
+export type PrivateReadEvent = {
+  userId: number;
+  conversationId: string;
+  lastMessageId: string;
+};
+
+/** Transporte Socket.IO do chat. */
 export type ChatTransport = {
   connect(): Promise<void>;
   disconnect(): void;
-  send(text: string): void;
-  onMessage(handler: (message: ChatMessage) => void): void;
+  sendGlobalMessage(text: string): void;
+  sendPrivateMessage(otherUserId: number, text: string): void;
+  sendPrivateTyping(otherUserId: number, isTyping: boolean): void;
+  sendPrivateRead(otherUserId: number, lastMessageId: string): void;
+  onGlobalMessage(handler: (message: ChatMessage) => void): void;
+  onPrivateMessage(handler: (message: ChatMessage) => void): void;
+  onPrivateError(handler: (message: string) => void): void;
+  onPrivateTyping(handler: (event: PrivateTypingEvent) => void): void;
+  onPrivateRead(handler: (event: PrivateReadEvent) => void): void;
 };
 
-/** Estado interno do socket do chat. */
-type ChatSocketState = {
-  socket: Socket | null;
-  messageHandler: ((message: ChatMessage) => void) | null;
+type ChatHandlers = {
+  onGlobal: ((message: ChatMessage) => void) | null;
+  onPrivate: ((message: ChatMessage) => void) | null;
+  onError: ((message: string) => void) | null;
+  onTyping: ((event: PrivateTypingEvent) => void) | null;
+  onRead: ((event: PrivateReadEvent) => void) | null;
 };
+
+/** Monta o id da conversa privada a partir do par de users. */
+export function buildPrivateConversationId(
+  userId: number,
+  otherUserId: number,
+): string {
+  return [userId, otherUserId].sort((left, right) => left - right).join(":");
+}
+
+/** Busca o histórico de chat no servidor. */
+export async function fetchChatHistory(): Promise<ChatHistory> {
+  const response = await fetch(chatHistoryUrl, { credentials: "include" });
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "falha ao carregar chat"));
+  }
+  return response.json() as Promise<ChatHistory>;
+}
 
 /** Espera o socket conectar ou falhar. */
 function waitForConnection(socket: Socket): Promise<void> {
@@ -33,44 +91,106 @@ function waitForConnection(socket: Socket): Promise<void> {
   });
 }
 
-/** Abre a conexão Socket.IO do chat. */
-async function connectChat(state: ChatSocketState): Promise<void> {
-  state.socket = io({ path: chatSocketPath });
-  state.socket.on("chat:message", (message: ChatMessage) => {
-    state.messageHandler?.(message);
+/** Liga os eventos Socket.IO aos handlers. */
+function attachSocketListeners(socket: Socket, handlers: ChatHandlers): void {
+  socket.on("chat:message", (message: ChatMessage) => handlers.onGlobal?.(message));
+  socket.on("chat:private:message", (message: ChatMessage) => {
+    handlers.onPrivate?.(message);
   });
-  await waitForConnection(state.socket);
+  socket.on("chat:private:error", (payload: { message?: string }) => {
+    handlers.onError?.(payload?.message ?? "falha no chat privado");
+  });
+  socket.on("chat:private:typing", (event: PrivateTypingEvent) => {
+    handlers.onTyping?.(event);
+  });
+  socket.on("chat:private:read", (event: PrivateReadEvent) => {
+    handlers.onRead?.(event);
+  });
 }
 
-/** Encerra a conexão Socket.IO do chat. */
-function disconnectChat(state: ChatSocketState): void {
-  state.socket?.disconnect();
-  state.socket = null;
-  state.messageHandler = null;
-}
-
-/** Envia uma mensagem no chat com os dados do perfil atual. */
-function sendChatMessage(state: ChatSocketState, text: string): void {
-  void getProfile()
-    .then((user) => {
-      state.socket?.emit("chat:send", {
-        text,
-        userId: user.id,
-        nickname: user.nickname,
-      });
-    })
-    .catch(() => undefined);
-}
-
-/** Cria o transporte de chat apontando para o path em endpoints. */
-export function createChatTransport(): ChatTransport {
-  const state: ChatSocketState = { socket: null, messageHandler: null };
+/** Métodos de envio do transporte. */
+function chatSendApi(getSocket: () => Socket | null): Pick<
+  ChatTransport,
+  | "sendGlobalMessage"
+  | "sendPrivateMessage"
+  | "sendPrivateTyping"
+  | "sendPrivateRead"
+> {
   return {
-    connect: () => connectChat(state),
-    disconnect: () => disconnectChat(state),
-    send: (text) => sendChatMessage(state, text),
-    onMessage: (handler) => {
-      state.messageHandler = handler;
+    sendGlobalMessage: (text) => getSocket()?.emit("chat:send", { text }),
+    sendPrivateMessage: (otherUserId, text) =>
+      getSocket()?.emit("chat:private:send", { otherUserId, text }),
+    sendPrivateTyping: (otherUserId, isTyping) =>
+      getSocket()?.emit("chat:private:typing", { otherUserId, isTyping }),
+    sendPrivateRead: (otherUserId, lastMessageId) =>
+      getSocket()?.emit("chat:private:read", { otherUserId, lastMessageId }),
+  };
+}
+
+/** Handlers de mensagem e erro. */
+function chatMessageHandlers(handlers: ChatHandlers): Pick<
+  ChatTransport,
+  "onGlobalMessage" | "onPrivateMessage" | "onPrivateError"
+> {
+  return {
+    onGlobalMessage: (handler) => {
+      handlers.onGlobal = handler;
     },
+    onPrivateMessage: (handler) => {
+      handlers.onPrivate = handler;
+    },
+    onPrivateError: (handler) => {
+      handlers.onError = handler;
+    },
+  };
+}
+
+/** Handlers de typing e read. */
+function chatPresenceHandlers(handlers: ChatHandlers): Pick<
+  ChatTransport,
+  "onPrivateTyping" | "onPrivateRead"
+> {
+  return {
+    onPrivateTyping: (handler) => {
+      handlers.onTyping = handler;
+    },
+    onPrivateRead: (handler) => {
+      handlers.onRead = handler;
+    },
+  };
+}
+
+/** Abre a conexão do transporte. */
+async function connectTransport(
+  handlers: ChatHandlers,
+  setSocket: (socket: Socket) => void,
+): Promise<void> {
+  const socket = io({ path: chatSocketPath, withCredentials: true });
+  setSocket(socket);
+  attachSocketListeners(socket, handlers);
+  await waitForConnection(socket);
+}
+
+/** Cria um transporte de chat via Socket.IO. */
+export function createChatTransport(): ChatTransport {
+  let socket: Socket | null = null;
+  const handlers: ChatHandlers = {
+    onGlobal: null,
+    onPrivate: null,
+    onError: null,
+    onTyping: null,
+    onRead: null,
+  };
+  return {
+    connect: () => connectTransport(handlers, (next) => {
+      socket = next;
+    }),
+    disconnect() {
+      socket?.disconnect();
+      socket = null;
+    },
+    ...chatSendApi(() => socket),
+    ...chatMessageHandlers(handlers),
+    ...chatPresenceHandlers(handlers),
   };
 }

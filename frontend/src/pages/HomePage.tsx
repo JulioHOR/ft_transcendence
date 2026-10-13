@@ -35,18 +35,18 @@ async function fetchListing(): Promise<string> {
   return rows.map((m) => `${m.id}: ${m.content}`).join(" | ");
 }
 
-/** Campo de formulário com label acessível (somente leitores de tela). */
+/** Campo de formulário com label visível. */
 function LabeledInput(
   props: { id: string; label: string } & React.ComponentProps<"input">,
 ) {
   const { id, label, ...inputProps } = props;
   return (
-    <>
-      <label className="sr-only" htmlFor={id}>
+    <div className={ui.fieldBlock}>
+      <label className={ui.label} htmlFor={id}>
         {label}
       </label>
       <input id={id} className={ui.field} {...inputProps} />
-    </>
+    </div>
   );
 }
 
@@ -138,7 +138,7 @@ function MessageListing({ listing, setListing, setError }: MessageListingProps) 
 function BoardError({ error }: { error: string | null }) {
   if (error === null) return null;
   return (
-    <p className="text-sm text-red-400" role="alert">
+    <p className={ui.error} role="alert">
       {error}
     </p>
   );
@@ -165,7 +165,7 @@ function HomeSessionBar() {
     return <p className={ui.muted}>Não logado</p>;
   }
   return (
-    <>
+    <div className={ui.inlineCenter}>
       <p className={ui.muted}>Olá, {user.nickname}</p>
       <button
         className={ui.btn}
@@ -174,7 +174,7 @@ function HomeSessionBar() {
       >
         Sair
       </button>
-    </>
+    </div>
   );
 }
 
@@ -187,12 +187,18 @@ export function HomePage() {
   const [listing, setListing] = useState("");
   const [error, setError] = useState<string | null>(null);
   return (
-    <main className={`${ui.page} gap-4 p-4 sm:p-6`}>
+    <main className={ui.pageShell}>
       <h1 className={ui.title}>ft_transcendence</h1>
-      <HomeSessionBar />
-      <MessageForm draft={draft} setDraft={setDraft} setError={setError} />
-      <MessageListing listing={listing} setListing={setListing} setError={setError} />
-      <BoardError error={error} />
+      <div className={ui.content}>
+        <HomeSessionBar />
+        <div className={ui.panel}>
+          <MessageForm draft={draft} setDraft={setDraft} setError={setError} />
+        </div>
+        <div className={ui.panel}>
+          <MessageListing listing={listing} setListing={setListing} setError={setError} />
+        </div>
+        <BoardError error={error} />
+      </div>
     </main>
   );
 }

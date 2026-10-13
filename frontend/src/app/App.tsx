@@ -10,6 +10,11 @@ import { RequireAuth } from "./RequireAuth";
 import { ProfilePage } from "../pages/ProfilePage";
 import { ChatPage } from "../pages/ChatPage";
 
+import { FriendsProvider } from "./FriendsProvider";
+import { ChatProvider } from "./ChatProvider";
+import { useChat } from "./chat-session";
+import { FriendsPage } from "../pages/FriendsPage";
+
 /**
  * Carregamento preguiçoso do Jogo.
  * Carrega o módulo do jogo somente quando acessado via rota.
@@ -19,16 +24,33 @@ const PongPage = lazy(async () => {
   return { default: module.PongPage };
 });
 
+/** Link da nav com badge opcional de não lidas. */
+function NavLinkWithBadge(props: {
+  to: string;
+  label: string;
+  unread: number;
+}) {
+  const text =
+    props.unread > 0 ? `${props.label} (${props.unread})` : props.label;
+  return (
+    <Link className={ui.link} to={props.to}>
+      {text}
+    </Link>
+  );
+}
+
 /**
  * Estrutura (componentes) de navegação da aplicação.
  */
 function AppNav() {
+  const { unreadTotal } = useChat();
   return (
     <nav aria-label="Principal" className={`flex gap-4 text-sm ${ui.bar}`}>
       <Link className={ui.link} to="/login">Login</Link>
       <Link className={ui.link} to="/home">Home</Link>
       <Link className={ui.link} to="/profile">Profile</Link>
-      <Link className={ui.link} to="/chat">Chat</Link>
+      <NavLinkWithBadge to="/chat" label="Chat" unread={unreadTotal} />
+      <Link className={ui.link} to="/friends">Friends</Link>
       <Link className={ui.link} to="/pong">Ping Pong</Link>
     </nav>
   );
@@ -51,7 +73,9 @@ function AppRoutes() {
         <Route path="/home" element={protectedPage(<HomePage />)} />
         <Route path="/pong" element={protectedPage(<PongPage />)} />
         <Route path="/profile" element={protectedPage(<ProfilePage />)} />
+        <Route path="/profile/:userId" element={protectedPage(<ProfilePage />)} />
         <Route path="/chat" element={protectedPage(<ChatPage />)} />
+        <Route path="/friends" element={protectedPage(<FriendsPage />)} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
@@ -65,14 +89,18 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <div className="flex h-svh w-full flex-col bg-zinc-900 text-zinc-200">
-          <AppNav />
-          <div className="min-h-0 flex-1">
-            <AppRoutes />
-          </div>
-        </div>
-      </BrowserRouter>
+      <FriendsProvider>
+        <ChatProvider>
+          <BrowserRouter>
+            <div className="flex h-svh w-full flex-col bg-zinc-900 text-zinc-200">
+              <AppNav />
+              <div className="min-h-0 flex-1">
+                <AppRoutes />
+              </div>
+            </div>
+          </BrowserRouter>
+        </ChatProvider>
+      </FriendsProvider>
     </AuthProvider>
   );
 }

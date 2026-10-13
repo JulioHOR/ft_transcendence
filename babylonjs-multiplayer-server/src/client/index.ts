@@ -227,9 +227,16 @@ async function main() {
     playerMesh.name = `player_${sessionId}`;
 
     // Each instance gets its own clone of the animation groups, targeting its own skeleton.
-    const idleAnim = entries.animationGroups.find(
-      (a) => a.name === IDLE_ANIMATION_NAME,
+    // instantiateModelsToScene prefixes clones with "Clone of ", so match on the suffix.
+    const idleAnim = entries.animationGroups.find((a) =>
+      a.name.endsWith(IDLE_ANIMATION_NAME),
     );
+    if (!idleAnim) {
+      console.warn(
+        "idle animation not found:",
+        entries.animationGroups.map((a) => a.name),
+      );
+    }
     idleAnim?.play(true);
     playerAnimations.set(sessionId, entries.animationGroups);
 

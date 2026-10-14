@@ -8,4 +8,4 @@ export const ARENA_HEIGHT = 500;
 export const PLAYER_HALF = 12;
 
 /** Units per second at full stick. */
-export const PLAYER_SPEED = 10;
+export const PLAYER_SPEED = 2;

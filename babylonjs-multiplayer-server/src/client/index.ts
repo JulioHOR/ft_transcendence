@@ -9,7 +9,7 @@ import { Predict } from "@colyseus/sdk/predict";
 import type { default as server } from "../app.config.js";
 import type { MoveInput } from "../rooms/schema/MyRoomState.js";
 import { stepEntity } from "../shared/movement.js";
-import { ARENA_WIDTH } from "../shared/constants.js";
+import { ARENA_WIDTH, PLAYER_SPEED } from "../shared/constants.js";
 
 const otherPeersConnections = new Map<string, RTCPeerConnection>();
 
@@ -25,6 +25,7 @@ const EYE_HEIGHT = 1.65;
 
 // The idle animation baked into character.glb, played in a loop on every instance.
 const IDLE_ANIMATION_NAME = "Armature|mixamo.com|Layer0";
+const WALK_MOVING_EPSILON = 0.001;
 
 // ak-47.glb: ~1.92 long, lying along glTF +X, far from its own origin.
 // Grip position measured from the file, converted to Babylon space (x flipped by the loader).
@@ -206,7 +207,17 @@ async function main() {
   // 1. Declare your tracking map and callbacks first
   const playerMeshes = new Map<string, BABYLON.AbstractMesh>();
   const playerHeads = new Map<string, BABYLON.TransformNode>();
-  const playerAnimations = new Map<string, BABYLON.AnimationGroup[]>();
+  type PlayerAnim = {
+	groups: BABYLON.AnimationGroup[];
+	// idle?: BABYLON.AnimationGroup;
+	clips: Map<Clip, BABYLON.AnimationGroup>;
+	current: Clip;
+	lastX: number;
+	lastZ: number;
+  };
+  const playerAnimations = new Map<string, PlayerAnim>();
+//   const playerAnimations = new Map<string, BABYLON.AnimationGroup[]>();
+
   const callbacks = Callbacks.get(room);
 
   // 2. Load your container
@@ -215,6 +226,26 @@ async function main() {
     scene,
   );
   const gunContainer = await LoadAssetContainerAsync("models/ak-47.glb", scene);
+
+//   // 2.1. Load Walking animation but dont instantiate it to scene
+//   const walkContainer = await LoadAssetContainerAsync("models/walk1.glb", scene);
+//   const walkSource = walkContainer.animationGroups[0];
+ 
+  // 2.1. Load animations
+  const MOVE_CLIPS = {
+	forward: "models/walk1.glb",
+	back: "models/walk-back1.glb",
+	left: "models/left-strafe1.glb",
+	right: "models/right-strafe1.glb",
+  } as const;
+  type MoveDir = keyof typeof MOVE_CLIPS;
+  type Clip = MoveDir | "idle";
+
+  const moveSources = new Map<MoveDir, BABYLON.AnimationGroup>();
+  for (const [dir, url] of Object.entries(MOVE_CLIPS)) {
+	const c = await LoadAssetContainerAsync(url, scene);
+	moveSources.set(dir as MoveDir, c.animationGroups[0]);
+  }
 
   // 3. Now callbacks and playerMeshes are fully in scope and won't show squiggles
   callbacks.onAdd("players", (player, sessionId) => {
@@ -231,14 +262,43 @@ async function main() {
     const idleAnim = entries.animationGroups.find((a) =>
       a.name.endsWith(IDLE_ANIMATION_NAME),
     );
-    if (!idleAnim) {
-      console.warn(
-        "idle animation not found:",
-        entries.animationGroups.map((a) => a.name),
-      );
+
+	// animation retargeting
+	const nodesByName = new Map<string, BABYLON.Node>();
+	for (const n of playerMesh.getDescendants()) nodesByName.set(n.name.replace(/^Clone of /, ""), n);
+
+	// const walk = walkSource.clone(
+	// 	`walk_${sessionId}`,
+	// 	(oldTarget) => nodesByName.get(oldTarget.name) ?? oldTarget,
+	// );
+
+	// for (const g of [idleAnim, walk]) {
+	// 	if (g) { g.enableBlending = true; g.blendingSpeed = 0.08; }
+	// }
+
+
+	const clips = new Map<Clip, BABYLON.AnimationGroup>();
+    if (idleAnim) {
+		clips.set("idle", idleAnim);
     }
+	const extra: BABYLON.AnimationGroup[] = [];
+	for (const [dir, src] of moveSources) {
+	const g = src.clone(`${dir}_${sessionId}`, (old) => nodesByName.get(old.name) ?? old);
+	clips.set(dir, g);
+	extra.push(g);
+	}
+	for (const g of clips.values()) { g.enableBlending = true; g.blendingSpeed = 0.08; }
+
+
     idleAnim?.play(true);
-    playerAnimations.set(sessionId, entries.animationGroups);
+    // playerAnimations.set(sessionId, entries.animationGroups);
+	playerAnimations.set(sessionId, {
+	groups: [...entries.animationGroups, ...extra],
+	clips,
+	current: "idle",
+	lastX: player.x,
+	lastZ: player.y,
+	});
 
     // The loader stores that 180° turn in rotationQuaternion, and while it is set
     // Babylon ignores .rotation. Swap it for the same turn as Euler so .rotation.y works.
@@ -303,7 +363,7 @@ async function main() {
     playerHeads.delete(sessionId);
 
     // Animation groups aren't children of the mesh, so they need their own disposal
-    playerAnimations.get(sessionId)?.forEach((anim) => anim.dispose());
+    playerAnimations.get(sessionId)?.groups.forEach((anim) => anim.dispose());
     playerAnimations.delete(sessionId);
   });
 
@@ -314,7 +374,7 @@ async function main() {
     playerHeads.forEach((head) => head.dispose());
     playerHeads.clear();
     playerAnimations.forEach((anims) =>
-      anims.forEach((anim) => anim.dispose()),
+      anims.groups.forEach((anim) => anim.dispose()),
     );
     playerAnimations.clear();
   });
@@ -422,10 +482,12 @@ async function main() {
         // const moveX = rawForward * sin + rawRight * cos;
         // const moveZ = rawForward * cos - rawRight * sin;
 
+		const dt = engine.getDeltaTime() / 1000;
+
         const moveX =
-          (rawForward * Math.sin(yaw) + rawRight * Math.cos(yaw)) * 0.1; // adjust speed as needed
+          (rawForward * Math.sin(yaw) + rawRight * Math.cos(yaw)) * PLAYER_SPEED * dt; // adjust speed as needed
         const moveZ =
-          (rawForward * Math.cos(yaw) - rawRight * Math.sin(yaw)) * 0.1;
+          (rawForward * Math.cos(yaw) - rawRight * Math.sin(yaw)) * PLAYER_SPEED * dt;
 
         // 2. Apply Babylon's native mesh collision sliding
         const displacement = new BABYLON.Vector3(moveX, 0, moveZ);
@@ -451,6 +513,27 @@ async function main() {
         mesh.position.z = posZ;
         mesh.position.y = 0;
         mesh.rotation.y = player.yaw + MODEL_YAW_OFFSET;
+
+		const anim = playerAnimations.get(sessionId);
+		if (anim) {
+			const dx = posX - anim.lastX, dz = posZ - anim.lastZ;
+			anim.lastX = posX; anim.lastZ = posZ;
+
+			let next: Clip = "idle";
+			if (Math.hypot(dx, dz) > WALK_MOVING_EPSILON) {
+			const fwd = dx * Math.sin(player.yaw) + dz * Math.cos(player.yaw);
+			const right = dx * Math.cos(player.yaw) - dz * Math.sin(player.yaw);
+			if (Math.abs(fwd) >= Math.abs(right)) next = fwd >= 0 ? "forward" : "back";
+			else next = right >= 0 ? "right" : "left";
+			}
+
+			if (next !== anim.current) {
+			anim.clips.get(anim.current)?.stop();
+			(anim.clips.get(next) ?? anim.clips.get("idle"))?.play(true);
+			anim.current = next;
+			}
+
+		}
 
         // The head follows the penguin at eye level and turns like their camera
         const head = playerHeads.get(sessionId);

@@ -2,7 +2,7 @@ import * as BABYLON from "@babylonjs/core";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 // import '@babylonjs/loaders/glTF';
 import "@babylonjs/loaders";
-import { startMic } from "./voice.js";
+import { startMic, initVoice } from "./voice.js";
 
 import { ColyseusSDK, Callbacks } from "@colyseus/sdk";
 import { Predict } from "@colyseus/sdk/predict";
@@ -172,6 +172,8 @@ async function main() {
   });
 
   const room = await client.joinOrCreate("my_room");
+  initVoice(room);
+
   const predict = Predict.get(room);
 
   room.onMessage("signal", (message) => {

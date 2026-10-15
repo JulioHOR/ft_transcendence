@@ -1,8 +1,13 @@
 import type { Room } from "@colyseus/sdk";
 
 let voiceSource: MediaStream | null = null;
+let roomSignal: Room | null = null;
 
 const otherPeersConnections = new Map<string, RTCPeerConnection>();
+
+export function initVoice(room: Room) {
+  roomSignal = room;
+}
 
 export function getOrCreatePeer(peerId: string): RTCPeerConnection {
   let peerConnection: RTCPeerConnection | undefined =
@@ -24,6 +29,12 @@ export function getOrCreatePeer(peerId: string): RTCPeerConnection {
 
   otherPeersConnections.set(peerId, peerConnection);
   return peerConnection;
+}
+
+export async function callPeer(peerId: string): Promise<void> {
+
+  
+
 }
 
 export async function startMic(): Promise<void> {

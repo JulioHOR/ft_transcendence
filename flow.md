@@ -38,10 +38,10 @@ A list of notifications that the user can receive, like invites to other envs, f
 
 A list of all the available "offices" that the user can visit, as well as their state of availability (on / offline).
 
->[!NOTE]
-> ***The spaces are hosted by other users, in order for it to be available the user needs to be online***
+> [!NOTE]
+> _**The spaces are hosted by other users, in order for it to be available the user needs to be online**_
 
->[!OPTIONAL]
+> [!OPTIONAL]
 > The spaces can be view in the minimap, where the user can see the location of the spaces and the other users.
 
 ### Friends List
@@ -61,14 +61,14 @@ Here the user can select the audio device for input and output, as well as the v
 
 From the dashboard, the user can get to this page, where it is possible to choose a type of environment, name it and host it.
 
->[!NOTE]
->***Every environment created and saved in the server will hold a list of users that can activelly join it and it's owner***
+> [!NOTE]
+> _**Every environment created and saved in the server will hold a list of users that can activelly join it and it's owner**_
 
->[!NOTE]
->***Users can join other environment by receiving invites***
+> [!NOTE]
+> _**Users can join other environment by receiving invites**_
 
->[!NOTE]
->***All users can access the main co-work space, that could be the place to know and add new friends***
+> [!NOTE]
+> _**All users can access the main co-work space, that could be the place to know and add new friends**_
 
 ## Virtual Env
 

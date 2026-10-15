@@ -11,8 +11,6 @@ import type { MoveInput } from "../rooms/schema/MyRoomState.js";
 import { stepEntity } from "../shared/movement.js";
 import { ARENA_WIDTH, PLAYER_SPEED } from "../shared/constants.js";
 
-const otherPeersConnections = new Map<string, RTCPeerConnection>();
-
 // The glTF loader turns every model 180° around Y to convert it to Babylon's
 // left-handed system. If the penguin ends up facing backwards, set this to 0.
 const MODEL_YAW_OFFSET = Math.PI;
@@ -105,14 +103,6 @@ camera.keysDown = [];
 camera.keysLeft = [];
 camera.keysRight = [];
 
-startMic().catch((e) => {
-  if (e instanceof DOMException && e.name === "NotAllowedError") {
-    statusEl.textContent = "User did not allow microphone use.";
-  } else {
-    console.error(e);
-  }
-});
-
 // --- Pointer Lock Handling ---
 useCanvas.addEventListener("click", () => {
   useCanvas.requestPointerLock();
@@ -170,6 +160,17 @@ function createGun(
 }
 
 async function main() {
+  let micNotice: boolean = false as boolean;
+
+  await startMic().catch((e) => {
+    if (e instanceof DOMException && e.name === "NotAllowedError") {
+      statusEl.textContent = "User did not allow microphone use. ";
+      micNotice = true;
+    } else {
+      console.error(e);
+    }
+  });
+
   const room = await client.joinOrCreate("my_room");
   const predict = Predict.get(room);
 
@@ -202,7 +203,11 @@ async function main() {
     step: (ctx, predicted, command) => stepEntity(predicted, command, ctx.dt),
   });
 
-  statusEl.textContent = `Connected as ${room.sessionId}`;
+  if (micNotice === true) {
+    statusEl.textContent += `Connected as ${room.sessionId}`;
+  } else {
+    statusEl.textContent = `Connected as ${room.sessionId}`;
+  }
 
   // 1. Declare your tracking map and callbacks first
   const playerMeshes = new Map<string, BABYLON.AbstractMesh>();

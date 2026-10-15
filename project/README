@@ -4,7 +4,7 @@ https://threejs.org/manual/
 
 Warning: Node.js is a required dependency for bundling the package.
 
-``` shell
+```shell
 # three.js
 npm install --save three
 

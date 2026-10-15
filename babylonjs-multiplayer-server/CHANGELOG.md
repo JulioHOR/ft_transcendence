@@ -5,6 +5,68 @@ in one push. It lists the commit titles it covers, so every change can still be
 found in `git log`, and describes each change once, however many commits it
 took. Older sections, written one per commit, are kept as they were.
 
+## Voice chat between players, Fred's walking animations
+
+**Date:** 2026-10-13 to 2026-10-15 · **Author:** Julio, with two commits from
+Fred
+
+**Commits:** `fix idle animation for all clients` ·
+`walking animation four directions and idle animation controller` ·
+`wip: voice again` · `wip: prior to prettier execution` ·
+`feat: voice works pretty well`
+
+- **Players can talk to each other**
+
+  Voice is peer-to-peer WebRTC: every player has a direct connection to every
+  other player, and the server only relays the setup messages through the
+  `"signal"` channel. There is no proximity yet, so everyone hears everyone at
+  the same volume. How a connection is set up, all in `voice.ts`:
+
+  - When a player shows up, only the side with the smaller `sessionId` calls
+    (`callPeer`). If both called at once, the two offers would cross and the
+    negotiation would get stuck.
+  - The caller sends an offer, the other side replies with an answer. Both are
+    SDP text describing the audio each side sends.
+  - Each side then sends its ICE candidates (the network addresses where it can
+    be reached) as the browser finds them.
+  - When the other player's audio arrives, it plays in an `<audio>` element
+    created in memory.
+  - When a player leaves, `removePeer` closes the connection and stops the
+    audio.
+
+- **Signaling moved into `voice.ts`**
+
+  `initVoice(room)` keeps the room and registers the `"signal"` handler.
+  `index.ts` only calls `initVoice` after joining, `callPeer` when a player
+  shows up and `removePeer` when one leaves. The temporary test message from
+  the previous batch is gone.
+
+- **The microphone is resolved before joining the room**
+
+  `startMic` is awaited before `joinOrCreate`, so the mic is ready before any
+  connection is made. If permission is denied, the status line says so, and
+  the player can still hear others (the connection is set up as receive-only).
+
+- **Idle animation fixed for every client (Fred)**
+
+  Babylon renames cloned animation groups to `Clone of ...`, so the idle clip
+  is now found by the end of its name. If it is missing, a warning lists the
+  names that were found.
+
+- **Walking in four directions (Fred)**
+
+  Four Mixamo clips (`walk1`, `walk-back1`, `left-strafe1`, `right-strafe1`)
+  are loaded once and cloned for each player, retargeted to that player's
+  skeleton by node name. The clip is chosen from how the player moved compared
+  to where they face, and clips blend into each other. `PLAYER_SPEED` went from
+  10 to 2.
+
+- **More Prettier**
+
+  Fred's new code was formatted (tabs to spaces), and so were `README.md`,
+  `flow.md` and the old `project/` prototype. Those are formatting changes
+  only.
+
 ## Voice signaling, Fred's animated character, Prettier
 
 **Date:** 2026-10-09 · **Author:** Julio, merging Fred's branch

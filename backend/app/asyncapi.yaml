@@ -4,9 +4,10 @@ info:
   version: 1.0.0
   description: |
     Eventos Socket.IO (flask-socketio, namespace padrão `/`) da fila de
-    matchmaker e da partida de Pong.
+    matchmaker e da partida de Pong, dos canais de chat (público e privado) e
+    da lista de amigos com presença.
 
-    Convenção de direção: o documento descreve o backend. `action: receive`
+    Convenção de direção: o documento descreve o servidor. `action: receive`
     são eventos enviados pelo cliente ao servidor; `action: send` são eventos
     emitidos pelo servidor ao cliente.
 
@@ -51,6 +52,43 @@ channels:
         $ref: "#/components/messages/gameSnapshot"
       gameError:
         $ref: "#/components/messages/gameError"
+  chat:
+    address: /
+    title: Chat público e privado
+    description: |
+      Eventos de chat no namespace `/`. Uma conexão com cookie de sessão do
+      Flask no handshake entra na sala `user:{id}` e recebe as mensagens
+      endereçadas a ela; conexões sem sessão entram sem identidade e têm os
+      eventos de chat ignorados.
+    messages:
+      chatSend:
+        $ref: "#/components/messages/chatSend"
+      chatPrivateSend:
+        $ref: "#/components/messages/chatPrivateSend"
+      chatPrivateTypingRequest:
+        $ref: "#/components/messages/chatPrivateTypingRequest"
+      chatPrivateReadRequest:
+        $ref: "#/components/messages/chatPrivateReadRequest"
+      chatMessage:
+        $ref: "#/components/messages/chatMessage"
+      chatPrivateMessage:
+        $ref: "#/components/messages/chatPrivateMessage"
+      chatPrivateError:
+        $ref: "#/components/messages/chatPrivateError"
+      chatPrivateTypingRelay:
+        $ref: "#/components/messages/chatPrivateTypingRelay"
+      chatPrivateReadRelay:
+        $ref: "#/components/messages/chatPrivateReadRelay"
+  friends:
+    address: /
+    title: Lista de amigos e presença
+    description: |
+      Lista completa de amigos do usuário com sessão (substituição total): sai
+      quando a pessoa conecta, após cada mudança de amizade, foto ou apelido e
+      a cada mudança de presença.
+    messages:
+      friendsUpdate:
+        $ref: "#/components/messages/friendsUpdate"
 operations:
   joinQueue:
     action: receive
@@ -129,6 +167,94 @@ operations:
     summary: Servidor rejeita uma ação do cliente
     messages:
       - $ref: "#/channels/matchmaking/messages/gameError"
+  chatSend:
+    action: receive
+    channel:
+      $ref: "#/channels/chat"
+    summary: Cliente envia mensagem no chat público
+    description: |
+      O servidor corta os espaços das bordas do texto. Texto vazio, payload
+      malformado ou conexão sem identidade: o evento é ignorado. Com texto
+      válido, grava no Postgres e emite `chat:message` para todas as conexões.
+    messages:
+      - $ref: "#/channels/chat/messages/chatSend"
+  chatPrivateSend:
+    action: receive
+    channel:
+      $ref: "#/channels/chat"
+    summary: Cliente envia mensagem privada
+    description: |
+      Funciona só entre amigos. Sem amizade, o servidor responde ao emissor
+      `chat:private:error`; com amizade, grava a mensagem e emite
+      `chat:private:message` nas salas dos dois, e o mesmo objeto chega nos
+      dois lados.
+    messages:
+      - $ref: "#/channels/chat/messages/chatPrivateSend"
+  chatPrivateTyping:
+    action: receive
+    channel:
+      $ref: "#/channels/chat"
+    summary: Avisa que está digitando no chat privado
+    description: |
+      Entre amigos, o servidor repassa à sala do destinatário
+      `chat:private:typing` com `userId`, `nickname` e `conversationId`.
+      Sem amizade ou sem identidade, o evento é ignorado.
+    messages:
+      - $ref: "#/channels/chat/messages/chatPrivateTypingRequest"
+  chatPrivateRead:
+    action: receive
+    channel:
+      $ref: "#/channels/chat"
+    summary: Confirma leitura no chat privado
+    description: |
+      `lastMessageId` é o id da última mensagem lida. O servidor repassa à
+      sala do destinatário `chat:private:read`. Sem amizade, id válido ou
+      identidade, o evento é ignorado.
+    messages:
+      - $ref: "#/channels/chat/messages/chatPrivateReadRequest"
+  sendChatMessage:
+    action: send
+    channel:
+      $ref: "#/channels/chat"
+    summary: Servidor distribui mensagem do chat público
+    description: Enviada a todas as conexões do namespace.
+    messages:
+      - $ref: "#/channels/chat/messages/chatMessage"
+  sendChatPrivateMessage:
+    action: send
+    channel:
+      $ref: "#/channels/chat"
+    summary: Servidor entrega mensagem privada ao par
+    messages:
+      - $ref: "#/channels/chat/messages/chatPrivateMessage"
+  sendChatPrivateError:
+    action: send
+    channel:
+      $ref: "#/channels/chat"
+    summary: Servidor avisa o emissor que a conversa privada não é permitida
+    messages:
+      - $ref: "#/channels/chat/messages/chatPrivateError"
+  sendChatPrivateTypingRelay:
+    action: send
+    channel:
+      $ref: "#/channels/chat"
+    summary: Servidor entrega o indicador de digitação ao destinatário
+    messages:
+      - $ref: "#/channels/chat/messages/chatPrivateTypingRelay"
+  sendChatPrivateReadRelay:
+    action: send
+    channel:
+      $ref: "#/channels/chat"
+    summary: Servidor entrega o recibo de leitura ao destinatário
+    messages:
+      - $ref: "#/channels/chat/messages/chatPrivateReadRelay"
+  sendFriendsUpdate:
+    action: send
+    channel:
+      $ref: "#/channels/friends"
+    summary: Servidor envia a lista completa de amigos e presença
+    messages:
+      - $ref: "#/channels/friends/messages/friendsUpdate"
 components:
   messages:
     queueJoin:
@@ -182,6 +308,67 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/GameError"
+    chatSend:
+      name: "chat:send"
+      title: Enviar no chat público
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatSendPayload"
+    chatPrivateSend:
+      name: "chat:private:send"
+      title: Enviar no chat privado
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatPrivateSendPayload"
+    chatPrivateTypingRequest:
+      name: "chat:private:typing"
+      title: Digitando (pedido do cliente)
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatPrivateTypingRequestPayload"
+    chatPrivateReadRequest:
+      name: "chat:private:read"
+      title: Recibo de leitura (pedido do cliente)
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatPrivateReadRequestPayload"
+    chatMessage:
+      name: "chat:message"
+      title: Mensagem do chat público
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatMessagePayload"
+    chatPrivateMessage:
+      name: "chat:private:message"
+      title: Mensagem do chat privado
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatPrivateMessagePayload"
+    chatPrivateError:
+      name: "chat:private:error"
+      title: Conversa privada não permitida
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatPrivateErrorPayload"
+    chatPrivateTypingRelay:
+      name: "chat:private:typing"
+      title: Digitando (chegando ao destinatário)
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatPrivateTypingRelayPayload"
+    chatPrivateReadRelay:
+      name: "chat:private:read"
+      title: Recibo de leitura (chegando ao destinatário)
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatPrivateReadRelayPayload"
+    friendsUpdate:
+      name: "friends:update"
+      title: Lista completa de amigos
+      description: Substitui a lista inteira que o cliente mostra.
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/FriendsUpdatePayload"
   schemas:
     EmptyPayload:
       title: Payload vazio
@@ -286,3 +473,193 @@ components:
         message:
           type: string
           description: Texto legível em português.
+    ChatSendPayload:
+      title: Envio no chat público
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          description: Texto da mensagem; o servidor corta os espaços das bordas e descarta vazio.
+    ChatPrivateSendPayload:
+      title: Envio no chat privado
+      type: object
+      required:
+        - otherUserId
+        - text
+      properties:
+        otherUserId:
+          type: integer
+          description: Id do destinatário; funciona só entre amigos.
+        text:
+          type: string
+          description: Texto da mensagem; o servidor corta os espaços das bordas e descarta vazio.
+    ChatPrivateTypingRequestPayload:
+      title: Digitando, enviado pelo cliente
+      type: object
+      required:
+        - otherUserId
+        - isTyping
+      properties:
+        otherUserId:
+          type: integer
+          description: Id do destinatário.
+        isTyping:
+          type: boolean
+          description: Verdadeiro enquanto a pessoa digita.
+    ChatPrivateReadRequestPayload:
+      title: Recibo de leitura, enviado pelo cliente
+      type: object
+      required:
+        - otherUserId
+        - lastMessageId
+      properties:
+        otherUserId:
+          type: integer
+          description: Id do destinatário.
+        lastMessageId:
+          type: string
+          description: Id da última mensagem lida.
+    ChatMessagePayload:
+      title: Mensagem de chat
+      description: |
+        Formato comum ao chat público e ao privado; `id` é o id numérico do
+        banco em texto e `createdAt` é o momento do envio em milissegundos
+        desde 1970. Em mensagens públicas, os campos privados não aparecem.
+      type: object
+      required:
+        - id
+        - userId
+        - nickname
+        - text
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Id da mensagem no banco, em texto.
+        userId:
+          type: integer
+          description: Id de quem enviou.
+        nickname:
+          type: string
+          description: Apelido de quem enviou, lido na hora.
+        avatarUrl:
+          type:
+            - string
+            - "null"
+          description: Endereço da foto de quem enviou, ou `null`.
+        text:
+          type: string
+          description: Conteúdo da mensagem.
+        createdAt:
+          type: integer
+          description: Momento do envio, em milissegundos desde 1970.
+    ChatPrivateMessagePayload:
+      title: Mensagem de chat privado
+      type: object
+      allOf:
+        - $ref: "#/components/schemas/ChatMessagePayload"
+        - type: object
+          required:
+            - otherUserId
+            - conversationId
+          properties:
+            otherUserId:
+              type: integer
+              description: |
+                Destinatário de quem enviou; como o mesmo objeto chega aos
+                dois lados, quem recebe deduz o par pelo campo `userId`.
+            conversationId:
+              type: string
+              description: 'Id da conversa em "menor id:maior id".'
+    ChatPrivateErrorPayload:
+      title: Conversa privada não permitida
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: "Não é possível enviar mensagem privada: vocês ainda não são amigos."
+    ChatPrivateTypingRelayPayload:
+      title: Digitando, chegando ao destinatário
+      type: object
+      required:
+        - userId
+        - nickname
+        - conversationId
+        - isTyping
+      properties:
+        userId:
+          type: integer
+          description: Id de quem digita.
+        nickname:
+          type: string
+          description: Apelido de quem digita, na hora do pedido.
+        conversationId:
+          type: string
+          description: 'Id da conversa em "menor id:maior id".'
+        isTyping:
+          type: boolean
+          description: Verdadeiro enquanto a pessoa digita.
+    ChatPrivateReadRelayPayload:
+      title: Recibo de leitura, chegando ao destinatário
+      type: object
+      required:
+        - userId
+        - conversationId
+        - lastMessageId
+      properties:
+        userId:
+          type: integer
+          description: Id de quem leu.
+        conversationId:
+          type: string
+          description: 'Id da conversa em "menor id:maior id".'
+        lastMessageId:
+          type: string
+          description: Última mensagem lida pela outra pessoa.
+    FriendPayload:
+      title: Amigo na lista de presença
+      type: object
+      required:
+        - id
+        - nickname
+        - avatarUrl
+        - online
+        - status
+        - relation
+      properties:
+        id:
+          type: integer
+          description: Id da pessoa amiga.
+        nickname:
+          type: string
+          description: Apelido lido na hora.
+        avatarUrl:
+          type:
+            - string
+            - "null"
+          description: Endereço da foto, ou `null`.
+        online:
+          type: boolean
+          description: Verdadeiro quando a pessoa tem ao menos uma conexão com sessão.
+        status:
+          type: string
+          enum:
+            - pending
+            - accepted
+          description: Situação do vínculo, convite em espera ou amizade.
+        relation:
+          type: string
+          enum:
+            - outgoing
+            - incoming
+            - friend
+          description: Se eu mandei o convite, recebi o convite ou já somos amigos.
+    FriendsUpdatePayload:
+      title: Lista de amigos
+      type: array
+      items:
+        $ref: "#/components/schemas/FriendPayload"

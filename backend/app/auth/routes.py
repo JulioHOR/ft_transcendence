@@ -27,8 +27,8 @@ SESSION_COOKIE_OPTIONS = {
     "SESSION_COOKIE_SAMESITE": "Lax",
 }
 
-INVALID_CREDENTIALS = "credenciais inválidas"
-UNAUTHENTICATED = "não autenticado"
+INVALID_CREDENTIALS = "E-mail ou senha não conferem."
+UNAUTHENTICATED = "Você não está logado."
 
 
 class UserSchema(Schema):
@@ -119,9 +119,9 @@ def _conflict(cur, email: str, nickname: str) -> str | None:
     )
     rows = cur.fetchall()
     if any(row[0] == email for row in rows):
-        return "email já existe"
+        return "Este e-mail já está cadastrado."
     if any(row[1] == nickname for row in rows):
-        return "nickname já existe"
+        return "Este nickname já está em uso por outro usuário."
     return None
 
 
@@ -132,7 +132,7 @@ def _insert_user(cur, email: str, nickname: str, password_hash: str) -> int:
     )
     row = cur.fetchone()
     if row is None:
-        raise RuntimeError("INSERT RETURNING sem linha")
+        raise RuntimeError("O INSERT RETURNING não devolveu linha.")
     return row[0]
 
 
@@ -158,7 +158,7 @@ def _insert_user(cur, email: str, nickname: str, password_hash: str) -> int:
 def signup():
     fields = _text_fields(_json_body(), "email", "nickname", "password")
     if fields is None:
-        return jsonify({"error": "email, nickname e password devem ser texto"}), 400
+        return jsonify({"error": "Os campos email, nickname e password precisam ser textos."}), 400
     email, nickname, password = fields
     error = validate_signup(email, nickname, password)
     if error:
@@ -171,7 +171,7 @@ def signup():
                 return jsonify({"error": conflict}), 409
             user_id = _insert_user(cur, email, nickname, generate_password_hash(password))
     except psycopg2.IntegrityError:
-        return jsonify({"error": "email ou nickname já existe"}), 409
+        return jsonify({"error": "Este e-mail ou nickname já está cadastrado."}), 409
     session["user_id"] = user_id
     return {"id": user_id, "email": email, "nickname": nickname}, 201
 
@@ -226,7 +226,7 @@ def logout():
     401,
     schema=ErrorResponseSchema,
     success=True,
-    description=f"Sessão ausente ou usuário que não existe mais: {UNAUTHENTICATED}.",
+    description="Sessão ausente, expirada ou apontando para um usuário que não existe.",
 )
 @auth_bp.doc(
     summary="Usuário autenticado",

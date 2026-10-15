@@ -65,7 +65,7 @@ def get_messages():
     400,
     schema=ErrorResponseSchema,
     success=True,
-    description="content ausente, fora do tipo ou acima do limite.",
+    description="content ausente, fora do tipo, ou acima de 1000 caracteres.",
 )
 @messages_bp.doc(
     summary="Criar mensagem",
@@ -75,9 +75,9 @@ def get_messages():
 def post_message():
     content = (request.get_json(silent=True) or {}).get("content", "")
     if not isinstance(content, str):
-        return jsonify({"error": "content deve ser texto"}), 400
+        return jsonify({"error": "O campo content precisa ser texto."}), 400
     if len(content) > CONTENT_LIMIT:
-        return jsonify({"error": "content excede o limite"}), 400
+        return jsonify({"error": f"A mensagem passa do limite de {CONTENT_LIMIT} caracteres."}), 400
     with db_cursor() as cur:
         cur.execute(
             "INSERT INTO messages (content) VALUES (%s) RETURNING id;",

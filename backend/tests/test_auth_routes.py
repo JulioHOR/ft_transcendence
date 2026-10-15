@@ -110,14 +110,14 @@ def test_signup_email_duplicado_case_insensitive(client):
     assert signup(client).status_code == 201
     conflict = signup(client, email="ALICE@example.com", nickname="bob")
     assert conflict.status_code == 409
-    assert conflict.get_json() == {"error": "email já existe"}
+    assert conflict.get_json() == {"error": "Este e-mail já está cadastrado."}
 
 
 def test_signup_nickname_duplicado(client):
     assert signup(client).status_code == 201
     conflict = signup(client, email="bob@example.com", nickname=SIGNUP_OK["nickname"])
     assert conflict.status_code == 409
-    assert conflict.get_json() == {"error": "nickname já existe"}
+    assert conflict.get_json() == {"error": "Este nickname já está em uso por outro usuário."}
 
 
 def test_signup_corrida_trata_unique_violation(client, store):
@@ -125,7 +125,7 @@ def test_signup_corrida_trata_unique_violation(client, store):
     store.race = True
     conflict = signup(client, nickname="bob")
     assert conflict.status_code == 409
-    assert conflict.get_json() == {"error": "email ou nickname já existe"}
+    assert conflict.get_json() == {"error": "Este e-mail ou nickname já está cadastrado."}
 
 
 @pytest.mark.parametrize(
@@ -193,13 +193,13 @@ def test_login_falha_sempre_401_generico(client, body):
     client.post("/api/auth/logout")
     response = client.post("/api/auth/login", json=body)
     assert response.status_code == 401
-    assert response.get_json() == {"error": "credenciais inválidas"}
+    assert response.get_json() == {"error": "E-mail ou senha não conferem."}
 
 
 def test_me_sem_sessao_401(client):
     response = client.get("/api/me")
     assert response.status_code == 401
-    assert response.get_json() == {"error": "não autenticado"}
+    assert response.get_json() == {"error": "Você não está logado."}
 
 
 def test_me_com_sessao_de_usuario_inexistente_401(client):

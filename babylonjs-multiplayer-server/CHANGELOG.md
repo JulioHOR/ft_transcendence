@@ -5,6 +5,51 @@ in one push. It lists the commit titles it covers, so every change can still be
 found in `git log`, and describes each change once, however many commits it
 took. Older sections, written one per commit, are kept as they were.
 
+## Proximity voice, running, jumping
+
+**Date:** 2026-10-17 to 2026-10-18 · **Author:** Julio
+
+**Commits:** `wip: jump and voice` · `feat: we have jump, voice, and running`
+
+- **Voice fades with distance**
+
+  Every frame, each other player's distance is passed to `setPeerDistance`,
+  which sets the volume of their audio: full when close, silent at
+  `MAX_DISTANCE_VOICE_HEARD`. The volume follows the square of the remaining
+  distance, because a straight line sounded like nothing changed and then
+  cut off at once. There is no direction yet (no left/right).
+
+- **Running**
+
+  Holding Shift moves at `RUN_SPEED` instead of `PLAYER_SPEED` (both in
+  `src/shared/constants.ts`). There is no running animation yet.
+
+- **Jumping, seen by everyone**
+
+  Space jumps. `GRAVITY` and `JUMP_SPEED` are in `src/shared/constants.ts`,
+  and the loop adds gravity to the vertical speed and passes the movement to
+  `moveWithCollisions`, the way the Babylon docs do it. The player's height is
+  now part of the state (`height` on `Player`), sent in `updatePosition`,
+  checked with `Number.isFinite` on the server and smoothed by `predict` like
+  `x` and `y`. On the server, `y` is Babylon's `z`, and Babylon's `y` goes in
+  `height`.
+
+- **Ground check with a ray**
+
+  To know whether the player is on the ground, a short ray is cast down from
+  the feet (`scene.pickWithRay`), counting only meshes with collisions. On the
+  ground, the player sticks to the point the ray hit. The first version pushed
+  the player down every frame and checked whether something stopped it, which
+  made the height flicker by a few millimetres and other players saw everyone
+  shaking.
+
+- **Removed code that did nothing**
+
+  `scene.gravity` only affects cameras with `applyGravity`, and ours has it
+  off, so it is gone (`scene.collisionsEnabled` stays: collisions need it). A
+  check that kept the player above y = 0 never ran, since the floor has
+  collisions. The large block of commented-out old game loop is gone too.
+
 ## Voice chat between players, Fred's walking animations
 
 **Date:** 2026-10-13 to 2026-10-15 · **Author:** Julio, with two commits from

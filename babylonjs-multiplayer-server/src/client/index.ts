@@ -2,14 +2,26 @@ import * as BABYLON from "@babylonjs/core";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 // import '@babylonjs/loaders/glTF';
 import "@babylonjs/loaders";
-import { startMic, initVoice, callPeer, removePeer, setPeerDistance } from "./voice.js";
+import {
+  startMic,
+  initVoice,
+  callPeer,
+  removePeer,
+  setPeerDistance,
+} from "./voice.js";
 
 import { ColyseusSDK, Callbacks } from "@colyseus/sdk";
 import { Predict } from "@colyseus/sdk/predict";
 import type { default as server } from "../app.config.js";
 import type { MoveInput } from "../rooms/schema/MyRoomState.js";
 import { stepEntity } from "../shared/movement.js";
-import { ARENA_WIDTH, PLAYER_SPEED, RUN_SPEED, GRAVITY, JUMP_SPEED } from "../shared/constants.js";
+import {
+  ARENA_WIDTH,
+  PLAYER_SPEED,
+  RUN_SPEED,
+  GRAVITY,
+  JUMP_SPEED,
+} from "../shared/constants.js";
 
 // The glTF loader turns every model 180° around Y to convert it to Babylon's
 // left-handed system. If the penguin ends up facing backwards, set this to 0.
@@ -74,8 +86,7 @@ const engine = new BABYLON.Engine(useCanvas, true, {
 const scene = new BABYLON.Scene(engine);
 scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.1, 1);
 
-// Enable physics/collision engine
-scene.gravity = new BABYLON.Vector3(0, -0.98, 0);
+// Enable collision engine
 scene.collisionsEnabled = true;
 
 // Camera Setup (Universal Camera for 3D navigation)
@@ -107,7 +118,6 @@ camera.keysRight = [];
 useCanvas.addEventListener("click", () => {
   useCanvas.requestPointerLock();
 });
-
 
 // to debug Firefox bug
 // document.addEventListener("mousemove", (e) => {
@@ -185,7 +195,7 @@ async function main() {
   // Interpolate other players smoothly
   predict.attachAll("players", {
     mode: "lerp",
-    fields: ["x", "y"],
+    fields: ["x", "y", "height"],
     smoothMs: 65,
   });
 
@@ -390,6 +400,8 @@ async function main() {
       anims.groups.forEach((anim) => anim.dispose()),
     );
     playerAnimations.clear();
+
+    // removePeer(peerId)
   });
 
   // level loading meshes
@@ -413,72 +425,13 @@ async function main() {
     mesh.checkCollisions = true;
   });
 
-
   let velocityY = 0;
-  let grounded = false;
   // --- Main Game Loop (Integrated with Babylon Render Loop) ---
   engine.runRenderLoop(() => {
     const now = performance.now();
 
     // Drives prediction, interpolation, and the reconciler
     const steps = predict.tick(now);
-
-    // for (let i = 0; i < steps; i++) {
-
-    //   const rawForward = axis(["s", "arrowdown"], ["w", "arrowup"]);
-    //   const rawRight = axis(["a", "arrowleft"], ["d", "arrowright"]);
-
-    //   const yaw = camera.rotation.y;
-    //   const sin = Math.sin(yaw);
-    //   const cos = Math.cos(yaw);
-
-    //   const moveX = rawForward * sin + rawRight * cos;
-    //   const moveY = rawForward * cos - rawRight * sin;
-
-    //   const length = Math.hypot(moveX, moveY);
-    //   if (length > 1) {
-    //     input.data.moveX = moveX / length;
-    //     input.data.moveY = moveY / length;
-    //   } else {
-    //     input.data.moveX = moveX;
-    //     input.data.moveY = moveY;
-    //   }
-
-    //   input.send();
-
-    //   // input.data.moveX = axis(["a", "arrowleft"], ["d", "arrowright"]);
-    //   // input.data.moveY = axis(["s", "arrowdown"], ["w", "arrowup"]);
-    //   // input.send();
-    // }
-
-    // // Sync network positions to 3D player meshes
-    // for (const [sessionId, player] of room.state.players) {
-    //   const mesh = playerMeshes.get(sessionId);
-    //   if (!mesh) { continue; }
-
-    //   const posX = predict.value(player, "x");
-    //   const posZ = predict.value(player, "y");
-
-    //   // If it's the local player, let the mesh handle collisions, then sync the camera
-    //   if (sessionId === room.sessionId) {
-    //     // 1. Calculate the movement delta from network prediction
-    //     const targetPosition = new BABYLON.Vector3(posX, mesh.position.y, posZ);
-    //     const displacement = targetPosition.subtract(mesh.position);
-
-    //     // 2. AbstractMesh has moveWithCollisions — slides against building walls
-    //     mesh.moveWithCollisions(displacement);
-
-    //     // 3. Lock the camera to the collision-safe mesh position (eye level)
-    //     camera.position.x = mesh.position.x;
-    //     camera.position.z = mesh.position.z;
-    //     camera.position.y = mesh.position.y + 0.75;
-    //   } else {
-    //     // Remote players update normally from network values
-    //     mesh.position.x = posX;
-    //     mesh.position.z = posZ;
-    //     mesh.position.y = 1.75 / 2;
-    //   }
-    // }
 
     // In your engine.runRenderLoop:
     for (const [sessionId, player] of room.state.players) {
@@ -498,42 +451,51 @@ async function main() {
         // const moveX = rawForward * sin + rawRight * cos;
         // const moveZ = rawForward * cos - rawRight * sin;
 
-        const dt = engine.getDeltaTime() / 1000;
+        const deltaTime = engine.getDeltaTime() / 1000;
 
         const speed = held.has("shift") ? RUN_SPEED : PLAYER_SPEED;
 
         const moveX =
           (rawForward * Math.sin(yaw) + rawRight * Math.cos(yaw)) *
           speed *
-          dt; // adjust speed as needed
+          deltaTime; // adjust speed as needed
         const moveZ =
           (rawForward * Math.cos(yaw) - rawRight * Math.sin(yaw)) *
           speed *
-          dt;
+          deltaTime;
 
-        velocityY -= GRAVITY * dt;
+        const groundRay = new BABYLON.Ray(
+          mesh.position.add(new BABYLON.Vector3(0, 0.1, 0)),
+          new BABYLON.Vector3(0, -1, 0),
+          0.2,
+        );
+        const groundHit: BABYLON.Nullable<BABYLON.PickingInfo> = scene.pickWithRay(
+          groundRay,
+          (m) => m.checkCollisions,
+        );
+
+        const groundY = groundHit?.pickedPoint?.y;
+        const grounded = groundY !== undefined && velocityY <= 0;
+
+        if (grounded) {
+          velocityY = 0;
+          mesh.position.y = groundY;
+        } else {
+          velocityY -= GRAVITY * deltaTime;
+        }
 
         if (held.has(" ") && grounded) {
           velocityY = JUMP_SPEED;
         }
 
         // 2. Apply Babylon's native mesh collision sliding
-        const displacement = new BABYLON.Vector3(moveX, velocityY * dt, moveZ);
-
-        const yBefore= mesh.position.y;
+        const displacement = new BABYLON.Vector3(
+          moveX,
+          velocityY * deltaTime,
+          moveZ,
+        );
         mesh.moveWithCollisions(displacement);
 
-        const wantedY = velocityY * dt;
-        const movedY = mesh.position.y - yBefore;
-        grounded = velocityY < 0 && movedY > wantedY + 0.001;
-        if (grounded) {
-          velocityY = 0;
-        }
-
-        if (mesh.position.y < 0) {
-          mesh.position.y = 0;
-          velocityY = 0;
-        }
 
         // 3. Lock camera to the collision-safe mesh position
         camera.position.x = mesh.position.x;
@@ -541,9 +503,11 @@ async function main() {
         camera.position.y = mesh.position.y + EYE_HEIGHT;
 
         // 4. Send your *actual* collision-checked position to the server
+        // On the server, y is Babylon's z, and Babylon's y is our 'height'
         room.send("updatePosition", {
           x: mesh.position.x,
           y: mesh.position.z,
+          height: mesh.position.y,
           yaw: camera.rotation.y,
           pitch: camera.rotation.x,
         });
@@ -551,9 +515,10 @@ async function main() {
         // Remote players update normally from server state interpolation
         const posX = predict.value(player, "x");
         const posZ = predict.value(player, "y");
+        const posHeight = predict.value(player, "height");
         mesh.position.x = posX;
         mesh.position.z = posZ;
-        mesh.position.y = 0;
+        mesh.position.y = posHeight;
         mesh.rotation.y = player.yaw + MODEL_YAW_OFFSET;
 
         const anim = playerAnimations.get(sessionId);
@@ -582,11 +547,14 @@ async function main() {
         // The head follows the penguin at eye level and turns like their camera
         const head = playerHeads.get(sessionId);
         if (head) {
-          head.position.set(posX, EYE_HEIGHT, posZ);
+          head.position.set(posX, posHeight + EYE_HEIGHT, posZ);
           head.rotation.set(player.pitch, player.yaw, 0);
         }
-        
-        const distance = Math.hypot(posX - camera.position.x, posZ - camera.position.z);
+
+        const distance = Math.hypot(
+          posX - camera.position.x,
+          posZ - camera.position.z,
+        );
 
         setPeerDistance(sessionId, distance);
       }

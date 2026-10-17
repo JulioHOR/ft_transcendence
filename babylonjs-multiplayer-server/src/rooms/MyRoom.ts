@@ -34,11 +34,17 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput }> {
         // Optional safety check: ensure the client isn't teleporting across the map instantly
         player.x = data.x;
         player.y = data.y; // maps to schema Y (3D Z plane)
+
         if (Number.isFinite(data.yaw)) {
           player.yaw = data.yaw;
         }
+
         if (Number.isFinite(data.pitch)) {
           player.pitch = data.pitch;
+        }
+
+        if (Number.isFinite(data.height)) {
+          player.height = data.height;
         }
       }
     });
@@ -64,6 +70,7 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput }> {
       new Player({
         x: ARENA_WIDTH / 2 + Math.cos(angle) * 1,
         y: ARENA_HEIGHT / 2 + Math.sin(angle) * 1,
+        height: 0,
         vx: 0,
         vy: 0,
         yaw: 0,

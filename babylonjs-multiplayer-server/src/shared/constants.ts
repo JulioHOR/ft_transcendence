@@ -9,3 +9,7 @@ export const PLAYER_HALF = 12;
 
 /** Units per second at full stick. */
 export const PLAYER_SPEED = 2;
+export const RUN_SPEED = 10;
+
+export const GRAVITY = 20;
+export const JUMP_SPEED = 7;

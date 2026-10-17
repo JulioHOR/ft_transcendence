@@ -2,9 +2,21 @@ import type { Room } from "@colyseus/sdk";
 
 let voiceSource: MediaStream | null = null;
 let roomSignal: Room | null = null;
+const MAX_DISTANCE_VOICE_HEARD = 30;
 
 const otherPeersConnections = new Map<string, RTCPeerConnection>();
 const peerAudios = new Map<string, HTMLAudioElement>();
+
+export function setPeerDistance(peerId: string, distance: number): void {
+  const audioFromVoice: HTMLAudioElement | undefined = peerAudios.get(peerId);
+
+  if (audioFromVoice === undefined) {
+    return;
+  }
+
+  const factor = Math.max(0, 1 - distance / MAX_DISTANCE_VOICE_HEARD);
+  audioFromVoice.volume = factor * factor;
+}
 
 type SignalData =
   | RTCSessionDescriptionInit

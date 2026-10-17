@@ -2,14 +2,14 @@ import * as BABYLON from "@babylonjs/core";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 // import '@babylonjs/loaders/glTF';
 import "@babylonjs/loaders";
-import { startMic, initVoice, callPeer, removePeer } from "./voice.js";
+import { startMic, initVoice, callPeer, removePeer, setPeerDistance } from "./voice.js";
 
 import { ColyseusSDK, Callbacks } from "@colyseus/sdk";
 import { Predict } from "@colyseus/sdk/predict";
 import type { default as server } from "../app.config.js";
 import type { MoveInput } from "../rooms/schema/MyRoomState.js";
 import { stepEntity } from "../shared/movement.js";
-import { ARENA_WIDTH, PLAYER_SPEED } from "../shared/constants.js";
+import { ARENA_WIDTH, PLAYER_SPEED, RUN_SPEED, GRAVITY, JUMP_SPEED } from "../shared/constants.js";
 
 // The glTF loader turns every model 180° around Y to convert it to Babylon's
 // left-handed system. If the penguin ends up facing backwards, set this to 0.
@@ -108,6 +108,12 @@ useCanvas.addEventListener("click", () => {
   useCanvas.requestPointerLock();
 });
 
+
+// to debug Firefox bug
+// document.addEventListener("mousemove", (e) => {
+//   console.log(e.movementX, e.movementY);
+// });
+
 document.addEventListener("pointerlockchange", () => {
   const isLocked = document.pointerLockElement === useCanvas;
   if (isLocked) {
@@ -160,12 +166,12 @@ function createGun(
 }
 
 async function main() {
-  let micNotice: boolean = false as boolean;
+  let micTurnedOffWarning: boolean = false as boolean;
 
   await startMic().catch((e) => {
     if (e instanceof DOMException && e.name === "NotAllowedError") {
       statusEl.textContent = "User did not allow microphone use. ";
-      micNotice = true;
+      micTurnedOffWarning = true;
     } else {
       console.error(e);
     }
@@ -201,7 +207,7 @@ async function main() {
     step: (ctx, predicted, command) => stepEntity(predicted, command, ctx.dt),
   });
 
-  if (micNotice === true) {
+  if (micTurnedOffWarning === true) {
     statusEl.textContent += `Connected as ${room.sessionId}`;
   } else {
     statusEl.textContent = `Connected as ${room.sessionId}`;
@@ -407,6 +413,9 @@ async function main() {
     mesh.checkCollisions = true;
   });
 
+
+  let velocityY = 0;
+  let grounded = false;
   // --- Main Game Loop (Integrated with Babylon Render Loop) ---
   engine.runRenderLoop(() => {
     const now = performance.now();
@@ -491,18 +500,40 @@ async function main() {
 
         const dt = engine.getDeltaTime() / 1000;
 
+        const speed = held.has("shift") ? RUN_SPEED : PLAYER_SPEED;
+
         const moveX =
           (rawForward * Math.sin(yaw) + rawRight * Math.cos(yaw)) *
-          PLAYER_SPEED *
+          speed *
           dt; // adjust speed as needed
         const moveZ =
           (rawForward * Math.cos(yaw) - rawRight * Math.sin(yaw)) *
-          PLAYER_SPEED *
+          speed *
           dt;
 
+        velocityY -= GRAVITY * dt;
+
+        if (held.has(" ") && grounded) {
+          velocityY = JUMP_SPEED;
+        }
+
         // 2. Apply Babylon's native mesh collision sliding
-        const displacement = new BABYLON.Vector3(moveX, 0, moveZ);
+        const displacement = new BABYLON.Vector3(moveX, velocityY * dt, moveZ);
+
+        const yBefore= mesh.position.y;
         mesh.moveWithCollisions(displacement);
+
+        const wantedY = velocityY * dt;
+        const movedY = mesh.position.y - yBefore;
+        grounded = velocityY < 0 && movedY > wantedY + 0.001;
+        if (grounded) {
+          velocityY = 0;
+        }
+
+        if (mesh.position.y < 0) {
+          mesh.position.y = 0;
+          velocityY = 0;
+        }
 
         // 3. Lock camera to the collision-safe mesh position
         camera.position.x = mesh.position.x;
@@ -554,6 +585,10 @@ async function main() {
           head.position.set(posX, EYE_HEIGHT, posZ);
           head.rotation.set(player.pitch, player.yaw, 0);
         }
+        
+        const distance = Math.hypot(posX - camera.position.x, posZ - camera.position.z);
+
+        setPeerDistance(sessionId, distance);
       }
     }
     scene.render();

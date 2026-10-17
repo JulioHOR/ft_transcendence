@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from flask import request
 from ws_core.matchmaker import AlreadyPlayingError, Matchmaker
 
@@ -33,7 +35,7 @@ def emit_countdown(socketio, match) -> None:
         )
 
 
-def register_pong_handlers(socketio, matchmaker: Matchmaker) -> None:
+def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], None]:
     def emit_error(sid, reason: str, message: str) -> None:
         if sid:
             socketio.emit("game:error", {"reason": reason, "message": message}, to=sid)
@@ -67,7 +69,7 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> None:
         try:
             position = _parse_input(data)
         except MalformedInput:
-            emit_error(_sid(), "malformed", "Movimento inválido.")
+            emit_error(_sid(), "malformed", "O movimento precisa ser um número.")
             return None
 
         match = matchmaker.get_match(_sid())
@@ -100,9 +102,7 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> None:
         emit_countdown(socketio, match)
         return {"status": "countdown"}
 
-    @socketio.on("disconnect")
-    def on_disconnect(*_args):
-        sid = _sid()
+    def handle_disconnect(sid: str) -> None:
         if not sid:
             return
         match = matchmaker.get_match(sid)
@@ -113,3 +113,5 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> None:
             socketio.emit("game:status", {"state": "opponent_left"}, to=player_sid)
             matchmaker.leave(player_sid)
         match.destroy()
+
+    return handle_disconnect

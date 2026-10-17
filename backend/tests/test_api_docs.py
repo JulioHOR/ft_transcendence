@@ -12,6 +12,15 @@ SPEC_OPERATIONS = {
     ("post", "/api/auth/login"),
     ("post", "/api/auth/logout"),
     ("get", "/api/me"),
+    ("get", "/api/profile"),
+    ("patch", "/api/profile"),
+    ("post", "/api/profile/avatar"),
+    ("get", "/api/profile/avatar/{user_id}"),
+    ("get", "/api/chat/history"),
+    ("post", "/api/friends"),
+    ("delete", "/api/friends/{friend_id}"),
+    ("post", "/api/friends/{from_id}/accept"),
+    ("post", "/api/friends/{from_id}/reject"),
 }
 
 
@@ -31,7 +40,7 @@ def spec(client):
     return response.get_json()
 
 
-def test_spec_na_versao_3_1_2_documenta_as_seis_operacoes(client):
+def test_spec_na_versao_3_1_2_documenta_as_quinze_operacoes(client):
     document = spec(client)
     assert document["openapi"] == "3.1.2"
     assert document["info"]["title"] == "ft_transcendence API"
@@ -46,7 +55,17 @@ def test_spec_na_versao_3_1_2_documenta_as_seis_operacoes(client):
 
 def test_spec_documenta_os_contratos_de_erro(client):
     document = spec(client)
-    assert set(document["components"]["schemas"]) >= {"User", "Message", "ErrorResponse"}
+    assert set(document["components"]["schemas"]) >= {
+        "User",
+        "Message",
+        "ErrorResponse",
+        "Profile",
+        "ProfileUpdate",
+        "Friend",
+        "ChatMessage",
+        "ConversationHistory",
+        "ChatHistory",
+    }
     signup = document["paths"]["/api/auth/signup"]["post"]
     assert set(signup["responses"]) == {"201", "400", "409", "default"}
     assert signup["requestBody"]["required"] is True
@@ -57,18 +76,38 @@ def test_spec_documenta_os_contratos_de_erro(client):
     }
 
 
-def test_spec_exige_cookie_de_sessao_apenas_em_me(client):
+def test_spec_exige_cookie_de_sessao_nas_rotas_protegidas(client):
     document = spec(client)
     cookie_auth = document["components"]["securitySchemes"]["cookieAuth"]
     assert cookie_auth["type"] == "apiKey"
     assert cookie_auth["in"] == "cookie"
     assert cookie_auth["name"] == "session"
-    assert document["paths"]["/api/me"]["get"]["security"] == [{"cookieAuth": []}]
-    assert "security" not in document["paths"]["/api/messages"]["get"]
-    unauthorized = document["paths"]["/api/me"]["get"]["responses"]["401"]
-    assert unauthorized["content"]["application/json"]["schema"] == {
+    protected = {
+        "/api/me": "get",
+        "/api/profile": "patch",
+        "/api/profile/avatar": "post",
+        "/api/chat/history": "get",
+        "/api/friends": "post",
+        "/api/friends/{friend_id}": "delete",
+        "/api/friends/{from_id}/accept": "post",
+        "/api/friends/{from_id}/reject": "post",
+    }
+    me_401 = document["paths"]["/api/me"]["get"]["responses"]["401"]
+    assert me_401["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/ErrorResponse"
     }
+    for path, method in protected.items():
+        operation = document["paths"][path][method]
+        assert operation["security"] == [{"cookieAuth": []}]
+        assert operation["responses"]["401"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/ErrorResponse"
+        }
+    for path, method in (
+        ("/api/profile", "get"),
+        ("/api/profile/avatar/{user_id}", "get"),
+        ("/api/messages", "get"),
+    ):
+        assert "security" not in document["paths"][path][method]
 
 
 def test_swagger_ui_servido_localmente(client):
@@ -112,17 +151,25 @@ def test_asyncapi_e_valido_no_arquivo_fonte():
         "game:status",
         "game:snapshot",
         "game:error",
+        "chat:send",
+        "chat:private:send",
+        "chat:private:typing",
+        "chat:private:read",
+        "chat:message",
+        "chat:private:message",
+        "chat:private:error",
+        "friends:update",
     }
     received = {
         name for name, operation in document["operations"].items()
         if operation["action"] == "receive"
     }
-    assert len(received) == 5
-    channel_messages = set(document["channels"]["matchmaking"]["messages"])
+    assert len(received) == 9
     for operation in document["operations"].values():
-        assert operation["channel"]["$ref"] == "#/channels/matchmaking"
+        channel_name = operation["channel"]["$ref"].split("/")[-1]
+        channel_messages = set(document["channels"][channel_name]["messages"])
+        prefix = f"#/channels/{channel_name}/messages/"
         for message in operation["messages"]:
-            prefix = "#/channels/matchmaking/messages/"
             assert message["$ref"].startswith(prefix)
             assert message["$ref"][len(prefix):] in channel_messages
     snapshot = document["components"]["schemas"]["GameSnapshot"]["properties"]

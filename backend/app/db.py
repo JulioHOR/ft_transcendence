@@ -12,7 +12,7 @@ def read_secret(name: str) -> str:
         with open(f"/run/secrets/{name}") as f:
             return f.read().strip()
     except OSError as exc:
-        raise RuntimeError(f"secret {name} não legível") from exc
+        raise RuntimeError(f"O segredo {name} não pôde ser lido em /run/secrets.") from exc
 
 
 def _db_kwargs() -> dict:
@@ -53,4 +53,4 @@ def wait_db():
             return
         except psycopg2.OperationalError:
             time.sleep(1)
-    raise RuntimeError("database not ready")
+    raise RuntimeError("O banco de dados não ficou pronto a tempo.")

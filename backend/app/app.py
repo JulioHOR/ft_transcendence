@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask
+from flask import Flask, request
 from flask_socketio import SocketIO
 
 from apidocs import init_api
@@ -11,7 +11,7 @@ app = Flask(__name__)
 socketio = SocketIO(app, async_mode="threading", cors_allowed_origins=[])
 
 app.secret_key = read_secret("flask_secret_key")
-app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
 app.config.update(SESSION_COOKIE_OPTIONS)
 
 init_api(app)
@@ -30,9 +30,23 @@ def register_game_routes():
             ),
         )
 
-    register_pong_handlers(socketio, Matchmaker(match_factory))
+    return register_pong_handlers(socketio, Matchmaker(match_factory))
 
-register_game_routes()
+def register_social_routes():
+    from social.handlers import register_social_handlers
+
+    return register_social_handlers(socketio)
+
+
+pong_handle_disconnect = register_game_routes()
+social_handle_disconnect = register_social_routes()
+
+
+@socketio.on("disconnect")
+def on_client_disconnect(*_args):
+    sid = getattr(request, "sid", "")
+    pong_handle_disconnect(sid)
+    social_handle_disconnect(sid)
 
 if __name__ == "__main__":
     wait_db()

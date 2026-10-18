@@ -5,9 +5,41 @@ in one push. It lists the commit titles it covers, so every change can still be
 found in `git log`, and describes each change once, however many commits it
 took. Older sections, written one per commit, are kept as they were.
 
+## Wall climbing, voice cleanup on disconnect
+
+**Date:** 2026-10-17 · **Author:** Julio
+
+**Commits:** `feat: we have glitch, and other bugfixes`
+
+- **Climbing walls (on purpose)**
+
+  The previous version had a glitch where you could climb walls by jumping
+  against them, and it is back as a feature. Two short horizontal rays are
+  cast from the middle of the body, one where the camera faces and one
+  behind, counting only meshes with collisions. If either hits, the player is
+  against a wall and can jump even in the air, so holding Space against a
+  wall climbs it smoothly. Letting go, or getting past the top, drops you
+  back down.
+
+- **Voice stops when you leave the room**
+
+  Voice is peer-to-peer, so it kept working after your own connection to the
+  room ended. `removeAllVoiceConnections()` in `voice.ts` closes every voice
+  connection, and it now runs in `room.onLeave`. When another player leaves,
+  `onRemove` still closes just theirs.
+
+- **Faster give-up on reconnection**
+
+  When the connection drops, the SDK first tries to reconnect (`onDrop`), and
+  only fires `onLeave` when it gives up. By default that took about a minute.
+  `room.reconnection.maxRetries` is now 5, which measured about 10 seconds.
+  The server still holds a dropped player's seat for 30 seconds, so if only
+  one player loses their network, others may see them standing still until
+  then.
+
 ## Proximity voice, running, jumping
 
-**Date:** 2026-10-17 to 2026-10-18 · **Author:** Julio
+**Date:** 2026-10-17 · **Author:** Julio
 
 **Commits:** `wip: jump and voice` · `feat: we have jump, voice, and running`
 

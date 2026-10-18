@@ -8,6 +8,7 @@ import {
   callPeer,
   removePeer,
   setPeerDistance,
+  removeAllVoiceConnections,
 } from "./voice.js";
 
 import { ColyseusSDK, Callbacks } from "@colyseus/sdk";
@@ -188,6 +189,9 @@ async function main() {
   });
 
   const room = await client.joinOrCreate("my_room");
+  // Will amount to something like 10 seconds after Vite is down
+  room.reconnection.maxRetries = 5;
+
   initVoice(room);
 
   const predict = Predict.get(room);
@@ -401,7 +405,7 @@ async function main() {
     );
     playerAnimations.clear();
 
-    // removePeer(peerId)
+    removeAllVoiceConnections();
   });
 
   // level loading meshes
@@ -458,7 +462,7 @@ async function main() {
         const moveX =
           (rawForward * Math.sin(yaw) + rawRight * Math.cos(yaw)) *
           speed *
-          deltaTime; // adjust speed as needed
+          deltaTime;
         const moveZ =
           (rawForward * Math.cos(yaw) - rawRight * Math.sin(yaw)) *
           speed *
@@ -469,10 +473,25 @@ async function main() {
           new BABYLON.Vector3(0, -1, 0),
           0.2,
         );
-        const groundHit: BABYLON.Nullable<BABYLON.PickingInfo> = scene.pickWithRay(
-          groundRay,
+        const groundHit: BABYLON.Nullable<BABYLON.PickingInfo> =
+          scene.pickWithRay(groundRay, (m) => m.checkCollisions);
+
+        const bodyCenter = mesh.position.add(
+          new BABYLON.Vector3(0, CHARACTER_HEIGHT / 2, 0),
+        );
+        const facing = new BABYLON.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+        const frontHit = scene.pickWithRay(
+          new BABYLON.Ray(bodyCenter, facing, CHARACTER_RADIUS + 0.2),
           (m) => m.checkCollisions,
         );
+        const backHit = scene.pickWithRay(
+          new BABYLON.Ray(bodyCenter, facing.negate(), CHARACTER_RADIUS + 0.2),
+          (m) => m.checkCollisions,
+        );
+
+        const againstWall: boolean = frontHit?.hit === true || backHit?.hit === true;
+
+
 
         const groundY = groundHit?.pickedPoint?.y;
         const grounded = groundY !== undefined && velocityY <= 0;
@@ -484,7 +503,7 @@ async function main() {
           velocityY -= GRAVITY * deltaTime;
         }
 
-        if (held.has(" ") && grounded) {
+        if (held.has(" ") && (grounded || againstWall)) {
           velocityY = JUMP_SPEED;
         }
 
@@ -495,7 +514,6 @@ async function main() {
           moveZ,
         );
         mesh.moveWithCollisions(displacement);
-
 
         // 3. Lock camera to the collision-safe mesh position
         camera.position.x = mesh.position.x;

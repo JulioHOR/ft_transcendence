@@ -31,9 +31,9 @@ def _countdown_seconds() -> float:
 
 
 class PongMatch:
-    def __init__(self, left_sid: str, right_sid: str, broadcast, countdown_seconds=None):
+    def __init__(self, left_user_id: int, right_user_id: int, broadcast, countdown_seconds=None):
         self.id = uuid.uuid4().hex
-        self.sides: dict[str, Side] = {left_sid: "left", right_sid: "right"}
+        self.sides: dict[int, Side] = {left_user_id: "left", right_user_id: "right"}
         self.broadcast = broadcast
         self.sim: SimState = create_initial_sim_state()
         self._countdown_seconds = (
@@ -43,7 +43,8 @@ class PongMatch:
         )
         self.starts_at_ms = 0.0
         self.phase = "countdown"
-        self._accepted_rematch_sids: set[str] = set()
+        self._phase_before_pause: str | None = None
+        self._accepted_sides: set[Side] = set()
         self._lock = threading.Lock()
         self._destroyed = threading.Event()
         self._start_countdown()
@@ -53,12 +54,40 @@ class PongMatch:
     def _start_countdown(self) -> None:
         self.starts_at_ms = now_ms() + self._countdown_seconds * 1000.0
         self.phase = "countdown" if self._countdown_seconds > 0 else "playing"
-        self._accepted_rematch_sids.clear()
+        self._accepted_sides.clear()
 
-    def rematch_accepted(self) -> dict[str, bool]:
+    def accepted_sides(self) -> dict[str, bool]:
         with self._lock:
-            sides = {self.sides[sid] for sid in self._accepted_rematch_sids}
-            return {"left": "left" in sides, "right": "right" in sides}
+            return {
+                "left": "left" in self._accepted_sides,
+                "right": "right" in self._accepted_sides,
+            }
+    
+    def pause(self) -> None:
+        with self._lock:
+            if self.phase in ("playing", "countdown", "paused"):
+                if self.phase != "paused":
+                    self._phase_before_pause = self.phase
+                self.phase = "paused"
+                self._accepted_sides.clear()
+    
+    def accept_resume(self, user_id: int) -> str:
+        side = self.sides.get(user_id)
+        if side is None:
+            return "rejected"
+
+        with self._lock:
+            if self.phase != "paused":
+                return "rejected"
+
+            self._accepted_sides.add(side)
+            if len(self._accepted_sides) < 2:
+                return "pending"
+
+            self.phase = self._phase_before_pause or "playing"
+            self._phase_before_pause = None
+            self._accepted_sides.clear()
+            return "resumed"
 
     def _run(self) -> None:
         last_frame_time = 0.0
@@ -88,8 +117,8 @@ class PongMatch:
 
             time.sleep(max(0.0, TICK_INTERVAL - (time.monotonic() - started)))
 
-    def apply_input(self, sid: str, position: float, timestamp_ms: float) -> bool:
-        side = self.sides.get(sid)
+    def apply_input(self, user_id: int, position: float, timestamp_ms: float) -> bool:
+        side = self.sides.get(user_id)
         if side is None:
             return False
         with self._lock:
@@ -98,15 +127,16 @@ class PongMatch:
             apply_paddle_input(self.sim, side, position, timestamp_ms)
         return True
 
-    def accept_rematch(self, sid: str) -> RematchOutcome:
-        if sid not in self.sides:
+    def accept_rematch(self, user_id: int) -> RematchOutcome:
+        side = self.sides.get(user_id)
+        if side is None:
             return "rejected"
         with self._lock:
             if self.phase != "finished":
                 return "rejected"
 
-            self._accepted_rematch_sids.add(sid)
-            if len(self._accepted_rematch_sids) < 2:
+            self._accepted_sides.add(side)
+            if len(self._accepted_sides) < 2:
                 return "pending"
 
             self.sim = create_initial_sim_state()

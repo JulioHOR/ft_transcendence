@@ -5,7 +5,9 @@ import { PongScene } from "./PongScene";
 import { usePaddleInput } from "./usePaddleInput";
 import {
   CountdownScreen,
+  LeaveMatchButton,
   ResultScreen,
+  ResumeScreen,
   StatusScreen,
 } from "./MatchScreens";
 import type { GameSnapshot, MatchState, Transport } from "../protocol";
@@ -110,6 +112,8 @@ function PongStage({ snapshot }: { snapshot: GameSnapshot }) {
 type PhaseViewProps = {
   state: MatchState;
   onRequestRematch: () => void;
+  onRequestResume: () => void;
+  onRequestLeave: () => void;
 };
 
 /**
@@ -119,19 +123,40 @@ type PhaseViewProps = {
  * @param onRequestRematch - Função chamada quando o jogador solicita um rematch.
  * @returns Componente React representando a fase atual da partida.
  */
-function PhaseView({ state, onRequestRematch }: PhaseViewProps): ReactNode {
+function PhaseView({ state, onRequestRematch, onRequestResume, onRequestLeave }: PhaseViewProps): ReactNode {
+  switch (state.phase) {
+    case "finished": return (
+      <ResultScreen
+        state={state}
+        onRequestRematch={onRequestRematch}
+        onRequestLeave={onRequestLeave}
+      />
+    );
+    case "resume_pending": return (
+      <ResumeScreen
+        state={state}
+        onRequestResume={onRequestResume}
+        onRequestLeave={onRequestLeave}
+      />
+    );
+    case "opponent_disconnected": return (
+      <StatusScreen title="Oponente reconectando…">
+        <LeaveMatchButton onLeave={onRequestLeave} />
+      </StatusScreen>
+    );
+    default: return <BasicPhaseView state={state} />;
+  }
+}
+
+function BasicPhaseView({ state }: { state: MatchState }): ReactNode {
   switch (state.phase) {
     case "connecting": return <StatusScreen title="Conectando…" />;
     case "waiting": return <StatusScreen title="Aguardando oponente" />;
     case "countdown": return (
-      <CountdownScreen
-        playerSide={state.playerSide}
-        startsAt={state.startsAt}
-      />
+      <CountdownScreen playerSide={state.playerSide} startsAt={state.startsAt} />
     );
     case "playing": return <PongStage snapshot={state.snapshot} />;
-    case "finished": return <ResultScreen state={state} onRequestRematch={onRequestRematch} />;
-    case "opponent_left": return <StatusScreen title="Oponente saiu" />;
+    case "opponent_left": return <StatusScreen title="Partida encerrada" />;
     default: return <StatusScreen title={state.errorMessage ?? "Algo deu errado"} />;
   }
 }
@@ -152,6 +177,8 @@ export function PongApp({ transport }: { transport: Transport }) {
       <PhaseView
         state={state}
         onRequestRematch={() => transport.requestRematch()}
+        onRequestResume={() => transport.requestResume()}
+        onRequestLeave={() => transport.requestLeave()}
       />
     </div>
   );

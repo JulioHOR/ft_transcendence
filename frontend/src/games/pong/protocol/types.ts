@@ -26,10 +26,12 @@ export type MatchPhase =
   | "countdown"
   | "playing"
   | "finished"
+  | "resume_pending"
   | "opponent_left"
+  | "opponent_disconnected"
   | "error";
 
-export type RematchAccepted = { left: boolean; right: boolean };
+export type AcceptanceBySide = { left: boolean; right: boolean };
 
 /**
  * Representa o estado atual de uma partida de Pong.
@@ -44,7 +46,9 @@ export type MatchState = {
   /** Indica o momento em que a contagem regressiva do jogo começou. */
   startsAt: number | null;
   /** Indica se o jogador aceitou o rematch. */
-  rematchAccepted: RematchAccepted;
+  rematchAccepted: AcceptanceBySide;
+  /** Indica se cada lado aceitou retomar a partida. */
+  resumeAccepted: AcceptanceBySide;
   /** Snapshot atual do jogo, contendo informações sobre a posição das raquetes, bola, pontuação e vencedor. */
   snapshot: GameSnapshot;
   /** Mensagem de erro, em caso de algum problema durante a partida. */
@@ -67,6 +71,7 @@ export function createInitialMatchState(): MatchState {
     playerSide: null,
     startsAt: null,
     rematchAccepted: { left: false, right: false },
+    resumeAccepted: { left: false, right: false },
     snapshot: EMPTY_SNAPSHOT,
     errorMessage: null,
   };
@@ -80,6 +85,10 @@ export interface Transport {
   disconnect(): void;
   /** Solicita um rematch. */
   requestRematch(): void;
+  /** Aceita retomar uma partida pausada. */
+  requestResume(): void;
+  /** Encerra uma partida finalizada e libera os jogadores do matchmaking. */
+  requestLeave(): void;
   /** Envia a entrada do jogador. */
   sendInput(input: PaddleInput): void;
   /** Registra um listener para atualizações de estado. */

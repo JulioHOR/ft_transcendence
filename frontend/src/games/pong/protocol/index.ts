@@ -5,7 +5,7 @@ export type {
   Transport,
   MatchPhase,
   MatchState,
-  RematchAccepted,
+  AcceptanceBySide,
 } from "./types";
 export { EMPTY_SNAPSHOT, createInitialMatchState } from "./types";
 export { TABLE, POINTS_TO_WIN, getPaddleX } from "./table";

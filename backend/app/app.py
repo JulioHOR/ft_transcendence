@@ -21,10 +21,10 @@ def register_game_routes():
     from games.pong.match import PongMatch
     from ws_core.matchmaker import Matchmaker
 
-    def match_factory(left_sid, right_sid):
+    def match_factory(left_user_id, right_user_id):
         return PongMatch(
-            left_sid,
-            right_sid,
+            left_user_id,
+            right_user_id,
             broadcast=lambda match_id, event, payload: socketio.emit(
                 event, payload, to=match_id
             ),

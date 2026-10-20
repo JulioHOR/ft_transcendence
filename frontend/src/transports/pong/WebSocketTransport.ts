@@ -70,24 +70,40 @@ export class WebSocketTransport implements Transport {
 
   /** Interpreta eventos de status do servidor e atualiza a fase da partida. */
   private onStatus(status: ServerStatus): void {
-    if (status.state === "countdown") {
-      this.setState(countdownState(status, this.state.playerSide));
-      return;
+    const playerSide = status.side ?? this.state.playerSide;
+    switch (status.state) {
+      case "countdown":
+        this.setState(countdownState(status, playerSide));
+        break;
+      case "playing":
+      case "finished":
+        this.setState({ phase: status.state, playerSide });
+        break;
+      case "resume_pending":
+      case "rematch_pending":
+        this.onAcceptanceStatus(status, playerSide);
+        break;
+      case "opponent_left":
+      case "opponent_disconnected":
+        this.setState({ phase: status.state });
+        break;
     }
-    if (status.state === "playing") {
-      this.setState({ phase: "playing" });
-      return;
-    }
-    if (status.state === "rematch_pending") {
+  }
+
+  /** Atualiza status de retorno a partida após alguma saida. */
+  private onAcceptanceStatus(status: ServerStatus, playerSide: Side | null): void {
+    if (status.state === "resume_pending") {
       this.setState({
-        phase: "finished",
-        rematchAccepted: status.accepted ?? { left: false, right: false },
+        phase: "resume_pending",
+        playerSide,
+        resumeAccepted: status.accepted ?? { left: false, right: false },
       });
       return;
     }
-    if (status.state === "opponent_left") {
-      this.setState({ phase: "opponent_left" });
-    }
+    this.setState({
+      phase: "finished",
+      rematchAccepted: status.accepted ?? { left: false, right: false },
+    });
   }
 
   /** Marca a partida em erro, exceto quando já finalizada. */
@@ -119,14 +135,37 @@ export class WebSocketTransport implements Transport {
     });
   }
 
+  /** Reingressa na fila após uma reconexão do Socket.IO. */
+  private async rejoinAfterReconnect(): Promise<void> {
+    const ack = await this.joinQueue();
+    if (ack.status === "waiting") this.setState({ phase: "waiting" });
+  }
+
+  /** Registra os eventos da conexão do jogo. */
+  private bindSocketEvents(socket: Socket): void {
+    socket.on("game:snapshot", (snapshot) => this.onSnapshot(snapshot));
+    socket.on("game:status", (status) => this.onStatus(status));
+    socket.on("game:error", (error: { message?: string }) => this.onError(error.message));
+    socket.on("disconnect", () => {
+      if (this.state.phase === "playing") this.setState({ phase: "connecting" });
+    });
+
+    let initialConnection = true;
+    socket.on("connect", () => {
+      if (initialConnection) {
+        initialConnection = false;
+        return;
+      }
+      void this.rejoinAfterReconnect();
+    });
+  }
+
   /** Conecta ao servidor Socket.IO e entra na fila de partida. */
   async connect(): Promise<void> {
     this.state = createInitialMatchState();
     this.setState({ phase: "connecting" });
     this.socket = io({ transports: ["websocket"] });
-    this.socket.on("game:snapshot", (s) => this.onSnapshot(s));
-    this.socket.on("game:status", (s) => this.onStatus(s));
-    this.socket.on("game:error", (e: { message?: string }) => this.onError(e.message));
+    this.bindSocketEvents(this.socket);
     await this.waitUntilConnected();
     const ack = await this.joinQueue();
     if (ack.status === "waiting") this.setState({ phase: "waiting" });
@@ -142,6 +181,18 @@ export class WebSocketTransport implements Transport {
   /** Solicita rematch ao servidor. */
   requestRematch(): void {
     this.socket?.emit("game:rematch");
+  }
+
+  /** Aceita retomar a partida pausada. */
+  requestResume(): void {
+    this.socket?.emit("game:resume");
+  }
+
+  /** Encerra a partida finalizada e atualiza a tela após confirmação do servidor. */
+  requestLeave(): void {
+    this.socket?.emit("game:leave", {}, (ack: { status: string } | null) => {
+      if (ack?.status === "left") this.setState({ phase: "opponent_left" });
+    });
   }
 
   /** Envia a entrada da paddle ao servidor. */

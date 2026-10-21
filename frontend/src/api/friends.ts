@@ -35,7 +35,6 @@ function waitForConnection(socket: Socket): Promise<void> {
 
 /** Conecta ao Socket.IO de friends/presença. */
 async function connectFriends(state: FriendsSocketState): Promise<void> {
-
   state.socket = io({
     path: friendsSocketPath,
     withCredentials: true,
@@ -76,7 +75,7 @@ export async function addFriend(nickname: string): Promise<Friend> {
     body: JSON.stringify({ nickname }),
   });
   if (!response.ok) {
-    throw new Error(await errorMessage(response, "Falha ao adicionar friend"));
+    throw new Error(await errorMessage(response, "Falha ao adicionar amigo"));
   }
   return response.json() as Promise<Friend>;
 }
@@ -88,7 +87,7 @@ export async function removeFriend(friendId: number): Promise<void> {
     credentials: "include",
   });
   if (!response.ok) {
-    throw new Error(await errorMessage(response, "Falha ao remover friend"));
+    throw new Error(await errorMessage(response, "Falha ao remover amigo"));
   }
 }
 
@@ -98,7 +97,7 @@ export async function acceptFriend(friendId: number): Promise<Friend> {
     credentials: "include",
   });
   if (!response.ok) {
-    throw new Error(await errorMessage(response, "Falha ao aceitar friend"));
+    throw new Error(await errorMessage(response, "Falha ao aceitar convite"));
   }
   return response.json() as Promise<Friend>;
 }
@@ -109,6 +108,6 @@ export async function rejectFriend(friendId: number): Promise<void> {
     credentials: "include",
   });
   if (!response.ok) {
-    throw new Error(await errorMessage(response, "Falha ao rejeitar friend"));
+    throw new Error(await errorMessage(response, "Falha ao recusar convite"));
   }
 }

@@ -1,5 +1,13 @@
 import { useState, type SubmitEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import MuiLink from "@mui/material/Link";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import {
   addFriend,
   acceptFriend,
@@ -11,7 +19,9 @@ import { useFriends } from "../app/friends-session";
 import { buildPrivateChatPath } from "../chat/privateChat";
 import { Avatar } from "../ui/Avatar";
 import { ErrorText } from "../ui/ErrorText";
-import { ui } from "../ui/classes";
+import { ActionButton } from "../ui/ActionButton";
+import { AppTextField } from "../ui/AppTextField";
+import { PageContainer } from "../ui/PageContainer";
 
 /** Envia o nickname para adicionar um friend e limpa o campo. */
 async function submitAddFriend(
@@ -28,7 +38,9 @@ async function submitAddFriend(
     await addFriend(nickname.trim());
     setNickname("");
   } catch (failure: unknown) {
-    setError(failure instanceof Error ? failure.message : "falha ao adicionar");
+    setError(
+      failure instanceof Error ? failure.message : "Falha ao adicionar amigo.",
+    );
   } finally {
     setPending(false);
   }
@@ -40,18 +52,14 @@ function FriendNicknameField(props: {
   onNickname: (value: string) => void;
 }) {
   return (
-    <div className={ui.fieldBlock}>
-      <label className={ui.label} htmlFor="friend-nickname">
-        Nickname
-      </label>
-      <input
-        id="friend-nickname"
-        className={ui.field}
-        value={props.nickname}
-        placeholder="nickname do friend"
-        onChange={(event) => props.onNickname(event.target.value)}
-      />
-    </div>
+    <AppTextField
+      id="friend-nickname"
+      label="Apelido"
+      value={props.nickname}
+      placeholder="apelido do amigo"
+      sx={{ flex: 1, minWidth: 0 }}
+      onChange={(event) => props.onNickname(event.target.value)}
+    />
   );
 }
 
@@ -64,10 +72,17 @@ function AddFriendFields(props: {
   const label = props.pending ? "Adicionando…" : "Adicionar";
   return (
     <>
-      <FriendNicknameField nickname={props.nickname} onNickname={props.onNickname} />
-      <button className={ui.btn} type="submit" disabled={props.pending}>
+      <FriendNicknameField
+        nickname={props.nickname}
+        onNickname={props.onNickname}
+      />
+      <ActionButton
+        type="submit"
+        disabled={props.pending}
+        sx={{ width: { xs: "100%", sm: "auto" } }}
+      >
         {label}
-      </button>
+      </ActionButton>
     </>
   );
 }
@@ -81,20 +96,22 @@ function AddFriendForm() {
     void submitAddFriend(event, nickname, setNickname, setError, setPending);
   };
   return (
-    <div className={ui.stack}>
-      <form className={ui.row} onSubmit={onSubmit}>
-        <AddFriendFields nickname={nickname} pending={pending} onNickname={setNickname} />
-      </form>
+    <Stack spacing={1.5}>
+      <Stack
+        component="form"
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1.5}
+        onSubmit={onSubmit}
+      >
+        <AddFriendFields
+          nickname={nickname}
+          pending={pending}
+          onNickname={setNickname}
+        />
+      </Stack>
       <ErrorText error={error} />
-    </div>
+    </Stack>
   );
-}
-
-/** Texto da relação (convite / friend). */
-function relationLabel(friend: Friend): string {
-  if (friend.relation === "outgoing") return "convite enviado";
-  if (friend.relation === "incoming") return "convite recebido";
-  return "friend";
 }
 
 /** Props de uma linha de friend na lista. */
@@ -113,12 +130,21 @@ function IncomingActions(props: {
 }) {
   return (
     <>
-      <button className={ui.btn} type="button" onClick={() => props.onAccept(props.fromId)}>
+      <ActionButton
+        appearance="primary"
+        size="small"
+        type="button"
+        onClick={() => props.onAccept(props.fromId)}
+      >
         Aceitar
-      </button>
-      <button className={ui.btn} type="button" onClick={() => props.onReject(props.fromId)}>
+      </ActionButton>
+      <ActionButton
+        size="small"
+        type="button"
+        onClick={() => props.onReject(props.fromId)}
+      >
         Recusar
-      </button>
+      </ActionButton>
     </>
   );
 }
@@ -138,9 +164,13 @@ function FriendActions(props: FriendRowProps) {
   return (
     <>
       <FriendPrivateChatLink friend={props.friend} />
-      <button className={ui.btn} type="button" onClick={() => props.onRemove(props.friend.id)}>
+      <ActionButton
+        size="small"
+        type="button"
+        onClick={() => props.onRemove(props.friend.id)}
+      >
         {label}
-      </button>
+      </ActionButton>
     </>
   );
 }
@@ -148,29 +178,50 @@ function FriendActions(props: FriendRowProps) {
 /** Link para o perfil público do friend. */
 function FriendProfileLink({ friend }: { friend: Friend }) {
   return (
-    <Link className={ui.nameLink} to={`/profile/${friend.id}`}>
+    <MuiLink
+      component={RouterLink}
+      to={`/profile/${friend.id}`}
+      underline="hover"
+      color="text.primary"
+    >
       {friend.nickname}
-    </Link>
+    </MuiLink>
   );
 }
 
 /** Linha: avatar, nickname, online, relação e ações. */
-function FriendRow(props: FriendRowProps) {
-  const statusClass = props.friend.online ? ui.online : ui.offline;
-  const statusLabel = props.friend.online ? "online" : "offline";
+function FriendSummary({ friend }: { friend: Friend }) {
   return (
-    <li className={`${ui.listRow} ${ui.muted}`}>
+    <>
       <Avatar
-        userId={props.friend.id}
-        avatarUrl={props.friend.avatarUrl}
-        alt={props.friend.nickname}
+        userId={friend.id}
+        avatarUrl={friend.avatarUrl}
+        alt={friend.nickname}
         size="sm"
       />
-      <FriendProfileLink friend={props.friend} />
-      <span className={statusClass}>{statusLabel}</span>
-      <span>{relationLabel(props.friend)}</span>
-      <FriendActions {...props} />
-    </li>
+      <FriendProfileLink friend={friend} />
+      <Chip
+        size="small"
+        label={friend.online ? "Conectado" : "Desconectado"}
+        color={friend.online ? "success" : "default"}
+        variant="outlined"
+      />
+    </>
+  );
+}
+
+function FriendRow(props: FriendRowProps) {
+  return (
+    <ListItem
+      component="li"
+      disableGutters
+      sx={{ flexWrap: "wrap", gap: 1.5, py: 1 }}
+    >
+      <FriendSummary friend={props.friend} />
+      <Stack direction="row" spacing={1} sx={{ ml: { xs: 0, sm: "auto" } }}>
+        <FriendActions {...props} />
+      </Stack>
+    </ListItem>
   );
 }
 
@@ -198,25 +249,22 @@ type FriendSectionProps = {
 function FriendSection(props: FriendSectionProps) {
   if (props.friends.length === 0) return null;
   return (
-    <section className={ui.stack}>
-      <h2 className={ui.title}>{props.title}</h2>
+    <Stack component="section" spacing={1.5}>
+      <Typography variant="h2">{props.title}</Typography>
       <FriendsList
         friends={props.friends}
         onAccept={props.onAccept}
         onReject={props.onReject}
         onRemove={props.onRemove}
       />
-    </section>
+    </Stack>
   );
 }
 
 /** Lista de friends do contexto. */
-function FriendsList(props: FriendsListProps) {
-  if (props.friends.length === 0) {
-    return <p className={ui.muted}>Nenhum friend na lista ainda.</p>;
-  }
+function FriendRows(props: FriendsListProps) {
   return (
-    <ul className={ui.stack}>
+    <>
       {props.friends.map((friend) => (
         <FriendRow
           key={`${friend.id}-${friend.relation}-${friend.status}`}
@@ -226,7 +274,26 @@ function FriendsList(props: FriendsListProps) {
           onRemove={props.onRemove}
         />
       ))}
-    </ul>
+    </>
+  );
+}
+
+function FriendsList(props: FriendsListProps) {
+  if (props.friends.length === 0) {
+    return (
+      <Typography color="text.secondary">
+        Nenhum amigo na lista ainda.
+      </Typography>
+    );
+  }
+  return (
+    <List
+      component="ul"
+      disablePadding
+      sx={{ "& > li + li": { borderTop: 1, borderColor: "divider" } }}
+    >
+      <FriendRows {...props} />
+    </List>
   );
 }
 
@@ -234,9 +301,14 @@ function FriendsList(props: FriendsListProps) {
 function FriendPrivateChatLink({ friend }: { friend: Friend }) {
   if (friend.relation !== "friend") return null;
   return (
-    <Link className={ui.btn} to={buildPrivateChatPath(friend.id, friend.nickname)}>
-      Chat
-    </Link>
+    <Button
+      component={RouterLink}
+      to={buildPrivateChatPath(friend.id, friend.nickname)}
+      variant="outlined"
+      size="small"
+    >
+      Conversar
+    </Button>
   );
 }
 
@@ -250,11 +322,11 @@ function friendHandlers(setError: (value: string | null) => void) {
   };
   return {
     onAccept: (fromId: number) =>
-      run(() => acceptFriend(fromId), "falha ao aceitar"),
+      run(() => acceptFriend(fromId), "Falha ao aceitar convite."),
     onReject: (fromId: number) =>
-      run(() => rejectFriend(fromId), "falha ao recusar"),
+      run(() => rejectFriend(fromId), "Falha ao recusar convite."),
     onRemove: (friendId: number) =>
-      run(() => removeFriend(friendId), "falha ao remover"),
+      run(() => removeFriend(friendId), "Falha ao remover amigo."),
   };
 }
 
@@ -264,17 +336,53 @@ export function FriendsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const handlers = friendHandlers(setActionError);
   return (
-    <main className={ui.pageShell}>
-      <h1 className={ui.title}>Friends</h1>
-      <div className={ui.content}>
-        <div className={ui.panel}>
-          <AddFriendForm />
-        </div>
-        <ErrorText error={actionError} />
-        <FriendSection title="Convites recebidos" friends={byRelation(friends, "incoming")} {...handlers} />
-        <FriendSection title="Convites enviados" friends={byRelation(friends, "outgoing")} {...handlers} />
-        <FriendSection title="Friends" friends={byRelation(friends, "friend")} {...handlers} />
-      </div>
-    </main>
+    <PageContainer>
+      <FriendsContent
+        friends={friends}
+        actionError={actionError}
+        handlers={handlers}
+      />
+    </PageContainer>
+  );
+}
+
+function FriendsContent(props: {
+  friends: Friend[];
+  actionError: string | null;
+  handlers: ReturnType<typeof friendHandlers>;
+}) {
+  return (
+    <Stack spacing={2}>
+      <Paper variant="outlined" sx={{ p: 2, borderColor: "divider" }}>
+        <AddFriendForm />
+      </Paper>
+      <ErrorText error={props.actionError} />
+      <FriendSections friends={props.friends} handlers={props.handlers} />
+    </Stack>
+  );
+}
+
+function FriendSections(props: {
+  friends: Friend[];
+  handlers: ReturnType<typeof friendHandlers>;
+}) {
+  return (
+    <>
+      <FriendSection
+        title="Convites recebidos"
+        friends={byRelation(props.friends, "incoming")}
+        {...props.handlers}
+      />
+      <FriendSection
+        title="Convites enviados"
+        friends={byRelation(props.friends, "outgoing")}
+        {...props.handlers}
+      />
+      <FriendSection
+        title="Amigos"
+        friends={byRelation(props.friends, "friend")}
+        {...props.handlers}
+      />
+    </>
   );
 }

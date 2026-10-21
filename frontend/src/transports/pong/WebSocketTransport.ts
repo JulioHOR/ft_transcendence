@@ -61,7 +61,8 @@ export class WebSocketTransport implements Transport {
 
   /** Atualiza o estado com um snapshot recebido do servidor. */
   private onSnapshot(snapshot: GameSnapshot): void {
-    if (this.state.phase !== "playing" && this.state.phase !== "finished") return;
+    if (this.state.phase !== "playing" && this.state.phase !== "finished")
+      return;
     this.setState({
       snapshot,
       phase: snapshot.winner !== null ? "finished" : "playing",
@@ -91,7 +92,10 @@ export class WebSocketTransport implements Transport {
   }
 
   /** Atualiza status de retorno a partida após alguma saida. */
-  private onAcceptanceStatus(status: ServerStatus, playerSide: Side | null): void {
+  private onAcceptanceStatus(
+    status: ServerStatus,
+    playerSide: Side | null,
+  ): void {
     if (status.state === "resume_pending") {
       this.setState({
         phase: "resume_pending",
@@ -108,7 +112,10 @@ export class WebSocketTransport implements Transport {
 
   /** Marca a partida em erro, exceto quando já finalizada. */
   private onError(message?: string): void {
-    if (this.state.phase === "finished" || this.state.snapshot.winner !== null) {
+    if (
+      this.state.phase === "finished" ||
+      this.state.snapshot.winner !== null
+    ) {
       return;
     }
     this.setState({
@@ -145,9 +152,12 @@ export class WebSocketTransport implements Transport {
   private bindSocketEvents(socket: Socket): void {
     socket.on("game:snapshot", (snapshot) => this.onSnapshot(snapshot));
     socket.on("game:status", (status) => this.onStatus(status));
-    socket.on("game:error", (error: { message?: string }) => this.onError(error.message));
+    socket.on("game:error", (error: { message?: string }) =>
+      this.onError(error.message),
+    );
     socket.on("disconnect", () => {
-      if (this.state.phase === "playing") this.setState({ phase: "connecting" });
+      if (this.state.phase === "playing")
+        this.setState({ phase: "connecting" });
     });
 
     let initialConnection = true;

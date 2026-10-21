@@ -1,13 +1,15 @@
 import {
-  forwardRef,
   useEffect,
   useRef,
   useState,
   type ChangeEvent,
-  type RefObject,
   type SubmitEvent,
 } from "react";
 import { Link, useParams } from "react-router-dom";
+import MuiLink from "@mui/material/Link";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import {
   getProfile,
   getProfileById,
@@ -19,15 +21,19 @@ import type { Profile, User } from "../api/types";
 import { useAuth } from "../app/auth-session";
 import { Avatar } from "../ui/Avatar";
 import { ErrorText } from "../ui/ErrorText";
-import { ui } from "../ui/classes";
+import { ActionButton } from "../ui/ActionButton";
+import { AppTextField } from "../ui/AppTextField";
+import { PageContainer } from "../ui/PageContainer";
 
 /** Campo somente leitura de email. */
 function EmailDisplay(props: { email: string }) {
   return (
-    <div className={ui.fieldBlock}>
-      <span className={ui.label}>Email</span>
-      <p className={ui.text}>{props.email}</p>
-    </div>
+    <Stack spacing={0.5}>
+      <Typography variant="caption" color="text.secondary">
+        Email
+      </Typography>
+      <Typography>{props.email}</Typography>
+    </Stack>
   );
 }
 
@@ -37,18 +43,13 @@ function NicknameInput(props: {
   onNickname: (value: string) => void;
 }) {
   return (
-    <div className={ui.fieldBlock}>
-      <label className={ui.label} htmlFor="profile-nickname">
-        Nickname
-      </label>
-      <input
-        id="profile-nickname"
-        className={ui.field}
-        value={props.nickname}
-        placeholder="nickname"
-        onChange={(event) => props.onNickname(event.target.value)}
-      />
-    </div>
+    <AppTextField
+      id="profile-nickname"
+      label="Apelido"
+      value={props.nickname}
+      placeholder="apelido"
+      onChange={(event) => props.onNickname(event.target.value)}
+    />
   );
 }
 
@@ -63,9 +64,9 @@ function NicknameFields(props: {
     <>
       <EmailDisplay email={props.email} />
       <NicknameInput nickname={props.nickname} onNickname={props.onNickname} />
-      <button className={ui.btn} type="submit" disabled={props.pending}>
+      <ActionButton appearance="primary" type="submit" disabled={props.pending}>
         {props.pending ? "Salvando…" : "Salvar"}
-      </button>
+      </ActionButton>
     </>
   );
 }
@@ -98,7 +99,7 @@ function NicknameForm(props: { user: User; onSaved: (user: User) => void }) {
     void submitNickname(nickname, props.onSaved, setError, setPending);
   }
   return (
-    <form className={ui.formCol} onSubmit={onSubmit}>
+    <Stack component="form" spacing={1.5} onSubmit={onSubmit}>
       <NicknameFields
         email={props.user.email}
         nickname={nickname}
@@ -106,7 +107,7 @@ function NicknameForm(props: { user: User; onSaved: (user: User) => void }) {
         onNickname={setNickname}
       />
       <ErrorText error={error} />
-    </form>
+    </Stack>
   );
 }
 
@@ -123,90 +124,102 @@ async function saveAvatarFile(
   try {
     onSaved(await uploadAvatar(await readImageAsDataUrl(file)));
   } catch (failure: unknown) {
-    setError(failure instanceof Error ? failure.message : "falha ao salvar avatar");
+    setError(
+      failure instanceof Error ? failure.message : "falha ao salvar avatar",
+    );
   } finally {
     setPending(false);
   }
 }
 
-/** Botão que abre o seletor de arquivo de avatar. */
-function AvatarPickButton(props: {
-  inputRef: RefObject<HTMLInputElement | null>;
+/** Botão e input para selecionar uma nova imagem de avatar. */
+function AvatarPickerButton(props: {
+  label: string;
   pending: boolean;
-  hasAvatar: boolean;
+  onClick: () => void;
 }) {
-  const label = props.pending
-    ? "Enviando…"
-    : props.hasAvatar
-      ? "Trocar avatar"
-      : "Enviar avatar";
   return (
-    <button
-      className={ui.btn}
+    <ActionButton
       type="button"
       disabled={props.pending}
-      onClick={() => props.inputRef.current?.click()}
+      onClick={props.onClick}
     >
-      {label}
-    </button>
+      {props.label}
+    </ActionButton>
   );
 }
 
-/** Input oculto de arquivo de avatar. */
-const AvatarFileInput = forwardRef<
-  HTMLInputElement,
-  { onFile: (file: File | undefined) => void }
->(function AvatarFileInput(props, ref) {
-  function onChange(event: ChangeEvent<HTMLInputElement>): void {
+/** Define o rótulo do seletor conforme envio e avatar atual. */
+function avatarPickerLabel(pending: boolean, hasAvatar: boolean): string {
+  if (pending) return "Enviando…";
+  return hasAvatar ? "Trocar avatar" : "Enviar avatar";
+}
+
+function AvatarFilePicker(props: {
+  pending: boolean;
+  hasAvatar: boolean;
+  onFile: (file: File | undefined) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const onChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     props.onFile(file);
-  }
-  return (
-    <input
-      ref={ref}
-      type="file"
-      accept="image/*"
-      className={ui.fileInput}
-      onChange={onChange}
-    />
-  );
-});
+  };
+  const label = avatarPickerLabel(props.pending, props.hasAvatar);
+  // prettier-ignore
+  return <><input ref={inputRef} type="file" accept="image/*" hidden onChange={onChange} /><AvatarPickerButton label={label} pending={props.pending} onClick={() => inputRef.current?.click()} /></>;
+}
 
 /** Upload / troca de avatar do próprio perfil. */
+function AvatarEditorContent(props: {
+  avatarUrl: string | null | undefined;
+  nickname: string;
+  error: string | null;
+  pending: boolean;
+  onFile: (file: File | undefined) => void;
+}) {
+  return (
+    <Stack spacing={1.5} sx={{ alignItems: "flex-start" }}>
+      <Typography variant="caption" color="text.secondary">
+        Avatar
+      </Typography>
+      <Avatar avatarUrl={props.avatarUrl} alt={props.nickname} size="lg" />
+      <AvatarFilePicker
+        pending={props.pending}
+        hasAvatar={props.avatarUrl != null && props.avatarUrl !== ""}
+        onFile={props.onFile}
+      />
+      <ErrorText error={props.error} />
+    </Stack>
+  );
+}
+
+/** Controla o envio e exibe o editor de avatar do perfil. */
 function AvatarEditor(props: {
   avatarUrl: string | null | undefined;
   nickname: string;
   onSaved: (profile: Profile) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  function onFile(file: File | undefined): void {
+  const onFile = (file: File | undefined) =>
     void saveAvatarFile(file, props.onSaved, setError, setPending);
-  }
   return (
-    <div className={ui.stack}>
-      <span className={ui.label}>Avatar</span>
-      <Avatar avatarUrl={props.avatarUrl} alt={props.nickname} size="lg" />
-      <AvatarFileInput ref={inputRef} onFile={onFile} />
-      <AvatarPickButton
-        inputRef={inputRef}
-        pending={pending}
-        hasAvatar={props.avatarUrl != null && props.avatarUrl !== ""}
-      />
-      <ErrorText error={error} />
-    </div>
+    <AvatarEditorContent
+      {...props}
+      error={error}
+      pending={pending}
+      onFile={onFile}
+    />
   );
 }
 
 /** Corpo editável do próprio perfil. */
-function OwnProfileBody(props: {
-  user: User;
-  onSaved: (user: User) => void;
-}) {
+function OwnProfileBody(props: { user: User; onSaved: (user: User) => void }) {
   return (
-    <div className={ui.stackLg}>
+    <Stack spacing={3}>
+      <Typography variant="h2">{props.user.nickname}</Typography>
       <AvatarEditor
         avatarUrl={props.user.avatarUrl}
         nickname={props.user.nickname}
@@ -219,7 +232,7 @@ function OwnProfileBody(props: {
         }
       />
       <NicknameForm user={props.user} onSaved={props.onSaved} />
-    </div>
+    </Stack>
   );
 }
 
@@ -235,7 +248,11 @@ function useOwnProfileLoad(): {
     void getProfile()
       .then(setUser)
       .catch((failure: unknown) => {
-        setError(failure instanceof Error ? failure.message : "Falha ao carregar perfil");
+        setError(
+          failure instanceof Error
+            ? failure.message
+            : "Falha ao carregar perfil",
+        );
       });
   }, []);
   return { user, setUser, error };
@@ -248,17 +265,38 @@ function OwnProfileLoaded(props: {
   onSaved: (user: User) => void;
 }) {
   if (!props.error && !props.user) {
-    return <p className={ui.muted}>Loading…</p>;
+    return <Typography color="text.secondary">Carregando…</Typography>;
   }
   if (props.user == null) return null;
   return (
-    <div className={ui.panel}>
+    <Paper
+      variant="outlined"
+      sx={{ p: { xs: 2, sm: 3 }, borderColor: "divider" }}
+    >
       <OwnProfileBody user={props.user} onSaved={props.onSaved} />
-    </div>
+    </Paper>
   );
 }
 
 /** Página do próprio perfil. */
+function OwnProfileContent(props: {
+  user: User | null;
+  error: string | null;
+  onSaved: (user: User) => void;
+}) {
+  return (
+    <Stack spacing={2}>
+      <ErrorText error={props.error} />
+      <OwnProfileLoaded
+        user={props.user}
+        error={props.error}
+        onSaved={props.onSaved}
+      />
+    </Stack>
+  );
+}
+
+/** Carrega e exibe o perfil autenticado com seus formulários. */
 function OwnProfilePage() {
   const { setUser: setSessionUser } = useAuth();
   const { user, setUser, error } = useOwnProfileLoad();
@@ -267,30 +305,31 @@ function OwnProfilePage() {
     setSessionUser(next);
   }
   return (
-    <main className={ui.pageShell}>
-      <h1 className={ui.title}>Perfil</h1>
-      <div className={ui.content}>
-        <ErrorText error={error} />
-        <OwnProfileLoaded user={user} error={error} onSaved={onSaved} />
-      </div>
-    </main>
+    <PageContainer>
+      <OwnProfileContent user={user} error={error} onSaved={onSaved} />
+    </PageContainer>
   );
 }
 
 /** Conteúdo carregado do perfil de outro usuário. */
 function OtherProfileContent(props: { profile: Profile }) {
   return (
-    <div className={ui.stackMd}>
-      <Avatar avatarUrl={props.profile.avatarUrl} alt={props.profile.nickname} size="lg" />
-      <p className={ui.text}>{props.profile.nickname}</p>
-      <Link className={ui.link} to="/friends">
-        Voltar aos friends
-      </Link>
-    </div>
+    <Stack spacing={2} sx={{ alignItems: "flex-start" }}>
+      <Avatar
+        avatarUrl={props.profile.avatarUrl}
+        alt={props.profile.nickname}
+        size="lg"
+      />
+      <Typography variant="h2">{props.profile.nickname}</Typography>
+      <MuiLink component={Link} to="/friends" underline="hover">
+        Voltar aos amigos
+      </MuiLink>
+    </Stack>
   );
 }
 
 /** Carrega perfil de outro usuário por id. */
+/** Busca o perfil público pelo identificador do usuário. */
 function useOtherProfile(userId: number) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -298,28 +337,50 @@ function useOtherProfile(userId: number) {
     void getProfileById(userId)
       .then(setProfile)
       .catch((failure: unknown) => {
-        setError(failure instanceof Error ? failure.message : "Falha ao carregar perfil");
+        setError(
+          failure instanceof Error
+            ? failure.message
+            : "Falha ao carregar perfil",
+        );
       });
   }, [userId]);
   return { profile, error };
 }
 
 /** Página de perfil de outro usuário. */
+/** Exibe erro, carregamento ou os dados do perfil público. */
+function OtherProfileContentState({
+  profile,
+  error,
+}: {
+  profile: Profile | null;
+  error: string | null;
+}) {
+  return (
+    <Stack spacing={2}>
+      <ErrorText error={error} />
+      {!error && !profile ? (
+        <Typography color="text.secondary">Carregando…</Typography>
+      ) : null}
+      {profile ? (
+        <Paper
+          variant="outlined"
+          sx={{ p: { xs: 2, sm: 3 }, borderColor: "divider" }}
+        >
+          <OtherProfileContent profile={profile} />
+        </Paper>
+      ) : null}
+    </Stack>
+  );
+}
+
+/** Página de perfil público para um usuário diferente do autenticado. */
 function OtherProfilePage({ userId }: { userId: number }) {
   const { profile, error } = useOtherProfile(userId);
   return (
-    <main className={ui.pageShell}>
-      <h1 className={ui.title}>Perfil</h1>
-      <div className={ui.content}>
-        <ErrorText error={error} />
-        {!error && !profile ? <p className={ui.muted}>Loading…</p> : null}
-        {profile ? (
-          <div className={ui.panel}>
-            <OtherProfileContent profile={profile} />
-          </div>
-        ) : null}
-      </div>
-    </main>
+    <PageContainer>
+      <OtherProfileContentState profile={profile} error={error} />
+    </PageContainer>
   );
 }
 

@@ -1,10 +1,24 @@
-import { useState, type Dispatch, type SubmitEvent, type SetStateAction } from "react";
+import {
+  useState,
+  type ChangeEventHandler,
+  type Dispatch,
+  type ReactNode,
+  type SubmitEvent,
+  type SetStateAction,
+} from "react";
 import { useNavigate } from "react-router-dom";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 
 import { logout } from "../api/auth";
 import { useAuth } from "../app/auth-session";
 import type { User } from "../api/types";
-import { ui } from "../ui/classes";
+import { ActionButton } from "../ui/ActionButton";
+import { AppTextField } from "../ui/AppTextField";
+import { PageContainer } from "../ui/PageContainer";
 
 /** Mensagem da demo REST /api/messages. */
 type Message = {
@@ -36,17 +50,25 @@ async function fetchListing(): Promise<string> {
 }
 
 /** Campo de formulário com label visível. */
-function LabeledInput(
-  props: { id: string; label: string } & React.ComponentProps<"input">,
-) {
-  const { id, label, ...inputProps } = props;
+function LabeledInput(props: {
+  id: string;
+  label: string;
+  value: string;
+  placeholder?: string;
+  readOnly?: boolean;
+  onChange?: ChangeEventHandler<HTMLInputElement>;
+}) {
   return (
-    <div className={ui.fieldBlock}>
-      <label className={ui.label} htmlFor={id}>
-        {label}
-      </label>
-      <input id={id} className={ui.field} {...inputProps} />
-    </div>
+    <Box sx={{ minWidth: 0, flex: 1 }}>
+      <AppTextField
+        id={props.id}
+        label={props.label}
+        value={props.value}
+        placeholder={props.placeholder}
+        onChange={props.onChange}
+        slotProps={{ htmlInput: { readOnly: props.readOnly } }}
+      />
+    </Box>
   );
 }
 
@@ -63,17 +85,20 @@ async function sendMessage(
     await postMessage(draft);
     setDraft("");
   } catch {
-    setError("Failed to send message.");
+    setError("Falha ao enviar mensagem.");
   }
 }
 
 /** Carrega a listagem de mensagens a partir da API. */
-async function loadMessages(setListing: SetString, setError: SetError): Promise<void> {
+async function loadMessages(
+  setListing: SetString,
+  setError: SetError,
+): Promise<void> {
   setError(null);
   try {
     setListing(await fetchListing());
   } catch {
-    setError("Failed to load messages.");
+    setError("Falha ao carregar mensagens.");
   }
 }
 
@@ -90,8 +115,10 @@ type MessageFormProps = {
 /** Formulário para enviar uma mensagem à demo /api/messages. */
 function MessageForm({ draft, setDraft, setError }: MessageFormProps) {
   return (
-    <form
-      className={ui.row}
+    <Stack
+      component="form"
+      direction={{ xs: "column", sm: "row" }}
+      spacing={1.5}
       onSubmit={(e) => void sendMessage(e, draft, setDraft, setError)}
     >
       <LabeledInput
@@ -101,10 +128,10 @@ function MessageForm({ draft, setDraft, setError }: MessageFormProps) {
         onChange={(e) => setDraft(e.target.value)}
         placeholder="mensagem"
       />
-      <button className={ui.btn} type="submit">
+      <ActionButton type="submit" sx={{ width: { xs: "100%", sm: "auto" } }}>
         Enviar
-      </button>
-    </form>
+      </ActionButton>
+    </Stack>
   );
 }
 
@@ -119,18 +146,27 @@ type MessageListingProps = {
 };
 
 /** Exibe a listagem de mensagens e permite recarregá-la. */
-function MessageListing({ listing, setListing, setError }: MessageListingProps) {
+function MessageListing({
+  listing,
+  setListing,
+  setError,
+}: MessageListingProps) {
   return (
-    <div className={ui.row}>
-      <LabeledInput id="msg-list" label="Lista de mensagens" value={listing} readOnly />
-      <button
-        className={ui.btn}
+    <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+      <LabeledInput
+        id="msg-list"
+        label="Lista de mensagens"
+        value={listing}
+        readOnly
+      />
+      <ActionButton
         type="button"
         onClick={() => void loadMessages(setListing, setError)}
+        sx={{ width: { xs: "100%", sm: "auto" } }}
       >
         Obter
-      </button>
-    </div>
+      </ActionButton>
+    </Stack>
   );
 }
 
@@ -138,9 +174,9 @@ function MessageListing({ listing, setListing, setError }: MessageListingProps) 
 function BoardError({ error }: { error: string | null }) {
   if (error === null) return null;
   return (
-    <p className={ui.error} role="alert">
+    <Alert severity="error" variant="outlined" role="alert">
       {error}
-    </p>
+    </Alert>
   );
 }
 
@@ -162,19 +198,18 @@ function HomeSessionBar() {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
   if (user === null) {
-    return <p className={ui.muted}>Não logado</p>;
+    return <Typography color="text.secondary">Não logado</Typography>;
   }
   return (
-    <div className={ui.inlineCenter}>
-      <p className={ui.muted}>Olá, {user.nickname}</p>
-      <button
-        className={ui.btn}
+    <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+      <Typography color="text.secondary">Olá, {user.nickname}</Typography>
+      <ActionButton
         type="button"
         onClick={() => void endSession(setUser, navigate)}
       >
         Sair
-      </button>
-    </div>
+      </ActionButton>
+    </Stack>
   );
 }
 
@@ -187,18 +222,87 @@ export function HomePage() {
   const [listing, setListing] = useState("");
   const [error, setError] = useState<string | null>(null);
   return (
-    <main className={ui.pageShell}>
-      <h1 className={ui.title}>ft_transcendence</h1>
-      <div className={ui.content}>
-        <HomeSessionBar />
-        <div className={ui.panel}>
-          <MessageForm draft={draft} setDraft={setDraft} setError={setError} />
-        </div>
-        <div className={ui.panel}>
-          <MessageListing listing={listing} setListing={setListing} setError={setError} />
-        </div>
-        <BoardError error={error} />
-      </div>
-    </main>
+    <PageContainer>
+      <HomePanels
+        draft={draft}
+        setDraft={setDraft}
+        listing={listing}
+        setListing={setListing}
+        error={error}
+        setError={setError}
+      />
+    </PageContainer>
+  );
+}
+
+/** Agrupa a sessão, os formulários e os avisos da página inicial. */
+function HomePanels(props: {
+  draft: string;
+  setDraft: SetString;
+  listing: string;
+  setListing: SetString;
+  error: string | null;
+  setError: SetError;
+}) {
+  return (
+    <Stack spacing={2.5}>
+      <HomeSessionBar />
+      <HomeMessagePanels {...props} />
+      <BoardError error={props.error} />
+    </Stack>
+  );
+}
+
+/** Separa o envio de mensagem da listagem publicada. */
+function HomeMessagePanels(props: {
+  draft: string;
+  setDraft: SetString;
+  listing: string;
+  setListing: SetString;
+  setError: SetError;
+}) {
+  return (
+    <>
+      <NewMessageSection {...props} />
+      <PublishedMessagesSection {...props} />
+    </>
+  );
+}
+
+/** Seção para publicar uma nova mensagem. */
+function NewMessageSection(props: {
+  draft: string;
+  setDraft: SetString;
+  setError: SetError;
+}) {
+  return (
+    <MessageSection title="Nova mensagem">
+      <MessageForm {...props} />
+    </MessageSection>
+  );
+}
+
+/** Seção para consultar mensagens já publicadas. */
+function PublishedMessagesSection(props: {
+  listing: string;
+  setListing: SetString;
+  setError: SetError;
+}) {
+  return (
+    <MessageSection title="Mensagens publicadas">
+      <MessageListing {...props} />
+    </MessageSection>
+  );
+}
+
+/** Cartão reutilizado pelas seções de mensagem da página inicial. */
+function MessageSection(props: { title: string; children: ReactNode }) {
+  return (
+    <Paper variant="outlined" sx={{ p: 2, borderColor: "divider" }}>
+      <Stack spacing={1.5}>
+        <Typography variant="h2">{props.title}</Typography>
+        {props.children}
+      </Stack>
+    </Paper>
   );
 }

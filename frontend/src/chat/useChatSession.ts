@@ -103,7 +103,9 @@ function canSendOnTab(
   friends: Friend[],
 ): boolean {
   if (activeTabId === GLOBAL_CHAT_TAB_ID) return true;
-  return privateTab != null && isAcceptedFriend(friends, privateTab.otherUserId);
+  return (
+    privateTab != null && isAcceptedFriend(friends, privateTab.otherUserId)
+  );
 }
 
 /** Draft com typing debounce. */

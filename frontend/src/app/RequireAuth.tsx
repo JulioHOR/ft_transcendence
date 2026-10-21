@@ -1,7 +1,8 @@
 import { Navigate } from "react-router-dom";
+import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
 
 import { useAuth } from "./auth-session";
-import { ui } from "../ui/classes";
 
 /** Propriedades do guard de autenticação. */
 type RequireAuthProps = {
@@ -17,7 +18,11 @@ export function RequireAuth({ children }: RequireAuthProps) {
   const { user, ready } = useAuth();
 
   if (!ready) {
-    return <p className={`p-4 ${ui.muted}`}>Loading…</p>;
+    return (
+      <Box sx={{ p: 4 }}>
+        <CircularProgress size={22} aria-label="Carregando" />
+      </Box>
+    );
   }
 
   if (user === null) {

@@ -86,7 +86,10 @@ function applyPrivateMessage(
 }
 
 /** Typing e recibos de leitura no socket privado. */
-function bindPrivateSignals(transport: ChatTransport, setters: ChatSetters): void {
+function bindPrivateSignals(
+  transport: ChatTransport,
+  setters: ChatSetters,
+): void {
   transport.onPrivateTyping((event) => {
     setters.setTyping((current) => ({
       ...current,
@@ -220,29 +223,30 @@ function transportSendActions(transportRef: {
 }
 
 /** Abas e leitura local. */
+type TabViewActions = Pick<
+  ChatContextValue,
+  | "openPrivateTab"
+  | "closePrivateTab"
+  | "setViewingConversationId"
+  | "markConversationRead"
+>;
+
 function tabViewActions(
   viewingRef: { current: string | null },
   setters: ChatSetters,
-): Pick<
-  ChatContextValue,
-  "openPrivateTab" | "closePrivateTab" | "setViewingConversationId" | "markConversationRead"
-> {
+): TabViewActions {
   return {
-    openPrivateTab: (tab) => {
-      setters.setTabs((current) => upsertPrivateChatTab(current, tab));
-    },
+    openPrivateTab: (tab) =>
+      setters.setTabs((current) => upsertPrivateChatTab(current, tab)),
     closePrivateTab: (conversationId) => {
       setters.setTabs((current) =>
         current.filter((tab) => tab.conversationId !== conversationId),
       );
       setters.setUnread((current) => dropUnread(current, conversationId));
     },
-    setViewingConversationId: (id) => {
-      viewingRef.current = id;
-    },
-    markConversationRead: (id) => {
-      setters.setUnread((current) => dropUnread(current, id));
-    },
+    setViewingConversationId: (id) => (viewingRef.current = id),
+    markConversationRead: (id) =>
+      setters.setUnread((current) => dropUnread(current, id)),
   };
 }
 
@@ -265,13 +269,15 @@ function useChatListsState() {
 
 /** Não lidas, typing, leitura e erro. */
 function useChatMetaState() {
-  const [unreadByConversation, setUnread] = useState<Record<string, number>>({});
+  const [unreadByConversation, setUnread] = useState<Record<string, number>>(
+    {},
+  );
   const [typingByConversation, setTyping] = useState<
     Record<string, string | null>
   >({});
-  const [peerReadByConversation, setPeerRead] = useState<Record<string, string>>(
-    {},
-  );
+  const [peerReadByConversation, setPeerRead] = useState<
+    Record<string, string>
+  >({});
   const [error, setError] = useState<string | null>(null);
   return {
     unreadByConversation,

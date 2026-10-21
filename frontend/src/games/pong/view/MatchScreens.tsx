@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import type { MatchState, Side } from "../protocol";
-import { ui } from "../../../ui/classes";
 
 /** Componente para exibir uma tela de status. */
 export function StatusScreen({
@@ -11,13 +13,20 @@ export function StatusScreen({
   children?: ReactNode;
 }) {
   return (
-    <div
+    <Stack
       role="status"
-      className="flex h-full flex-col items-center justify-center gap-3 p-4 text-center sm:p-6"
+      spacing={2}
+      sx={{
+        height: "100%",
+        alignItems: "center",
+        justifyContent: "center",
+        p: { xs: 2, sm: 3 },
+        textAlign: "center",
+      }}
     >
-      <h2 className="text-xl font-medium">{title}</h2>
+      <Typography variant="h2">{title}</Typography>
       {children}
-    </div>
+    </Stack>
   );
 }
 
@@ -54,11 +63,28 @@ export function CountdownScreen({
   const seconds = useCountdownSeconds(startsAt);
   return (
     <StatusScreen title="Partida encontrada">
-      <p className={ui.muted}>Você joga na {sideLabel(playerSide)}</p>
-      <p className="text-5xl font-bold tabular-nums" aria-live="polite">
-        {seconds}
-      </p>
+      <Typography color="text.secondary">
+        Você joga na {sideLabel(playerSide)}
+      </Typography>
+      <CountdownNumber seconds={seconds} />
     </StatusScreen>
+  );
+}
+
+function CountdownNumber({ seconds }: { seconds: number }) {
+  return (
+    <Typography
+      component="div"
+      variant="h1"
+      aria-live="polite"
+      sx={{
+        fontSize: "clamp(3rem, 12vw, 5rem)",
+        fontVariantNumeric: "tabular-nums",
+        color: "primary.main",
+      }}
+    >
+      {seconds}
+    </Typography>
   );
 }
 
@@ -71,14 +97,15 @@ function RematchButton({
   onRequestRematch: () => void;
 }) {
   return (
-    <button
+    <Button
       type="button"
       onClick={onRequestRematch}
       disabled={accepted}
-      className={ui.btnSolid}
+      variant="contained"
+      color="primary"
     >
       {accepted ? "Aguardando…" : "Jogar de novo"}
-    </button>
+    </Button>
   );
 }
 
@@ -118,9 +145,9 @@ function acceptanceLabel(flags: {
 
 export function LeaveMatchButton({ onLeave }: { onLeave: () => void }) {
   return (
-    <button type="button" onClick={onLeave} className={ui.btnSolid}>
+    <Button type="button" onClick={onLeave} variant="outlined" color="inherit">
       Encerrar partida
-    </button>
+    </Button>
   );
 }
 
@@ -131,14 +158,20 @@ type ResultScreenProps = {
 };
 
 /** Componente para exibir a tela de resultado da partida. */
-export function ResultScreen({ state, onRequestRematch, onRequestLeave }: ResultScreenProps) {
+export function ResultScreen({
+  state,
+  onRequestRematch,
+  onRequestLeave,
+}: ResultScreenProps) {
   const side = state.playerSide;
   const flags = acceptanceFlags(side, state.rematchAccepted);
   const { score, winner } = state.snapshot;
   return (
     <StatusScreen title={resultTitle(side, winner)}>
-      <p className={ui.muted}>{score.left} — {score.right}</p>
-      <p className={ui.muted}>{acceptanceLabel(flags)}</p>
+      <Typography variant="h2" sx={{ fontVariantNumeric: "tabular-nums" }}>
+        {score.left} — {score.right}
+      </Typography>
+      <Typography color="text.secondary">{acceptanceLabel(flags)}</Typography>
       <RematchButton
         accepted={flags.playerAccepted}
         onRequestRematch={onRequestRematch}
@@ -162,8 +195,10 @@ export function ResumeScreen({
   const flags = acceptanceFlags(side, state.resumeAccepted);
   return (
     <StatusScreen title="Partida pausada">
-      <p className={ui.muted}>Os dois jogadores precisam confirmar para continuar.</p>
-      <p className={ui.muted}>{acceptanceLabel(flags)}</p>
+      <Typography color="text.secondary">
+        Os dois jogadores precisam confirmar para continuar.
+      </Typography>
+      <Typography color="text.secondary">{acceptanceLabel(flags)}</Typography>
       <ResumeActions
         flags={flags}
         onRequestResume={onRequestResume}
@@ -184,14 +219,15 @@ function ResumeActions({
 }) {
   return (
     <>
-      <button
+      <Button
         type="button"
         onClick={onRequestResume}
         disabled={flags.playerAccepted}
-        className={ui.btnSolid}
+        variant="contained"
+        color="primary"
       >
         {flags.playerAccepted ? "Aguardando oponente…" : "Continuar partida"}
-      </button>
+      </Button>
       <LeaveMatchButton onLeave={onRequestLeave} />
     </>
   );

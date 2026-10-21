@@ -54,7 +54,11 @@ export async function getProfile(): Promise<User> {
   const user = await me();
   try {
     const profile = await getProfileById(user.id);
-    return { ...user, nickname: profile.nickname, avatarUrl: profile.avatarUrl };
+    return {
+      ...user,
+      nickname: profile.nickname,
+      avatarUrl: profile.avatarUrl,
+    };
   } catch {
     return user;
   }
@@ -70,7 +74,9 @@ export async function updateNickname(nickname: string): Promise<User> {
     body: JSON.stringify({ id: user.id, email: user.email, nickname }),
   });
   if (!response.ok) {
-    throw new Error(await errorMessage(response, "Falha ao atualizar o apelido"));
+    throw new Error(
+      await errorMessage(response, "Falha ao atualizar o apelido"),
+    );
   }
   const data = (await response.json()) as User;
   return {

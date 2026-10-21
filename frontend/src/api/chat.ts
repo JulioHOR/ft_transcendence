@@ -93,7 +93,9 @@ function waitForConnection(socket: Socket): Promise<void> {
 
 /** Liga os eventos Socket.IO aos handlers. */
 function attachSocketListeners(socket: Socket, handlers: ChatHandlers): void {
-  socket.on("chat:message", (message: ChatMessage) => handlers.onGlobal?.(message));
+  socket.on("chat:message", (message: ChatMessage) =>
+    handlers.onGlobal?.(message),
+  );
   socket.on("chat:private:message", (message: ChatMessage) => {
     handlers.onPrivate?.(message);
   });
@@ -109,7 +111,9 @@ function attachSocketListeners(socket: Socket, handlers: ChatHandlers): void {
 }
 
 /** Métodos de envio do transporte. */
-function chatSendApi(getSocket: () => Socket | null): Pick<
+function chatSendApi(
+  getSocket: () => Socket | null,
+): Pick<
   ChatTransport,
   | "sendGlobalMessage"
   | "sendPrivateMessage"
@@ -128,7 +132,9 @@ function chatSendApi(getSocket: () => Socket | null): Pick<
 }
 
 /** Handlers de mensagem e erro. */
-function chatMessageHandlers(handlers: ChatHandlers): Pick<
+function chatMessageHandlers(
+  handlers: ChatHandlers,
+): Pick<
   ChatTransport,
   "onGlobalMessage" | "onPrivateMessage" | "onPrivateError"
 > {
@@ -146,10 +152,9 @@ function chatMessageHandlers(handlers: ChatHandlers): Pick<
 }
 
 /** Handlers de typing e read. */
-function chatPresenceHandlers(handlers: ChatHandlers): Pick<
-  ChatTransport,
-  "onPrivateTyping" | "onPrivateRead"
-> {
+function chatPresenceHandlers(
+  handlers: ChatHandlers,
+): Pick<ChatTransport, "onPrivateTyping" | "onPrivateRead"> {
   return {
     onPrivateTyping: (handler) => {
       handlers.onTyping = handler;
@@ -182,9 +187,10 @@ export function createChatTransport(): ChatTransport {
     onRead: null,
   };
   return {
-    connect: () => connectTransport(handlers, (next) => {
-      socket = next;
-    }),
+    connect: () =>
+      connectTransport(handlers, (next) => {
+        socket = next;
+      }),
     disconnect() {
       socket?.disconnect();
       socket = null;

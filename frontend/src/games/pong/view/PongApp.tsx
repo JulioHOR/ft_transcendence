@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
 import { PerspectiveCamera } from "three";
 import { PongScene } from "./PongScene";
 import { usePaddleInput } from "./usePaddleInput";
@@ -37,16 +39,11 @@ function calculateCameraDistance(
   verticalFov: number,
   horizontalFov: number,
 ): number {
-  const verticalDistance =
-    verticalHalfSize / Math.tan(verticalFov / 2);
+  const verticalDistance = verticalHalfSize / Math.tan(verticalFov / 2);
 
-  const horizontalDistance =
-    horizontalHalfSize / Math.tan(horizontalFov / 2);
+  const horizontalDistance = horizontalHalfSize / Math.tan(horizontalFov / 2);
 
-  const requiredDistance = Math.max(
-    verticalDistance,
-    horizontalDistance,
-  );
+  const requiredDistance = Math.max(verticalDistance, horizontalDistance);
 
   const CAMERA_MARGIN = 1.2;
   return requiredDistance * CAMERA_MARGIN;
@@ -61,7 +58,12 @@ function frameTableCamera(
   const aspect = width / Math.max(height, 1);
   const vFov = (camera.fov * Math.PI) / 180;
   const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect);
-  const distance = calculateCameraDistance(VIEW_HALF_Z, VIEW_HALF_X, vFov, hFov);
+  const distance = calculateCameraDistance(
+    VIEW_HALF_Z,
+    VIEW_HALF_X,
+    vFov,
+    hFov,
+  );
   camera.position.set(0, distance * 0.72, distance * 0.72);
   camera.lookAt(0, 0, 0);
   camera.near = 0.1;
@@ -91,20 +93,42 @@ function FitTableCamera() {
 /** Componente para exibir a cena do jogo com a pontuação. */
 function PongStage({ snapshot }: { snapshot: GameSnapshot }) {
   return (
-    <div className="relative h-full w-full min-h-0">
-      <div
-        className="pointer-events-none absolute inset-x-0 top-3 z-10 text-center font-mono text-xl sm:text-2xl"
-        aria-live="polite"
-      >
-        {snapshot.score.left} — {snapshot.score.right}
-      </div>
-      <div className="absolute inset-0">
+    <Box
+      sx={{ position: "relative", height: "100%", width: "100%", minHeight: 0 }}
+    >
+      <ScoreOverlay score={snapshot.score} />
+      <Box sx={{ position: "absolute", inset: 0 }}>
         <Canvas camera={{ fov: 45, near: 0.1, far: 200 }}>
           <FitTableCamera />
           <PongScene snapshot={snapshot} />
         </Canvas>
-      </div>
-    </div>
+      </Box>
+    </Box>
+  );
+}
+
+function ScoreOverlay({ score }: { score: GameSnapshot["score"] }) {
+  return (
+    <Typography
+      component="div"
+      aria-live="polite"
+      sx={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        top: 1.5,
+        zIndex: 1,
+        textAlign: "center",
+        pointerEvents: "none",
+        fontFamily: "monospace",
+        fontSize: { xs: "1.25rem", sm: "1.5rem" },
+        fontWeight: 600,
+        fontVariantNumeric: "tabular-nums",
+        color: "#edf4ef",
+      }}
+    >
+      {score.left} — {score.right}
+    </Typography>
   );
 }
 
@@ -123,41 +147,58 @@ type PhaseViewProps = {
  * @param onRequestRematch - Função chamada quando o jogador solicita um rematch.
  * @returns Componente React representando a fase atual da partida.
  */
-function PhaseView({ state, onRequestRematch, onRequestResume, onRequestLeave }: PhaseViewProps): ReactNode {
-  switch (state.phase) {
-    case "finished": return (
-      <ResultScreen
-        state={state}
-        onRequestRematch={onRequestRematch}
-        onRequestLeave={onRequestLeave}
-      />
-    );
-    case "resume_pending": return (
-      <ResumeScreen
-        state={state}
-        onRequestResume={onRequestResume}
-        onRequestLeave={onRequestLeave}
-      />
-    );
-    case "opponent_disconnected": return (
-      <StatusScreen title="Oponente reconectando…">
-        <LeaveMatchButton onLeave={onRequestLeave} />
-      </StatusScreen>
-    );
-    default: return <BasicPhaseView state={state} />;
-  }
+function PhaseView(props: PhaseViewProps): ReactNode {
+  const SpecialScreen = specialScreens[props.state.phase];
+  return SpecialScreen ? (
+    <SpecialScreen {...props} />
+  ) : (
+    <BasicPhaseView state={props.state} />
+  );
 }
+
+const specialScreens: Partial<
+  Record<MatchState["phase"], (props: PhaseViewProps) => ReactNode>
+> = {
+  finished: ({ state, onRequestRematch, onRequestLeave }) => (
+    <ResultScreen
+      state={state}
+      onRequestRematch={onRequestRematch}
+      onRequestLeave={onRequestLeave}
+    />
+  ),
+  resume_pending: ({ state, onRequestResume, onRequestLeave }) => (
+    <ResumeScreen
+      state={state}
+      onRequestResume={onRequestResume}
+      onRequestLeave={onRequestLeave}
+    />
+  ),
+  opponent_disconnected: ({ onRequestLeave }) => (
+    <StatusScreen title="Oponente reconectando…">
+      <LeaveMatchButton onLeave={onRequestLeave} />
+    </StatusScreen>
+  ),
+};
 
 function BasicPhaseView({ state }: { state: MatchState }): ReactNode {
   switch (state.phase) {
-    case "connecting": return <StatusScreen title="Conectando…" />;
-    case "waiting": return <StatusScreen title="Aguardando oponente" />;
-    case "countdown": return (
-      <CountdownScreen playerSide={state.playerSide} startsAt={state.startsAt} />
-    );
-    case "playing": return <PongStage snapshot={state.snapshot} />;
-    case "opponent_left": return <StatusScreen title="Partida encerrada" />;
-    default: return <StatusScreen title={state.errorMessage ?? "Algo deu errado"} />;
+    case "connecting":
+      return <StatusScreen title="Conectando…" />;
+    case "waiting":
+      return <StatusScreen title="Aguardando oponente" />;
+    case "countdown":
+      return (
+        <CountdownScreen
+          playerSide={state.playerSide}
+          startsAt={state.startsAt}
+        />
+      );
+    case "playing":
+      return <PongStage snapshot={state.snapshot} />;
+    case "opponent_left":
+      return <StatusScreen title="Partida encerrada" />;
+    default:
+      return <StatusScreen title={state.errorMessage ?? "Algo deu errado"} />;
   }
 }
 
@@ -173,13 +214,13 @@ export function PongApp({ transport }: { transport: Transport }) {
   });
 
   return (
-    <div className="h-full w-full min-h-0">
+    <Box sx={{ height: "100%", width: "100%", minHeight: 0 }}>
       <PhaseView
         state={state}
         onRequestRematch={() => transport.requestRematch()}
         onRequestResume={() => transport.requestResume()}
         onRequestLeave={() => transport.requestLeave()}
       />
-    </div>
+    </Box>
   );
 }

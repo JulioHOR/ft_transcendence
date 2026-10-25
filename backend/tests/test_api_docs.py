@@ -6,8 +6,6 @@ from auth.routes import SESSION_COOKIE_OPTIONS
 from flask import Flask
 
 SPEC_OPERATIONS = {
-    ("get", "/api/messages"),
-    ("post", "/api/messages"),
     ("post", "/api/auth/signup"),
     ("post", "/api/auth/login"),
     ("post", "/api/auth/logout"),
@@ -40,7 +38,7 @@ def spec(client):
     return response.get_json()
 
 
-def test_spec_na_versao_3_1_2_documenta_as_quinze_operacoes(client):
+def test_spec_na_versao_3_1_2_documenta_as_treze_operacoes(client):
     document = spec(client)
     assert document["openapi"] == "3.1.2"
     assert document["info"]["title"] == "ft_transcendence API"
@@ -57,7 +55,6 @@ def test_spec_documenta_os_contratos_de_erro(client):
     document = spec(client)
     assert set(document["components"]["schemas"]) >= {
         "User",
-        "Message",
         "ErrorResponse",
         "Profile",
         "ProfileUpdate",
@@ -105,7 +102,6 @@ def test_spec_exige_cookie_de_sessao_nas_rotas_protegidas(client):
     for path, method in (
         ("/api/profile", "get"),
         ("/api/profile/avatar/{user_id}", "get"),
-        ("/api/messages", "get"),
     ):
         assert "security" not in document["paths"][path][method]
 

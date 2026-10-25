@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 
-import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { AuthProvider } from "./AuthProvider";
@@ -39,7 +38,6 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/home" element={protectedPage(<HomePage />)} />
         <Route path="/pong" element={protectedPage(<PongPage />)} />
         <Route path="/profile" element={protectedPage(<ProfilePage />)} />
         <Route

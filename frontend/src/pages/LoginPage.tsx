@@ -114,7 +114,7 @@ async function handleLoginSubmit(
   form.setPending(true);
   try {
     setUser(await authenticate(form));
-    navigate("/home");
+    navigate("/profile");
   } catch (err) {
     form.setError(err instanceof Error ? err.message : "falhou");
   } finally {
@@ -267,7 +267,7 @@ export function LoginPage() {
     return <Box sx={{ p: 4, color: "text.secondary" }}>Carregando…</Box>;
   }
   if (user !== null) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to="/profile" replace />;
   }
   return <LoginForm />;
 }

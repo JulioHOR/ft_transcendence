@@ -1,10 +1,17 @@
-import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
+import {
+  Link as RouterLink,
+  useLocation,
+  useNavigate,
+  type NavigateFunction,
+} from "react-router-dom";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Toolbar from "@mui/material/Toolbar";
+import { logout } from "../api/auth";
+import { useAuth } from "./auth-session";
 import { useChat } from "./chat-session";
 import { useColorMode } from "../ui/color-mode-context";
 import { UnreadBadge } from "../ui/UnreadBadge";
@@ -22,8 +29,6 @@ type NavItemProps = {
   unread?: number;
   /** Solicitações pendentes, usadas apenas no link de amigos. */
   pendingFriends?: number;
-  /** Exibe contorno quando o link não está ativo. */
-  outlined?: boolean;
 };
 
 /** Link da navegação com estado ativo e badge opcional. */
@@ -34,7 +39,7 @@ function NavItem(props: NavItemProps) {
       component={RouterLink}
       to={props.to}
       color={selected ? "primary" : "inherit"}
-      variant={selected ? "contained" : props.outlined ? "outlined" : "text"}
+      variant={selected ? "contained" : "text"}
       aria-current={selected ? "page" : undefined}
       size="small"
     >
@@ -56,17 +61,7 @@ function navRouteSelected(to: string, pathname: string): boolean {
 
 /** Monta a barra de navegação da aplicação. */
 export function AppNavigation() {
-  const { unreadTotal } = useChat();
-  const { pendingCount } = useFriends();
-  const { mode, toggleMode } = useColorMode();
-  const { pathname } = useLocation();
-  const menuProps = {
-    pathname,
-    unread: unreadTotal,
-    pendingFriends: pendingCount,
-    mode,
-    toggleMode,
-  };
+  const menuProps = useNavigationProps();
   return (
     <AppBar position="static" color="transparent" elevation={0}>
       <Toolbar component="nav" aria-label="Principal" sx={toolbarFrameSx}>
@@ -77,6 +72,41 @@ export function AppNavigation() {
       </Toolbar>
     </AppBar>
   );
+}
+
+/** Reúne os dados usados pelos menus para desktop e celular. */
+function useNavigationProps(): NavigationProps {
+  const { unreadTotal } = useChat();
+  const { pendingCount } = useFriends();
+  const { mode, toggleMode } = useColorMode();
+  const { pathname } = useLocation();
+  const { signedIn, signOut } = useSignOut();
+  return {
+    pathname,
+    unread: unreadTotal,
+    pendingFriends: pendingCount,
+    mode,
+    toggleMode,
+    signedIn,
+    signOut,
+  };
+}
+
+/** Encerra a sessão e devolve o usuário à tela de entrada. */
+function useSignOut() {
+  const { user, setUser } = useAuth();
+  const navigate = useNavigate();
+  return {
+    signedIn: user !== null,
+    signOut: () => {
+      void logout()
+        .catch(() => undefined)
+        .finally(() => {
+          setUser(null);
+          navigate("/login");
+        });
+    },
+  };
 }
 
 /** Estilo da barra estrutural do navbar. */
@@ -98,11 +128,10 @@ const toolbarSx = {
 /** Links exibidos na navegação principal. */
 const navItems = [
   { label: "Entrar", to: "/login" },
-  { label: "Início", to: "/home" },
   { label: "Perfil", to: "/profile" },
   { label: "Conversas", to: "/chat" },
   { label: "Amigos", to: "/friends" },
-  { label: "Pong", to: "/pong", outlined: true },
+  { label: "Pong", to: "/pong" },
 ] as const;
 
 /** Estado necessário para exibir a navegação principal. */
@@ -115,7 +144,20 @@ type NavigationProps = {
   /** Tema atual e ação de alternância. */
   mode: "dark" | "light";
   toggleMode: () => void;
+  signedIn: boolean;
+  signOut: () => void;
 };
+
+type MobileNavigationProps = Pick<
+  NavigationProps,
+  | "pathname"
+  | "unread"
+  | "pendingFriends"
+  | "mode"
+  | "toggleMode"
+  | "signedIn"
+  | "signOut"
+>;
 
 /** Renderiza os links da navegação e o contador de conversas não lidas. */
 function NavItems({
@@ -158,14 +200,17 @@ function DesktopNavigation(props: NavigationProps) {
       >
         Tema: {props.mode === "dark" ? "escuro" : "claro"}
       </Button>
+      {props.signedIn ? (
+        <Button color="inherit" size="small" onClick={props.signOut}>
+          Sair
+        </Button>
+      ) : null}
     </Box>
   );
 }
 
 /** Seletor responsivo de rotas, com o item atual já selecionado. */
-function MobilePageSelect(
-  props: Pick<NavigationProps, "pathname" | "unread" | "pendingFriends" | "mode" | "toggleMode">,
-) {
+function MobilePageSelect(props: MobileNavigationProps) {
   const navigate = useNavigate();
   const selectedItem =
     navItems.find((item) => navRouteSelected(item.to, props.pathname)) ??
@@ -177,19 +222,33 @@ function MobilePageSelect(
       value={selectedItem.to}
       sx={{ display: { xs: "flex", sm: "none" } }}
       inputProps={{ "aria-label": "Navegar para página" }}
-      onChange={(event) => {
-        const selected = String(event.target.value);
-        if (selected === "theme") props.toggleMode();
-        else navigate(selected);
-      }}
+      onChange={(event) =>
+        selectMobilePage(String(event.target.value), props, navigate)
+      }
     >
       {mobilePageOptions(props)}
     </Select>
   );
 }
 
+/** Executa a opção selecionada no menu compacto. */
+function selectMobilePage(
+  selected: string,
+  props: MobileNavigationProps,
+  navigate: NavigateFunction,
+) {
+  if (selected === "theme") props.toggleMode();
+  else if (selected === "logout") props.signOut();
+  else navigate(selected);
+}
+
 /** Opções de navegação e tema do seletor para telas pequenas. */
-function mobilePageOptions(props: Pick<NavigationProps, "unread" | "pendingFriends" | "mode">) {
+function mobilePageOptions(
+  props: Pick<
+    NavigationProps,
+    "unread" | "pendingFriends" | "mode" | "signedIn"
+  >,
+) {
   return [
     ...navItems.map((item) => (
       <MenuItem key={item.to} value={item.to}>
@@ -201,6 +260,11 @@ function mobilePageOptions(props: Pick<NavigationProps, "unread" | "pendingFrien
     <MenuItem key="theme" value="theme">
       Usar tema {props.mode === "dark" ? "claro" : "escuro"}
     </MenuItem>,
+    props.signedIn ? (
+      <MenuItem key="logout" value="logout">
+        Sair
+      </MenuItem>
+    ) : null,
   ];
 }
 

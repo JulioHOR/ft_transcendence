@@ -127,9 +127,9 @@ def test_chat_send_chega_em_todos_com_payload_exato(env):
 def test_chat_send_sem_identidade_ou_texto_e_ignorado(env):
     anon = connect_api(env)
     ana = connect_api(env, 1)
+    assert not anon.is_connected()
     drain(anon)
     drain(ana)
-    anon.emit("chat:send", {"text": "fantasma"})
     ana.emit("chat:send", {"text": "   "})
     assert drain(ana, "chat:message") == []
     ana.emit("chat:send", {"text": "oi"})

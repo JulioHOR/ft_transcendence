@@ -16,6 +16,7 @@ pong_bp = Blueprint("pong", __name__, description="Partidas e estatísticas do P
     description=(
         "Retorna resultados, histórico, progresso e classificação de um usuário."
     ),
+    security=[{"cookieAuth": []}],
 )
 def get_pong_statistics():
     """Retorna estatísticas e partidas de um usuário."""

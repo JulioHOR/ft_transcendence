@@ -12,6 +12,8 @@ exec gunicorn \
     --workers 1 \
     --threads 32 \
     --bind "0.0.0.0:${BACKEND_INTERNAL_PORT}" \
+    --certfile /run/secrets/backend_tls_certificate \
+    --keyfile /run/secrets/backend_tls_key \
     --timeout 0 \
     --graceful-timeout 10 \
     app:app

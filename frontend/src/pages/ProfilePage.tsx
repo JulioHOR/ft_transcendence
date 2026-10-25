@@ -26,6 +26,27 @@ import { PageContainer } from "../ui/PageContainer";
 import { SectionCard } from "../ui/SectionCard";
 import { PongStatistics } from "../games/pong/PongStatistics";
 
+const NICKNAME_MIN_LENGTH = 3;
+const NICKNAME_MAX_LENGTH = 20;
+const NICKNAME_PATTERN = "[A-Za-z0-9_]+";
+const MAX_AVATAR_FILE_SIZE = 599_900;
+
+/** Restrições do apelido aplicadas pelo navegador. */
+function nicknameInputConstraints() {
+  return {
+    minLength: NICKNAME_MIN_LENGTH,
+    maxLength: NICKNAME_MAX_LENGTH,
+    pattern: NICKNAME_PATTERN,
+  };
+}
+
+/** Restrições de entrada próprias do campo de apelido. */
+function profileFieldSlots(field: "email" | "nickname") {
+  return field === "nickname"
+    ? { htmlInput: nicknameInputConstraints() }
+    : undefined;
+}
+
 /** Persiste um campo do perfil e mostra falhas ao salvar. */
 async function submitProfileField(
   field: "email" | "nickname",
@@ -117,6 +138,8 @@ function ProfileFieldRow(props: {
         id={`profile-${props.field}`}
         label={props.label}
         type={props.field === "email" ? "email" : "text"}
+        required
+        slotProps={profileFieldSlots(props.field)}
         value={props.value}
         onChange={(event) => props.onChange(event.target.value)}
         sx={{ flex: 1 }}
@@ -292,14 +315,21 @@ function saveAvatarFile(
   setError: (value: string | null) => void,
   setPending: (value: boolean) => void,
 ): void {
-  if (file) {
-    void saveAvatarChange(
-      async () => uploadAvatar(await readImageAsDataUrl(file)),
-      onSaved,
-      setError,
-      setPending,
-    );
+  if (file == null) return;
+  if (!file.type.startsWith("image/")) {
+    setError("Escolha um arquivo de imagem.");
+    return;
   }
+  if (file.size > MAX_AVATAR_FILE_SIZE) {
+    setError("A imagem deve ter menos de 600 KB.");
+    return;
+  }
+  void saveAvatarChange(
+    async () => uploadAvatar(await readImageAsDataUrl(file)),
+    onSaved,
+    setError,
+    setPending,
+  );
 }
 
 /** Corpo editável do próprio perfil. */

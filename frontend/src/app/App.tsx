@@ -14,6 +14,8 @@ import { FriendsProvider } from "./FriendsProvider";
 import { ChatProvider } from "./ChatProvider";
 import { FriendsPage } from "../pages/FriendsPage";
 import { AppNavigation } from "./AppNavigation";
+import { LegalFooter } from "./LegalFooter";
+import { LegalPage } from "../pages/LegalPage";
 
 /**
  * Carregamento preguiçoso do Jogo.
@@ -38,6 +40,8 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/privacy" element={<LegalPage document="privacy" />} />
+        <Route path="/terms" element={<LegalPage document="terms" />} />
         <Route path="/pong" element={protectedPage(<PongPage />)} />
         <Route path="/profile" element={protectedPage(<ProfilePage />)} />
         <Route
@@ -107,6 +111,7 @@ function AppShellContent() {
       <Box sx={{ minHeight: 0, flex: 1 }}>
         <AppRoutes />
       </Box>
+      {!fixedHeight ? <LegalFooter /> : null}
     </Box>
   );
 }

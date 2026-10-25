@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, request
+from flask import Flask, jsonify, request, session
 from flask_socketio import SocketIO
 
 from apidocs import init_api
@@ -15,6 +15,18 @@ app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
 app.config.update(SESSION_COOKIE_OPTIONS)
 
 init_api(app)
+
+PUBLIC_API_ENDPOINTS = {"auth.signup", "auth.login"}
+
+
+@app.before_request
+def require_api_session():
+    if (
+        request.path.startswith("/api/")
+        and request.endpoint not in PUBLIC_API_ENDPOINTS
+        and session.get("user_id") is None
+    ):
+        return jsonify({"error": "Você não está logado."}), 401
 
 def register_game_routes():
     from games.pong.handlers import register_pong_handlers

@@ -69,10 +69,10 @@ def register_social_handlers(socketio, matchmaker) -> Callable[[str], None]:
         sid = _request_sid()
         user_id = session.get("user_id")
         if user_id is None:
-            return None
+            return False
         profile = store.get_user_profile(user_id)
         if profile is None:
-            return None
+            return False
         nickname = profile[0]
         with _state_lock:
             identities[sid] = (user_id, nickname)

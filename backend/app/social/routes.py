@@ -127,7 +127,8 @@ def _unauthorized():
 )
 @social_bp.doc(
     summary="Ler perfil público",
-    description="Lê o perfil de qualquer usuário pelo id; rota pública, não exige sessão.",
+    description="Lê o perfil de qualquer usuário pelo id.",
+    security=[{"cookieAuth": []}],
     parameters=[
         {
             "name": "id",
@@ -321,7 +322,8 @@ def delete_avatar():
 )
 @social_bp.doc(
     summary="Ler a foto de um usuário",
-    description="Devolve os bytes gravados no upload; rota pública, não exige sessão.",
+    description="Devolve os bytes da foto gravada para o usuário informado.",
+    security=[{"cookieAuth": []}],
 )
 def get_avatar(user_id: int):
     avatar = store.get_avatar(user_id)
@@ -478,6 +480,9 @@ def add_friend():
     if not isinstance(nickname, str) or not nickname.strip():
         return jsonify({"error": "Informe o nickname do amigo que você quer adicionar."}), 400
     nickname = nickname.strip()
+    validation_error = validate_nickname(nickname)
+    if validation_error is not None:
+        return jsonify({"error": validation_error}), 400
     friend = store.find_user_by_nickname(nickname)
     if friend is None:
         return jsonify({"error": "Nenhum usuário encontrado com esse nickname."}), 404

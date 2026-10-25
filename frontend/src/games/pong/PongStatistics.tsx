@@ -156,9 +156,7 @@ function LevelProgressDetails({
         color="text.secondary"
         sx={{ marginLeft: "auto", textAlign: "right" }}
       >
-        Vitórias líquidas: {statistics.wins} − {statistics.losses} ={" "}
-        {statistics.netWinsInCurrentLevel} de {statistics.winsForNextLevel} para
-        próximo nível
+        Ganhe mais partidas do que perca para avançar de nível.
       </Typography>
     </Stack>
   );

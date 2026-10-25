@@ -12,6 +12,7 @@ from .validators import (
     NICKNAME_MIN,
     PASSWORD_MIN,
     normalize_email,
+    validate_email,
     validate_signup,
 )
 
@@ -194,6 +195,8 @@ def login():
     if fields is None:
         return jsonify({"error": INVALID_CREDENTIALS}), 401
     email, password = fields
+    if validate_email(email) is not None:
+        return jsonify({"error": INVALID_CREDENTIALS}), 401
     with db_cursor() as cur:
         cur.execute(
             "SELECT id, email, nickname, password_hash FROM users WHERE email = %s;",
@@ -214,6 +217,7 @@ def login():
 @auth_bp.doc(
     summary="Sair",
     description="Limpa a sessão; sempre responde 204.",
+    security=[{"cookieAuth": []}],
 )
 def logout():
     session.clear()

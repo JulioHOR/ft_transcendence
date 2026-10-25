@@ -1,7 +1,7 @@
 from db import db_cursor
 from .constants import POINTS_TO_WIN
 
-WINS_PER_LEVEL = 5
+NET_WINS_PER_LEVEL = 3
 
 
 _PLAYER_RESULTS = """
@@ -89,10 +89,10 @@ def get_statistics(user_id: int) -> dict:
         "wins": wins,
         "losses": losses,
         "ranking": ranking,
-        "level": level_progress // WINS_PER_LEVEL + 1,
+        "level": level_progress // NET_WINS_PER_LEVEL + 1,
         "netWins": net_wins,
-        "netWinsInCurrentLevel": level_progress % WINS_PER_LEVEL,
-        "winsForNextLevel": WINS_PER_LEVEL,
+        "netWinsInCurrentLevel": level_progress % NET_WINS_PER_LEVEL,
+        "winsForNextLevel": NET_WINS_PER_LEVEL,
         "achievements": [
             {
                 "name": "Primeira vitória",

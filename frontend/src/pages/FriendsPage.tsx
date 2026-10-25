@@ -24,6 +24,10 @@ import { PageHeading } from "../ui/PageHeading";
 import { SectionCard } from "../ui/SectionCard";
 import { EmptyState } from "../ui/EmptyState";
 
+const NICKNAME_MIN_LENGTH = 3;
+const NICKNAME_MAX_LENGTH = 20;
+const NICKNAME_PATTERN = "[A-Za-z0-9_]+";
+
 /** Envia o nickname para adicionar um friend e limpa o campo. */
 async function submitAddFriend(
   event: SubmitEvent<HTMLFormElement>,
@@ -56,6 +60,14 @@ function FriendNicknameField(props: {
     <AppTextField
       id="friend-nickname"
       label="Apelido"
+      required
+      slotProps={{
+        htmlInput: {
+          minLength: NICKNAME_MIN_LENGTH,
+          maxLength: NICKNAME_MAX_LENGTH,
+          pattern: NICKNAME_PATTERN,
+        },
+      }}
       value={props.nickname}
       placeholder="apelido do amigo"
       sx={{ flex: 1, minWidth: 0 }}
@@ -281,9 +293,7 @@ function FriendRows(props: FriendsListProps) {
 
 function FriendsList(props: FriendsListProps) {
   if (props.friends.length === 0) {
-    return (
-      <EmptyState>Nenhum amigo na lista ainda.</EmptyState>
-    );
+    return <EmptyState>Nenhum amigo na lista ainda.</EmptyState>;
   }
   return (
     <List

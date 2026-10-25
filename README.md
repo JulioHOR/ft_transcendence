@@ -8,16 +8,25 @@
 | `make clean`| Ralizar limpeza dos containers     |
 | `make re`   | Limpeza e reinicialização          |
 
-## Secrets
+## Configuração e secrets
 
-`secrets/` não é versionado. O `make setup` (rodado pelo `make up`) garante:
+O arquivo `.env` é local e ignorado pelo Git. Na primeira execução, `make up`
+cria uma cópia de `.env.example`, gera os secrets ausentes e inicia os containers
+sem prompts, edição de `/etc/hosts` ou uso de `sudo`.
+
+O acesso local padrão é `https://localhost:8443`. O certificado do navegador é
+autoassinado. O tráfego entre Nginx e backend também usa HTTPS, com certificado
+interno gerado localmente e validado pelo Nginx.
+
+`secrets/` não é versionado. O setup gera:
 
 | Arquivo | Origem |
 | ------- | ------ |
-| `secrets/db_password.txt` | perguntado no terminal |
-| `secrets/flask_secret_key.txt` | gerado com `openssl rand -hex 32` |
+| `secrets/db_password.txt` | gerado localmente |
+| `secrets/flask_secret_key.txt` | gerado localmente |
+| `secrets/backend.crt` e `secrets/backend.key` | certificado TLS interno |
 
-Os dois são montados em `/run/secrets/` e precisam ser legíveis pelo `appuser` do container backend (mode `644`).
+Os secrets são montados em `/run/secrets/` nos containers que precisam deles.
 
 ## Schema do banco
 

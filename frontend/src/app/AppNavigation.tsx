@@ -134,6 +134,13 @@ const navItems = [
   { label: "Pong", to: "/pong" },
 ] as const;
 
+/** Retorna as rotas disponíveis conforme o estado da sessão. */
+function availableNavItems(signedIn: boolean) {
+  return signedIn
+    ? navItems.filter((item) => item.to !== "/login")
+    : [navItems[0]];
+}
+
 /** Estado necessário para exibir a navegação principal. */
 type NavigationProps = {
   /** Total de mensagens não lidas. */
@@ -164,10 +171,14 @@ function NavItems({
   unread,
   pendingFriends,
   pathname,
-}: Pick<NavigationProps, "unread" | "pendingFriends" | "pathname">) {
+  signedIn,
+}: Pick<
+  NavigationProps,
+  "unread" | "pendingFriends" | "pathname" | "signedIn"
+>) {
   return (
     <Box sx={navItemsSx}>
-      {navItems.map((item) => (
+      {availableNavItems(signedIn).map((item) => (
         <NavItem
           key={item.to}
           {...item}
@@ -196,7 +207,6 @@ function DesktopNavigation(props: NavigationProps) {
         color="inherit"
         size="small"
         onClick={props.toggleMode}
-        sx={{ ml: "auto" }}
       >
         Tema: {props.mode === "dark" ? "escuro" : "claro"}
       </Button>
@@ -212,9 +222,10 @@ function DesktopNavigation(props: NavigationProps) {
 /** Seletor responsivo de rotas, com o item atual já selecionado. */
 function MobilePageSelect(props: MobileNavigationProps) {
   const navigate = useNavigate();
+  const availableItems = availableNavItems(props.signedIn);
   const selectedItem =
-    navItems.find((item) => navRouteSelected(item.to, props.pathname)) ??
-    navItems[0];
+    availableItems.find((item) => navRouteSelected(item.to, props.pathname)) ??
+    availableItems[0];
   return (
     <Select
       size="small"
@@ -250,7 +261,7 @@ function mobilePageOptions(
   >,
 ) {
   return [
-    ...navItems.map((item) => (
+    ...availableNavItems(props.signedIn).map((item) => (
       <MenuItem key={item.to} value={item.to}>
         <UnreadBadge count={navItemUnread(item.to, props)}>
           {item.label}
@@ -283,4 +294,6 @@ const desktopNavigationSx = {
   display: { xs: "none", sm: "flex" },
   width: "100%",
   alignItems: "center",
+  justifyContent: "center",
+  gap: 0.5,
 };

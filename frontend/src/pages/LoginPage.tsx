@@ -23,6 +23,11 @@ type FieldValues = {
   password: string;
 };
 
+const NICKNAME_MIN_LENGTH = 3;
+const NICKNAME_MAX_LENGTH = 20;
+const PASSWORD_MIN_LENGTH = 8;
+const NICKNAME_PATTERN = "[A-Za-z0-9_]+";
+
 /** Modelo de estado do formulário de login/cadastro. */
 type LoginFormModel = FieldValues & {
   error: string | null;
@@ -36,16 +41,30 @@ type LoginFormModel = FieldValues & {
 };
 
 /** Campo de formulário Material UI. */
-function Field(props: {
+function Field({
+  minLength,
+  maxLength,
+  pattern,
+  ...props
+}: {
   id: string;
   label: string;
   type?: string;
   autoComplete?: string;
   placeholder?: string;
+  required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
   value: string;
   onChange: ChangeEventHandler<HTMLInputElement>;
 }) {
-  return <AppTextField {...props} />;
+  return (
+    <AppTextField
+      {...props}
+      slotProps={{ htmlInput: { minLength, maxLength, pattern } }}
+    />
+  );
 }
 
 /** Campo de nickname exibido apenas no cadastro. */
@@ -58,6 +77,10 @@ function NicknameField(form: LoginFormModel) {
       type="text"
       autoComplete="username"
       placeholder="apelido"
+      required
+      minLength={NICKNAME_MIN_LENGTH}
+      maxLength={NICKNAME_MAX_LENGTH}
+      pattern={NICKNAME_PATTERN}
       value={form.nickname}
       onChange={(e) => form.setNickname(e.target.value)}
     />
@@ -73,6 +96,7 @@ function EmailField(form: LoginFormModel) {
       type="email"
       autoComplete="email"
       placeholder="email"
+      required
       value={form.email}
       onChange={(e) => form.setEmail(e.target.value)}
     />
@@ -88,6 +112,8 @@ function PasswordField(form: LoginFormModel) {
       type="password"
       autoComplete="current-password"
       placeholder="senha"
+      required
+      minLength={form.mode === "signup" ? PASSWORD_MIN_LENGTH : undefined}
       value={form.password}
       onChange={(e) => form.setPassword(e.target.value)}
     />

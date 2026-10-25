@@ -407,6 +407,7 @@ function ChatDraftInput({ session }: { session: ChatSession }) {
       fullWidth
       sx={{ flex: 1, minWidth: 0 }}
       value={session.draft}
+      required
       disabled={!session.canSendOnActiveTab}
       onChange={(event) => session.setDraft(event.target.value)}
       placeholder="mensagem"

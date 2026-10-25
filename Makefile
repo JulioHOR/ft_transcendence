@@ -19,9 +19,10 @@ logs:
 ps:
 	$(COMPOSE) ps
 
-clean:
-	@$(COMPOSE) down -v --rmi all 2>/dev/null || true
-	@sudo rm -rf /home/$(USER)/data/ft_transcendence
+clean: setup
+	@$(COMPOSE) down -v
+	@$(COMPOSE) run --rm --no-deps --build --user root --entrypoint sh database -c 'find /var/lib/postgresql/data -mindepth 1 -delete'
+	@$(COMPOSE) down --rmi all
 
 re: clean up
 

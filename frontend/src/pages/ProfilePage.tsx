@@ -7,7 +7,6 @@ import {
 } from "react";
 import { Link, useParams } from "react-router-dom";
 import MuiLink from "@mui/material/Link";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import {
@@ -24,6 +23,8 @@ import { ErrorText } from "../ui/ErrorText";
 import { ActionButton } from "../ui/ActionButton";
 import { AppTextField } from "../ui/AppTextField";
 import { PageContainer } from "../ui/PageContainer";
+import { SectionCard } from "../ui/SectionCard";
+import { PageHeading } from "../ui/PageHeading";
 
 /** Campo somente leitura de email. */
 function EmailDisplay(props: { email: string }) {
@@ -219,7 +220,7 @@ function AvatarEditor(props: {
 function OwnProfileBody(props: { user: User; onSaved: (user: User) => void }) {
   return (
     <Stack spacing={3}>
-      <Typography variant="h2">{props.user.nickname}</Typography>
+      <PageHeading>{props.user.nickname}</PageHeading>
       <AvatarEditor
         avatarUrl={props.user.avatarUrl}
         nickname={props.user.nickname}
@@ -269,12 +270,9 @@ function OwnProfileLoaded(props: {
   }
   if (props.user == null) return null;
   return (
-    <Paper
-      variant="outlined"
-      sx={{ p: { xs: 2, sm: 3 }, borderColor: "divider" }}
-    >
+    <SectionCard>
       <OwnProfileBody user={props.user} onSaved={props.onSaved} />
-    </Paper>
+    </SectionCard>
   );
 }
 
@@ -363,12 +361,9 @@ function OtherProfileContentState({
         <Typography color="text.secondary">Carregando…</Typography>
       ) : null}
       {profile ? (
-        <Paper
-          variant="outlined"
-          sx={{ p: { xs: 2, sm: 3 }, borderColor: "divider" }}
-        >
+        <SectionCard>
           <OtherProfileContent profile={profile} />
-        </Paper>
+        </SectionCard>
       ) : null}
     </Stack>
   );

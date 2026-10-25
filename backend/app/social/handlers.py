@@ -6,6 +6,7 @@ from flask import request, session
 from . import store
 
 SEM_AMIZADE_ACEITA = "Não é possível enviar mensagem privada: vocês ainda não são amigos."
+USUARIO_BLOQUEADO = "Não é possível enviar mensagem: existe um bloqueio entre as contas."
 
 identities: dict[str, tuple[int, str]] = {}
 _online: dict[int, int] = {}
@@ -60,7 +61,7 @@ def broadcast_friends() -> None:
 def _emit_to_user(user_id: int, event: str, payload: dict) -> None:
     _socketio.emit(event, payload, room=f"user:{user_id}")
 
-def register_social_handlers(socketio) -> Callable[[str], None]:
+def register_social_handlers(socketio, matchmaker) -> Callable[[str], None]:
     global _socketio
     _socketio = socketio
     @socketio.on("connect")
@@ -78,6 +79,20 @@ def register_social_handlers(socketio) -> Callable[[str], None]:
             _online[user_id] = _online.get(user_id, 0) + 1
             became_online = _online[user_id] == 1
         socketio.server.enter_room(sid, f"user:{user_id}")
+        for invitation in matchmaker.game_invitations_for_user(user_id):
+            sender = store.get_user_profile(invitation["senderId"])
+            recipient = store.get_user_profile(invitation["recipientId"])
+            if sender is None or recipient is None:
+                continue
+            invitation["senderNickname"] = sender[0]
+            invitation["recipientNickname"] = recipient[0]
+            event = (
+                "chat:game:invite:update"
+                if invitation["status"] == "accepted"
+                or invitation["senderId"] == user_id
+                else "chat:game:invite"
+            )
+            _emit_to_user(user_id, event, invitation)
         if became_online:
             broadcast_friends()
         else:
@@ -126,6 +141,11 @@ def register_social_handlers(socketio) -> Callable[[str], None]:
                 "chat:private:error", {"message": SEM_AMIZADE_ACEITA}, room=_request_sid()
             )
             return
+        if store.is_blocked_between(user_id, other_id):
+            socketio.emit(
+                "chat:private:error", {"message": USUARIO_BLOQUEADO}, room=_request_sid()
+            )
+            return
         message = store.insert_message(user_id, other_id, text)
         message["otherUserId"] = other_id
         message["conversationId"] = conversation_id(user_id, other_id)
@@ -140,7 +160,9 @@ def register_social_handlers(socketio) -> Callable[[str], None]:
         if other_id is None:
             return
         user_id, nickname = identity
-        if not _is_accepted_friend(user_id, other_id):
+        if not _is_accepted_friend(user_id, other_id) or store.is_blocked_between(
+            user_id, other_id
+        ):
             return
         _emit_to_user(
             other_id,
@@ -162,7 +184,9 @@ def register_social_handlers(socketio) -> Callable[[str], None]:
         if other_id is None or not isinstance(last_message_id, str) or not last_message_id:
             return
         user_id = identity[0]
-        if not _is_accepted_friend(user_id, other_id):
+        if not _is_accepted_friend(user_id, other_id) or store.is_blocked_between(
+            user_id, other_id
+        ):
             return
         _emit_to_user(
             other_id,
@@ -173,6 +197,122 @@ def register_social_handlers(socketio) -> Callable[[str], None]:
                 "lastMessageId": last_message_id,
             },
         )
+
+    @socketio.on("chat:game:invite")
+    def on_chat_game_invite(raw=None):
+        identity = identities.get(_request_sid())
+        if identity is None:
+            return
+        other_id = _int_field(raw, "otherUserId")
+        if other_id is None or other_id == identity[0]:
+            return
+        if not _is_accepted_friend(identity[0], other_id):
+            socketio.emit(
+                "chat:private:error", {"message": SEM_AMIZADE_ACEITA}, room=_request_sid()
+            )
+            return
+        if store.is_blocked_between(identity[0], other_id):
+            socketio.emit(
+                "chat:private:error", {"message": USUARIO_BLOQUEADO}, room=_request_sid()
+            )
+            return
+        other_profile = store.get_user_profile(other_id)
+        if other_profile is None:
+            return
+        invitation_id = matchmaker.create_game_invitation(identity[0], other_id)
+        if invitation_id is None:
+            socketio.emit(
+                "chat:private:error",
+                {"message": "Uma das pessoas já está em uma partida ou convite."},
+                room=_request_sid(),
+            )
+            return
+        event = {
+            "inviteId": invitation_id,
+            "senderId": identity[0],
+            "senderNickname": identity[1],
+            "recipientId": other_id,
+            "recipientNickname": other_profile[0],
+            "status": "pending",
+        }
+        _emit_to_user(other_id, "chat:game:invite", event)
+        _emit_to_user(identity[0], "chat:game:invite:update", event)
+
+    @socketio.on("chat:game:invite:respond")
+    def on_chat_game_invite_respond(raw=None):
+        identity = identities.get(_request_sid())
+        if identity is None or not isinstance(raw, dict):
+            return
+        invitation_id = raw.get("inviteId")
+        accepted = raw.get("accepted")
+        if not isinstance(invitation_id, str) or not isinstance(accepted, bool):
+            return
+        invitation = matchmaker.game_invitation(invitation_id)
+        if invitation is None or invitation["recipientId"] != identity[0]:
+            socketio.emit(
+                "chat:private:error",
+                {"message": "Este convite não está mais disponível."},
+                room=_request_sid(),
+            )
+            return
+        if accepted and store.is_blocked_between(
+            invitation["senderId"], invitation["recipientId"]
+        ):
+            socketio.emit(
+                "chat:private:error",
+                {"message": "Não é possível aceitar um convite entre contas bloqueadas."},
+                room=_request_sid(),
+            )
+            return
+        event = matchmaker.respond_game_invitation(
+            invitation_id, identity[0], accepted
+        )
+        if event is None:
+            socketio.emit(
+                "chat:private:error",
+                {"message": "Este convite não está mais disponível."},
+                room=_request_sid(),
+            )
+            return
+        sender_profile = store.get_user_profile(event["senderId"])
+        recipient_profile = store.get_user_profile(event["recipientId"])
+        if sender_profile is None or recipient_profile is None:
+            return
+        event["senderNickname"] = sender_profile[0]
+        event["recipientNickname"] = recipient_profile[0]
+        event["status"] = "accepted" if accepted else "declined"
+        _emit_to_user(event["senderId"], "chat:game:invite:update", event)
+        _emit_to_user(event["recipientId"], "chat:game:invite:update", event)
+
+    @socketio.on("chat:game:invite:cancel")
+    def on_chat_game_invite_cancel(raw=None):
+        identity = identities.get(_request_sid())
+        if identity is None or not isinstance(raw, dict):
+            return
+        invitation_id = raw.get("inviteId")
+        if not isinstance(invitation_id, str):
+            return
+        event = matchmaker.cancel_game_invitation(invitation_id, identity[0])
+        if event is None:
+            socketio.emit(
+                "chat:private:error",
+                {"message": "Este convite não está mais disponível."},
+                room=_request_sid(),
+            )
+            return
+        for game_sid in event.pop("socketIds"):
+            socketio.emit(
+                "game:status", {"state": "opponent_left"}, to=game_sid
+            )
+        event["status"] = "cancelled"
+        sender_profile = store.get_user_profile(event["senderId"])
+        recipient_profile = store.get_user_profile(event["recipientId"])
+        if sender_profile is None or recipient_profile is None:
+            return
+        event["senderNickname"] = sender_profile[0]
+        event["recipientNickname"] = recipient_profile[0]
+        _emit_to_user(event["senderId"], "chat:game:invite:update", event)
+        _emit_to_user(event["recipientId"], "chat:game:invite:update", event)
     def handle_disconnect(sid: str) -> None:
         with _state_lock:
             identity = identities.pop(sid, None)

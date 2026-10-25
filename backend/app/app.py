@@ -30,16 +30,18 @@ def register_game_routes():
             ),
         )
 
-    return register_pong_handlers(socketio, Matchmaker(match_factory))
+    matchmaker = Matchmaker(match_factory)
+    return register_pong_handlers(socketio, matchmaker), matchmaker
 
-def register_social_routes():
+
+def register_social_routes(matchmaker):
     from social.handlers import register_social_handlers
 
-    return register_social_handlers(socketio)
+    return register_social_handlers(socketio, matchmaker)
 
 
-pong_handle_disconnect = register_game_routes()
-social_handle_disconnect = register_social_routes()
+pong_handle_disconnect, pong_matchmaker = register_game_routes()
+social_handle_disconnect = register_social_routes(pong_matchmaker)
 
 
 @socketio.on("disconnect")

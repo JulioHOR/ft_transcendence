@@ -26,6 +26,18 @@ export type PrivateConversationHistory = {
 export type ChatHistory = {
   global: ChatMessage[];
   conversations: PrivateConversationHistory[];
+  blockedUserIds: number[];
+  blockingUserIds: number[];
+};
+
+/** Convite de partida emitido dentro de uma conversa privada. */
+export type GameInvitation = {
+  inviteId: string;
+  senderId: number;
+  senderNickname: string;
+  recipientId: number;
+  recipientNickname: string;
+  status: "pending" | "accepted" | "declined" | "cancelled" | "started";
 };
 
 /** Evento de digitação no chat privado. */
@@ -56,6 +68,11 @@ export type ChatTransport = {
   onPrivateError(handler: (message: string) => void): void;
   onPrivateTyping(handler: (event: PrivateTypingEvent) => void): void;
   onPrivateRead(handler: (event: PrivateReadEvent) => void): void;
+  sendGameInvite(otherUserId: number): void;
+  respondGameInvite(inviteId: string, accepted: boolean): void;
+  cancelGameInvite(inviteId: string): void;
+  onGameInvite(handler: (invitation: GameInvitation) => void): void;
+  onGameInviteUpdate(handler: (invitation: GameInvitation) => void): void;
 };
 
 type ChatHandlers = {
@@ -64,6 +81,8 @@ type ChatHandlers = {
   onError: ((message: string) => void) | null;
   onTyping: ((event: PrivateTypingEvent) => void) | null;
   onRead: ((event: PrivateReadEvent) => void) | null;
+  onGameInvite: ((invitation: GameInvitation) => void) | null;
+  onGameInviteUpdate: ((invitation: GameInvitation) => void) | null;
 };
 
 /** Monta o id da conversa privada a partir do par de users. */
@@ -108,6 +127,12 @@ function attachSocketListeners(socket: Socket, handlers: ChatHandlers): void {
   socket.on("chat:private:read", (event: PrivateReadEvent) => {
     handlers.onRead?.(event);
   });
+  socket.on("chat:game:invite", (invitation: GameInvitation) => {
+    handlers.onGameInvite?.(invitation);
+  });
+  socket.on("chat:game:invite:update", (invitation: GameInvitation) => {
+    handlers.onGameInviteUpdate?.(invitation);
+  });
 }
 
 /** Métodos de envio do transporte. */
@@ -115,10 +140,7 @@ function chatSendApi(
   getSocket: () => Socket | null,
 ): Pick<
   ChatTransport,
-  | "sendGlobalMessage"
-  | "sendPrivateMessage"
-  | "sendPrivateTyping"
-  | "sendPrivateRead"
+  "sendGlobalMessage" | "sendPrivateMessage" | "sendPrivateTyping" | "sendPrivateRead"
 > {
   return {
     sendGlobalMessage: (text) => getSocket()?.emit("chat:send", { text }),
@@ -128,6 +150,20 @@ function chatSendApi(
       getSocket()?.emit("chat:private:typing", { otherUserId, isTyping }),
     sendPrivateRead: (otherUserId, lastMessageId) =>
       getSocket()?.emit("chat:private:read", { otherUserId, lastMessageId }),
+  };
+}
+
+/** Envio e resposta a convites de partida. */
+function chatGameInviteSendApi(
+  getSocket: () => Socket | null,
+): Pick<ChatTransport, "sendGameInvite" | "respondGameInvite" | "cancelGameInvite"> {
+  return {
+    sendGameInvite: (otherUserId) =>
+      getSocket()?.emit("chat:game:invite", { otherUserId }),
+    respondGameInvite: (inviteId, accepted) =>
+      getSocket()?.emit("chat:game:invite:respond", { inviteId, accepted }),
+    cancelGameInvite: (inviteId) =>
+      getSocket()?.emit("chat:game:invite:cancel", { inviteId }),
   };
 }
 
@@ -165,6 +201,20 @@ function chatPresenceHandlers(
   };
 }
 
+/** Registra os eventos de convite de partida. */
+function chatGameInviteHandlers(
+  handlers: ChatHandlers,
+): Pick<ChatTransport, "onGameInvite" | "onGameInviteUpdate"> {
+  return {
+    onGameInvite: (handler) => {
+      handlers.onGameInvite = handler;
+    },
+    onGameInviteUpdate: (handler) => {
+      handlers.onGameInviteUpdate = handler;
+    },
+  };
+}
+
 /** Abre a conexão do transporte. */
 async function connectTransport(
   handlers: ChatHandlers,
@@ -179,13 +229,7 @@ async function connectTransport(
 /** Cria um transporte de chat via Socket.IO. */
 export function createChatTransport(): ChatTransport {
   let socket: Socket | null = null;
-  const handlers: ChatHandlers = {
-    onGlobal: null,
-    onPrivate: null,
-    onError: null,
-    onTyping: null,
-    onRead: null,
-  };
+  const handlers = createChatHandlers();
   return {
     connect: () =>
       connectTransport(handlers, (next) => {
@@ -196,7 +240,42 @@ export function createChatTransport(): ChatTransport {
       socket = null;
     },
     ...chatSendApi(() => socket),
+    ...chatGameInviteSendApi(() => socket),
     ...chatMessageHandlers(handlers),
     ...chatPresenceHandlers(handlers),
+    ...chatGameInviteHandlers(handlers),
   };
+}
+
+/** Cria handlers inicialmente sem inscrição. */
+function createChatHandlers(): ChatHandlers {
+  return {
+    onGlobal: null,
+    onPrivate: null,
+    onError: null,
+    onTyping: null,
+    onRead: null,
+    onGameInvite: null,
+    onGameInviteUpdate: null,
+  };
+}
+
+/** Bloque mensagens privadas enviadas por um usuário. */
+export async function blockChatUser(userId: number): Promise<void> {
+  await updateChatBlock(userId, "POST");
+}
+
+/** Permite novamente mensagens privadas de um usuário. */
+export async function unblockChatUser(userId: number): Promise<void> {
+  await updateChatBlock(userId, "DELETE");
+}
+
+async function updateChatBlock(userId: number, method: "POST" | "DELETE") {
+  const response = await fetch(`/api/chat/blocks/${userId}`, {
+    method,
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "falha ao atualizar bloqueio"));
+  }
 }

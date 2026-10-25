@@ -101,10 +101,15 @@ function canSendOnTab(
   activeTabId: string,
   privateTab: PrivateChatTab | null,
   friends: Friend[],
+  blockedUserIds: number[],
+  blockingUserIds: number[],
 ): boolean {
   if (activeTabId === GLOBAL_CHAT_TAB_ID) return true;
   return (
-    privateTab != null && isAcceptedFriend(friends, privateTab.otherUserId)
+    privateTab != null &&
+    isAcceptedFriend(friends, privateTab.otherUserId) &&
+    !blockedUserIds.includes(privateTab.otherUserId) &&
+    !blockingUserIds.includes(privateTab.otherUserId)
   );
 }
 
@@ -215,6 +220,7 @@ function chatSessionSnapshot(
   draft: string,
   canSend: boolean,
 ): Omit<ChatSession, "selectTab" | "closeTab" | "setDraft" | "submitDraft"> {
+  const privateTab = findPrivateTab(activeTabId, chat.privateChatTabs);
   return {
     activeTabId,
     privateChatTabs: chat.privateChatTabs,
@@ -227,11 +233,69 @@ function chatSessionSnapshot(
     draft,
     error: chat.error,
     canSendOnActiveTab: canSend,
+    ...chatActionsSnapshot(chat, privateTab),
+  };
+}
+
+/** Ações e bloqueios associados à conversa privada ativa. */
+function chatActionsSnapshot(
+  chat: ChatApi,
+  privateTab: PrivateChatTab | null,
+): Pick<
+  ChatSession,
+  | "blockedByCurrentUser"
+  | "blockedByOtherUser"
+  | "gameInvitations"
+  | "sendGameInvite"
+  | "respondGameInvite"
+  | "cancelGameInvite"
+  | "clearError"
+  | "blockUser"
+  | "unblockUser"
+> {
+  return { ...chatRestrictionSnapshot(chat, privateTab), ...chatInvitationActions(chat) };
+}
+
+/** Estado de bloqueio da conversa ativa. */
+function chatRestrictionSnapshot(chat: ChatApi, privateTab: PrivateChatTab | null) {
+  return {
+    blockedByCurrentUser: isUserBlocked(chat.blockedUserIds, privateTab),
+    blockedByOtherUser: isUserBlocked(chat.blockingUserIds, privateTab),
+  };
+}
+
+/** Convites e ações disponíveis no chat. */
+function chatInvitationActions(chat: ChatApi) {
+  return {
+    gameInvitations: chat.gameInvitations,
+    sendGameInvite: chat.sendGameInvite,
+    respondGameInvite: chat.respondGameInvite,
+    cancelGameInvite: chat.cancelGameInvite,
+    clearError: chat.clearError,
+    blockUser: chat.blockUser,
+    unblockUser: chat.unblockUser,
   };
 }
 
 /** Estado local de aba e draft da página. */
 function useChatTabState(
+  currentUserId: number | undefined,
+  chat: ChatApi,
+  friends: Friend[],
+) {
+  const tabState = useChatTabData(currentUserId, chat, friends);
+  const permissions = chatTabPermissions(
+    tabState.activeTabId,
+    chat.privateChatTabs,
+    friends,
+    chat.blockedUserIds,
+    chat.blockingUserIds,
+  );
+  return { ...tabState, ...permissions };
+}
+
+/** Guarda a aba, o rascunho e o temporizador do chat. */
+function useChatTabData(
   currentUserId: number | undefined,
   chat: ChatApi,
   friends: Friend[],
@@ -242,16 +306,38 @@ function useChatTabState(
   useOpenTabFromQuery(currentUserId, friends, chat, setActiveTabId);
   useSyncViewing(activeTabId, chat);
   useActiveTabFallback(activeTabId, chat.privateChatTabs, setActiveTabId);
-  const privateTab = findPrivateTab(activeTabId, chat.privateChatTabs);
-  const canSend = canSendOnTab(activeTabId, privateTab, friends);
   return {
     draft,
     setDraft,
     activeTabId,
     setActiveTabId,
     timerRef,
+  };
+}
+
+/** Verifica se a conversa ativa inclui um usuário da lista. */
+function isUserBlocked(userIds: number[], privateTab: PrivateChatTab | null) {
+  return privateTab != null && userIds.includes(privateTab.otherUserId);
+}
+
+/** Resolve o contato ativo e as permissões de envio. */
+function chatTabPermissions(
+  activeTabId: string,
+  tabs: PrivateChatTab[],
+  friends: Friend[],
+  blockedUserIds: number[],
+  blockingUserIds: number[],
+): { privateTab: PrivateChatTab | null; canSend: boolean } {
+  const privateTab = findPrivateTab(activeTabId, tabs);
+  return {
     privateTab,
-    canSend,
+    canSend: canSendOnTab(
+      activeTabId,
+      privateTab,
+      friends,
+      blockedUserIds,
+      blockingUserIds,
+    ),
   };
 }
 

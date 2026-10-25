@@ -4,6 +4,7 @@ import type { Friend } from "../api/friends";
 /** Valor compartilhado da lista de friends/presença. */
 export type FriendsContextValue = {
   friends: Friend[];
+  pendingCount: number;
 };
 
 /** Contexto React da lista de friends. */

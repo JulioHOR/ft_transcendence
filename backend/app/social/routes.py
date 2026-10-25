@@ -13,6 +13,7 @@ from . import handlers
 from . import store
 from .handlers import conversation_id
 from .schemas import (
+    ChatBlockSchema,
     ChatHistorySchema,
     FriendSchema,
     ProfileSchema,
@@ -321,7 +322,68 @@ def get_chat_history():
             }
             conversations[conv_id] = entry
         entry["messages"].append(message)
-    return {"global": store.global_rows(), "conversations": list(conversations.values())}
+    return {
+        "global": store.global_rows(),
+        "conversations": list(conversations.values()),
+        "blockedUserIds": store.blocked_user_ids(user_id),
+        "blockingUserIds": store.blocking_user_ids(user_id),
+    }
+
+
+@social_bp.post("/api/chat/blocks/<int:user_id>")
+@social_bp.response(200, ChatBlockSchema, description="Usuário bloqueado.")
+@social_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sessão ausente, expirada ou inválida.",
+)
+@social_bp.alt_response(
+    400,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="A conta atual não pode ser bloqueada.",
+)
+@social_bp.alt_response(
+    404,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="O usuário informado não existe.",
+)
+@social_bp.doc(
+    summary="Bloquear mensagens privadas de um usuário",
+    security=[{"cookieAuth": []}],
+)
+def post_chat_block(user_id: int):
+    current_user_id = _session_user_id()
+    if current_user_id is None:
+        return _unauthorized()
+    if user_id == current_user_id:
+        return jsonify({"error": "Você não pode bloquear sua própria conta."}), 400
+    if store.get_user_profile(user_id) is None:
+        return jsonify({"error": "Usuário não encontrado."}), 404
+    store.block_user(current_user_id, user_id)
+    return {"status": "blocked", "userId": user_id}
+
+
+@social_bp.delete("/api/chat/blocks/<int:user_id>")
+@social_bp.response(200, ChatBlockSchema, description="Usuário desbloqueado.")
+@social_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sessão ausente, expirada ou inválida.",
+)
+@social_bp.doc(
+    summary="Desbloquear mensagens privadas de um usuário",
+    security=[{"cookieAuth": []}],
+)
+def delete_chat_block(user_id: int):
+    current_user_id = _session_user_id()
+    if current_user_id is None:
+        return _unauthorized()
+    store.unblock_user(current_user_id, user_id)
+    return {"status": "unblocked", "userId": user_id}
 
 @social_bp.post("/api/friends")
 @social_bp.response(201, FriendSchema, description="Convite enviado.")

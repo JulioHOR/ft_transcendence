@@ -49,6 +49,12 @@ function countdownState(
  * Conecta ao servidor, sincroniza o estado da partida e envia entrada do jogador.
  */
 export class WebSocketTransport implements Transport {
+  private readonly invitationId: string | null;
+
+  constructor(invitationId: string | null = null) {
+    this.invitationId = invitationId;
+  }
+
   private socket: Socket | null = null;
   private onStateChange: ((state: MatchState) => void) | null = null;
   private state: MatchState = createInitialMatchState();
@@ -134,11 +140,22 @@ export class WebSocketTransport implements Transport {
 
   /** Entra na fila de matchmaking e devolve o ack do servidor. */
   private joinQueue(): Promise<{ status: string }> {
-    return new Promise((resolve, reject) => {
-      this.socket?.emit("queue:join", {}, (ack: { status: string } | null) => {
-        if (ack) resolve(ack);
-        else reject(new Error("queue:join sem ack"));
-      });
+    const socket = this.socket;
+    if (socket == null) {
+      this.onError("Não foi possível conectar à partida. Tente novamente.");
+      return Promise.resolve({ status: "error" });
+    }
+    return new Promise((resolve) => {
+      socket.emit(
+        "queue:join",
+        this.invitationId == null ? {} : { inviteId: this.invitationId },
+        (ack: { status: string } | null) => {
+          if (ack == null && this.state.phase !== "error") {
+            this.onError("Não foi possível entrar na partida. Tente novamente.");
+          }
+          resolve(ack ?? { status: "error" });
+        },
+      );
     });
   }
 

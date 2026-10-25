@@ -34,9 +34,12 @@ export function FriendsProvider({ children }: FriendsProviderProps) {
   const { user, ready } = useAuth();
   const [friends, setFriends] = useState<Friend[]>([]);
   useFriendsConnection(user?.id ?? null, ready, setFriends);
+  const pendingCount = friends.filter(
+    (friend) => friend.relation === "incoming",
+  ).length;
 
   return (
-    <FriendsContext.Provider value={{ friends }}>
+    <FriendsContext.Provider value={{ friends, pendingCount }}>
       {children}
     </FriendsContext.Provider>
   );

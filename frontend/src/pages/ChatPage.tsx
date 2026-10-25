@@ -2,6 +2,7 @@ import { type ReactNode, type SubmitEvent } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
@@ -14,7 +15,11 @@ import type { Friend } from "../api/friends";
 import { liveAvatarUrl } from "../api/profile";
 import { useAuth } from "../app/auth-session";
 import { useFriends } from "../app/friends-session";
-import { GLOBAL_CHAT_TAB_ID, type ChatSession } from "../chat/privateChat";
+import {
+  GLOBAL_CHAT_TAB_ID,
+  isAcceptedFriend,
+  type ChatSession,
+} from "../chat/privateChat";
 import { useChatSession } from "../chat/useChatSession";
 import { Avatar } from "../ui/Avatar";
 import { ErrorText } from "../ui/ErrorText";
@@ -22,6 +27,8 @@ import { ActionButton } from "../ui/ActionButton";
 import { AppTextField } from "../ui/AppTextField";
 import { PageContainer } from "../ui/PageContainer";
 import { UnreadBadge } from "../ui/UnreadBadge";
+import { AppIcon } from "../ui/AppIcon";
+import { EmptyState } from "../ui/EmptyState";
 
 /** Identifica o estado de leitura da última mensagem própria. */
 type MessageReceiptInfo = {
@@ -207,9 +214,7 @@ function privateTabReceipt(
 function EmptyChatMessages() {
   return (
     <ListItem component="li" sx={{ justifyContent: "center", py: 3 }}>
-      <Typography color="text.secondary">
-        Ainda não há mensagens nesta conversa.
-      </Typography>
+      <EmptyState>Ainda não há mensagens nesta conversa.</EmptyState>
     </ListItem>
   );
 }
@@ -443,12 +448,265 @@ function activeTabMessages(session: ChatSession): ChatMessage[] {
 }
 
 /** Aviso quando a amizade encerrou e o envio está bloqueado. */
-function EndedFriendshipNotice(props: { show: boolean }) {
-  if (!props.show) return null;
+function PrivateMessageAccessNotice({ session }: { session: ChatSession }) {
+  if (
+    session.activeTabId === GLOBAL_CHAT_TAB_ID ||
+    session.canSendOnActiveTab
+  ) {
+    return null;
+  }
   return (
     <Alert severity="info" variant="outlined" role="status">
-      amizade encerrada — não é possível enviar mensagens neste chat
+      Esta conversa não está disponível para enviar mensagens.
     </Alert>
+  );
+}
+
+/** Ações disponíveis na conversa privada ativa. */
+function PrivateChatActions({
+  session,
+  friends,
+}: {
+  session: ChatSession;
+  friends: Friend[];
+}) {
+  const tab = activePrivateTab(session);
+  if (tab == null) return null;
+  const hasActiveInvitation = hasActiveInvitationFor(session, tab.otherUserId);
+  return (
+    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+      {isAcceptedFriend(friends, tab.otherUserId) ? (
+        <GameInviteButton
+          session={session}
+          userId={tab.otherUserId}
+          disabled={!session.canSendOnActiveTab || hasActiveInvitation}
+        />
+      ) : null}
+      <ChatBlockButton session={session} userId={tab.otherUserId} />
+    </Stack>
+  );
+}
+
+/** Ação de convite para jogar com o contato. */
+function GameInviteButton({
+  session,
+  userId,
+  disabled,
+}: {
+  session: ChatSession;
+  userId: number;
+  disabled: boolean;
+}) {
+  return (
+    <ActionButton
+      startIcon={<AppIcon name="sports" />}
+      disabled={disabled}
+      onClick={() => session.sendGameInvite(userId)}
+    >
+      Convidar para jogar
+    </ActionButton>
+  );
+}
+
+/** Ação para bloquear ou desbloquear mensagens do contato. */
+function ChatBlockButton({
+  session,
+  userId,
+}: {
+  session: ChatSession;
+  userId: number;
+}) {
+  if (session.blockedByOtherUser) return null;
+  const blocked = session.blockedByCurrentUser;
+  return (
+    <ActionButton
+      startIcon={<AppIcon name="block" />}
+      onClick={() =>
+        blocked ? session.unblockUser(userId) : session.blockUser(userId)
+      }
+    >
+      {blocked ? "Desbloquear" : "Bloquear mensagens"}
+    </ActionButton>
+  );
+}
+
+/** Indica se há convite não encerrado para o contato. */
+function hasActiveInvitationFor(session: ChatSession, userId: number) {
+  return session.gameInvitations.some((invitation) =>
+    isActiveInvitationFor(invitation, userId),
+  );
+}
+
+/** Retorna a conversa privada selecionada. */
+function activePrivateTab(session: ChatSession) {
+  if (session.activeTabId === GLOBAL_CHAT_TAB_ID) return null;
+  return (
+    session.privateChatTabs.find(
+      (tab) => tab.conversationId === session.activeTabId,
+    ) ?? null
+  );
+}
+
+/** Informa se já há convite ativo para o contato. */
+function isActiveInvitationFor(
+  invitation: ChatSession["gameInvitations"][number],
+  userId: number,
+) {
+  return (
+    invitation.status !== "declined" &&
+    invitation.status !== "cancelled" &&
+    (invitation.senderId === userId || invitation.recipientId === userId)
+  );
+}
+
+/** Exibe convites de partida enviados ou recebidos pelo chat. */
+function GameInvitationNotices({ session }: { session: ChatSession }) {
+  const tab = activePrivateTab(session);
+  if (tab == null) return null;
+  const invitations = session.gameInvitations.filter(
+    (invitation) =>
+      invitation.status !== "started" &&
+      (invitation.senderId === tab.otherUserId ||
+        invitation.recipientId === tab.otherUserId),
+  );
+  if (invitations.length === 0) return null;
+  return (
+    <Stack spacing={1}>
+      {invitations.map((invitation) => (
+        <GameInvitationNotice
+          key={invitation.inviteId}
+          invitation={invitation}
+          session={session}
+        />
+      ))}
+    </Stack>
+  );
+}
+
+type GameInvitationNoticeProps = {
+  invitation: ChatSession["gameInvitations"][number];
+  session: ChatSession;
+};
+
+/** Escolhe a notificação de convite correspondente ao estado atual. */
+function GameInvitationNotice({
+  invitation,
+  session,
+}: GameInvitationNoticeProps) {
+  const sentByCurrentUser = invitation.senderId === session.currentUserId;
+  const accepted = invitation.status === "accepted";
+  const finished = ["declined", "cancelled"].includes(invitation.status);
+  return (
+    <Alert
+      severity={accepted ? "success" : "info"}
+      action={
+        finished ? undefined : (
+          <GameInvitationActions
+            invitation={invitation}
+            session={session}
+            accepted={accepted}
+            sentByCurrentUser={sentByCurrentUser}
+          />
+        )
+      }
+    >
+      {gameInvitationMessage(invitation, session)}
+    </Alert>
+  );
+}
+
+/** Texto adequado ao estado do convite. */
+function gameInvitationMessage(
+  invitation: ChatSession["gameInvitations"][number],
+  session: ChatSession,
+): string {
+  const sentByCurrentUser = invitation.senderId === session.currentUserId;
+  const otherNickname = sentByCurrentUser
+    ? invitation.recipientNickname
+    : invitation.senderNickname;
+  if (invitation.status === "accepted")
+    return "Convite aceito. A partida começa quando os dois entrarem.";
+  if (invitation.status === "cancelled")
+    return "O convite para jogar foi cancelado.";
+  if (invitation.status === "declined") {
+    return sentByCurrentUser
+      ? `${invitation.recipientNickname} recusou o convite.`
+      : "Você recusou o convite.";
+  }
+  return sentByCurrentUser
+    ? `Convite enviado para ${otherNickname}.`
+    : `${otherNickname} convidou você para jogar Pong.`;
+}
+
+/** Ações disponíveis conforme o convite foi enviado, recebido ou aceito. */
+function GameInvitationActions({
+  invitation,
+  session,
+  accepted,
+  sentByCurrentUser,
+}: GameInvitationNoticeProps & {
+  accepted: boolean;
+  sentByCurrentUser: boolean;
+}) {
+  if (accepted)
+    return (
+      <AcceptedInvitationActions invitation={invitation} session={session} />
+    );
+  if (sentByCurrentUser) {
+    return (
+      <ActionButton
+        onClick={() => session.cancelGameInvite(invitation.inviteId)}
+      >
+        Cancelar
+      </ActionButton>
+    );
+  }
+  return <RespondInvitationActions invitation={invitation} session={session} />;
+}
+
+/** Aceita ou recusa um convite recebido. */
+function RespondInvitationActions({
+  invitation,
+  session,
+}: GameInvitationNoticeProps) {
+  return (
+    <Stack direction="row" spacing={1}>
+      <ActionButton
+        appearance="primary"
+        onClick={() => session.respondGameInvite(invitation.inviteId, true)}
+      >
+        Aceitar
+      </ActionButton>
+      <ActionButton
+        onClick={() => session.respondGameInvite(invitation.inviteId, false)}
+      >
+        Recusar
+      </ActionButton>
+    </Stack>
+  );
+}
+
+/** Ações para entrar na partida aceita ou cancelar o convite. */
+function AcceptedInvitationActions({
+  invitation,
+  session,
+}: GameInvitationNoticeProps) {
+  return (
+    <Stack direction="row" spacing={1}>
+      <Button
+        component={RouterLink}
+        to={`/pong?inviteId=${invitation.inviteId}`}
+        startIcon={<AppIcon name="play" />}
+        variant="contained"
+      >
+        Ir para a partida
+      </Button>
+      <ActionButton
+        onClick={() => session.cancelGameInvite(invitation.inviteId)}
+      >
+        Cancelar
+      </ActionButton>
+    </Stack>
   );
 }
 
@@ -463,8 +721,10 @@ function ChatContent(props: {
   return (
     <Stack spacing={1.5} sx={{ minHeight: 0, flex: 1 }}>
       <ChatTabBar session={session} />
-      <ErrorText error={session.error} />
-      <EndedFriendshipNotice show={isPrivate && !session.canSendOnActiveTab} />
+      <ErrorText error={session.error} onDismiss={session.clearError} />
+      <GameInvitationNotices session={session} />
+      <PrivateChatActions session={session} friends={props.friends} />
+      <PrivateMessageAccessNotice session={session} />
       <MessageList
         session={session}
         selfAvatarUrl={props.selfAvatarUrl}

@@ -1,5 +1,52 @@
 from db import db_cursor
 
+
+def blocked_user_ids(user_id: int) -> list[int]:
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT blocked_id FROM blocked_users WHERE blocker_id = %s ORDER BY blocked_id;",
+            (user_id,),
+        )
+        return [row[0] for row in cur.fetchall()]
+
+
+def blocking_user_ids(user_id: int) -> list[int]:
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT blocker_id FROM blocked_users WHERE blocked_id = %s ORDER BY blocker_id;",
+            (user_id,),
+        )
+        return [row[0] for row in cur.fetchall()]
+
+
+def is_blocked_between(first_user_id: int, second_user_id: int) -> bool:
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT EXISTS (SELECT 1 FROM blocked_users "
+            "WHERE (blocker_id = %s AND blocked_id = %s) "
+            "OR (blocker_id = %s AND blocked_id = %s));",
+            (first_user_id, second_user_id, second_user_id, first_user_id),
+        )
+        row = cur.fetchone()
+        return bool(row and row[0])
+
+
+def block_user(blocker_id: int, blocked_id: int) -> None:
+    with db_cursor() as cur:
+        cur.execute(
+            "INSERT INTO blocked_users (blocker_id, blocked_id) VALUES (%s, %s) "
+            "ON CONFLICT (blocker_id, blocked_id) DO NOTHING;",
+            (blocker_id, blocked_id),
+        )
+
+
+def unblock_user(blocker_id: int, blocked_id: int) -> None:
+    with db_cursor() as cur:
+        cur.execute(
+            "DELETE FROM blocked_users WHERE blocker_id = %s AND blocked_id = %s;",
+            (blocker_id, blocked_id),
+        )
+
 def avatar_url(user_id: int, avatar_updated_at) -> str | None:
     if avatar_updated_at is None:
         return None

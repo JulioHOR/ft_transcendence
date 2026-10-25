@@ -9,7 +9,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 
@@ -19,6 +18,8 @@ import type { User } from "../api/types";
 import { ActionButton } from "../ui/ActionButton";
 import { AppTextField } from "../ui/AppTextField";
 import { PageContainer } from "../ui/PageContainer";
+import { SectionCard } from "../ui/SectionCard";
+import { PageHeading } from "../ui/PageHeading";
 
 /** Mensagem da demo REST /api/messages. */
 type Message = {
@@ -298,11 +299,11 @@ function PublishedMessagesSection(props: {
 /** Cartão reutilizado pelas seções de mensagem da página inicial. */
 function MessageSection(props: { title: string; children: ReactNode }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderColor: "divider" }}>
+    <SectionCard sx={{ p: 2 }}>
       <Stack spacing={1.5}>
-        <Typography variant="h2">{props.title}</Typography>
+        <PageHeading>{props.title}</PageHeading>
         {props.children}
       </Stack>
-    </Paper>
+    </SectionCard>
   );
 }

@@ -9,7 +9,11 @@ import {
 import {
   createChatTransport,
   fetchChatHistory,
+  buildPrivateConversationId,
+  blockChatUser,
+  unblockChatUser,
   type ChatMessage,
+  type GameInvitation,
   type ChatTransport,
 } from "../api/chat";
 import {
@@ -34,6 +38,9 @@ type ChatSetters = {
   setTyping: Dispatch<SetStateAction<Record<string, string | null>>>;
   setPeerRead: Dispatch<SetStateAction<Record<string, string>>>;
   setError: Dispatch<SetStateAction<string | null>>;
+  setBlockedUsers: Dispatch<SetStateAction<number[]>>;
+  setBlockingUsers: Dispatch<SetStateAction<number[]>>;
+  setGameInvitations: Dispatch<SetStateAction<GameInvitation[]>>;
 };
 
 type ChatProviderState = {
@@ -44,6 +51,9 @@ type ChatProviderState = {
   typingByConversation: Record<string, string | null>;
   peerReadByConversation: Record<string, string>;
   error: string | null;
+  blockedUserIds: number[];
+  blockingUserIds: number[];
+  gameInvitations: GameInvitation[];
   setters: ChatSetters;
   transportRef: { current: ChatTransport | null };
   viewingRef: { current: string | null };
@@ -111,6 +121,7 @@ function bindTransport(
   viewingRef: { current: string | null },
   setters: ChatSetters,
 ): void {
+  const seenInvitationIds = new Set<string>();
   transport.onGlobalMessage((message) => {
     setters.setGlobal((current) => [...current, message]);
   });
@@ -118,7 +129,100 @@ function bindTransport(
     applyPrivateMessage(message, userId, viewingRef, setters);
   });
   transport.onPrivateError(setters.setError);
+  transport.onGameInvite((invitation) => {
+    receiveGameInvitation(invitation, userId, viewingRef, setters, seenInvitationIds);
+  });
+  transport.onGameInviteUpdate((invitation) => {
+    receiveGameInvitation(invitation, userId, viewingRef, setters, seenInvitationIds);
+  });
   bindPrivateSignals(transport, setters);
+}
+
+/** Abre a conversa e marca convites recebidos como não lidos. */
+function receiveGameInvitation(
+  invitation: GameInvitation,
+  userId: number,
+  viewingRef: { current: string | null },
+  setters: ChatSetters,
+  seenInvitationIds: Set<string>,
+): void {
+  const active =
+    invitation.status !== "declined" &&
+    invitation.status !== "cancelled" &&
+    invitation.status !== "started";
+  if (active && !seenInvitationIds.has(invitation.inviteId)) {
+    seenInvitationIds.add(invitation.inviteId);
+    const conversationId = openInvitationConversation(invitation, userId, setters);
+    markInvitationUnread(invitation, userId, conversationId, viewingRef, setters);
+  }
+  updateGameInvitation(setters, invitation);
+}
+
+/** Cria a aba privada correspondente ao convite. */
+function openInvitationConversation(
+  invitation: GameInvitation,
+  userId: number,
+  setters: ChatSetters,
+): string {
+  const isSender = invitation.senderId === userId;
+  const otherUserId = isSender ? invitation.recipientId : invitation.senderId;
+  const otherNickname = isSender
+    ? invitation.recipientNickname
+    : invitation.senderNickname;
+  const conversationId = buildPrivateConversationId(userId, otherUserId);
+  setters.setTabs((current) =>
+    upsertPrivateChatTab(current, { conversationId, otherUserId, otherNickname }),
+  );
+  return conversationId;
+}
+
+/** Marca o convite recebido como não lido quando sua conversa não está aberta. */
+function markInvitationUnread(
+  invitation: GameInvitation,
+  userId: number,
+  conversationId: string,
+  viewingRef: { current: string | null },
+  setters: ChatSetters,
+): void {
+  if (invitation.recipientId !== userId || viewingRef.current === conversationId) {
+    return;
+  }
+  setters.setUnread((current) => ({
+    ...current,
+    [conversationId]: (current[conversationId] ?? 0) + 1,
+  }));
+}
+
+/** Atualiza o convite e remove avisos de resultado após alguns segundos. */
+function updateGameInvitation(
+  setters: ChatSetters,
+  invitation: GameInvitation,
+): void {
+  if (invitation.status === "started") {
+    setters.setGameInvitations((current) =>
+      current.filter((item) => item.inviteId !== invitation.inviteId),
+    );
+    return;
+  }
+  setters.setGameInvitations((current) => upsertGameInvitation(current, invitation));
+  if (invitation.status === "declined" || invitation.status === "cancelled") {
+    setTimeout(() => {
+      setters.setGameInvitations((current) =>
+        current.filter((item) => item.inviteId !== invitation.inviteId),
+      );
+    }, 5000);
+  }
+}
+
+/** Atualiza um convite recebido por chat ou pelo servidor. */
+function upsertGameInvitation(
+  current: GameInvitation[],
+  invitation: GameInvitation,
+): GameInvitation[] {
+  return [
+    ...current.filter((item) => item.inviteId !== invitation.inviteId),
+    invitation,
+  ];
 }
 
 /** Limpa estado ao sair. */
@@ -129,6 +233,9 @@ function clearState(setters: ChatSetters): void {
   setters.setUnread({});
   setters.setTyping({});
   setters.setPeerRead({});
+  setters.setBlockedUsers([]);
+  setters.setBlockingUsers([]);
+  setters.setGameInvitations([]);
   setters.setError(null);
 }
 
@@ -141,6 +248,8 @@ function loadHistory(cancelled: () => boolean, setters: ChatSetters): void {
       setters.setGlobal(history.global);
       setters.setPrivate(mapped.privateMessagesByConversation);
       setters.setTabs(mapped.privateChatTabs);
+      setters.setBlockedUsers(history.blockedUserIds ?? []);
+      setters.setBlockingUsers(history.blockingUserIds ?? []);
       setters.setError(null);
     })
     .catch((failure: unknown) => {
@@ -206,10 +315,7 @@ function transportSendActions(transportRef: {
   current: ChatTransport | null;
 }): Pick<
   ChatContextValue,
-  | "sendGlobalMessage"
-  | "sendPrivateMessage"
-  | "sendPrivateTyping"
-  | "notifyPrivateRead"
+  "sendGlobalMessage" | "sendPrivateMessage" | "sendPrivateTyping" | "notifyPrivateRead"
 > {
   return {
     sendGlobalMessage: (text) => transportRef.current?.sendGlobalMessage(text),
@@ -220,6 +326,65 @@ function transportSendActions(transportRef: {
     notifyPrivateRead: (id, lastMessageId) =>
       transportRef.current?.sendPrivateRead(id, lastMessageId),
   };
+}
+
+/** Ações de convite de partida no chat. */
+function gameInviteActions(transportRef: {
+  current: ChatTransport | null;
+}): Pick<
+  ChatContextValue,
+  "sendGameInvite" | "respondGameInvite" | "cancelGameInvite"
+> {
+  return {
+    sendGameInvite: (id) => transportRef.current?.sendGameInvite(id),
+    respondGameInvite: (id, accepted) =>
+      transportRef.current?.respondGameInvite(id, accepted),
+    cancelGameInvite: (id) => transportRef.current?.cancelGameInvite(id),
+  };
+}
+
+/** Atualiza o bloqueio local depois da resposta do servidor. */
+function chatBlockActions(
+  setters: ChatSetters,
+): Pick<ChatContextValue, "blockUser" | "unblockUser"> {
+  return {
+    blockUser: (userId) => updateChatBlock(userId, true, setters),
+    unblockUser: (userId) => updateChatBlock(userId, false, setters),
+  };
+}
+
+/** Persiste o bloqueio e atualiza o estado da conversa. */
+function updateChatBlock(
+  userId: number,
+  blocked: boolean,
+  setters: ChatSetters,
+): void {
+  const update = blocked ? blockChatUser : unblockChatUser;
+  void update(userId)
+    .then(() =>
+      setters.setBlockedUsers((current) =>
+        updateBlockedUserIds(current, userId, blocked),
+      ),
+    )
+    .catch((failure: unknown) =>
+      setters.setError(
+        failure instanceof Error
+          ? failure.message
+          : blocked
+            ? "falha ao bloquear usuário"
+            : "falha ao desbloquear usuário",
+      ),
+    );
+}
+
+/** Atualiza a lista local de usuários bloqueados. */
+function updateBlockedUserIds(
+  current: number[],
+  userId: number,
+  blocked: boolean,
+): number[] {
+  if (!blocked) return current.filter((blockedId) => blockedId !== userId);
+  return current.includes(userId) ? current : [...current, userId];
 }
 
 /** Abas e leitura local. */
@@ -291,10 +456,26 @@ function useChatMetaState() {
   };
 }
 
+/** Estado de bloqueios e convites de partida. */
+function useChatRestrictionState() {
+  const [blockedUserIds, setBlockedUsers] = useState<number[]>([]);
+  const [blockingUserIds, setBlockingUsers] = useState<number[]>([]);
+  const [gameInvitations, setGameInvitations] = useState<GameInvitation[]>([]);
+  return {
+    blockedUserIds,
+    blockingUserIds,
+    gameInvitations,
+    setBlockedUsers,
+    setBlockingUsers,
+    setGameInvitations,
+  };
+}
+
 /** Monta setters a partir dos hooks de estado. */
 function chatSettersFrom(
   lists: ReturnType<typeof useChatListsState>,
   meta: ReturnType<typeof useChatMetaState>,
+  restrictions: ReturnType<typeof useChatRestrictionState>,
 ): ChatSetters {
   return {
     setGlobal: lists.setGlobal,
@@ -304,13 +485,18 @@ function chatSettersFrom(
     setTyping: meta.setTyping,
     setPeerRead: meta.setPeerRead,
     setError: meta.setError,
+    setBlockedUsers: restrictions.setBlockedUsers,
+    setBlockingUsers: restrictions.setBlockingUsers,
+    setGameInvitations: restrictions.setGameInvitations,
   };
 }
 
 /** Estado React do provedor de chat. */
 function useChatProviderState(): ChatProviderState {
   const lists = useChatListsState();
-  const meta = useChatMetaState();
+  const chatMeta = useChatMetaState();
+  const restrictions = useChatRestrictionState();
+  const meta = { ...chatMeta, ...restrictions };
   const transportRef = useRef<ChatTransport | null>(null);
   const viewingRef = useRef<string | null>(null);
   return {
@@ -321,7 +507,10 @@ function useChatProviderState(): ChatProviderState {
     typingByConversation: meta.typingByConversation,
     peerReadByConversation: meta.peerReadByConversation,
     error: meta.error,
-    setters: chatSettersFrom(lists, meta),
+    blockedUserIds: meta.blockedUserIds,
+    blockingUserIds: meta.blockingUserIds,
+    gameInvitations: meta.gameInvitations,
+    setters: chatSettersFrom(lists, chatMeta, restrictions),
     transportRef,
     viewingRef,
   };
@@ -342,7 +531,13 @@ function buildChatContextValue(state: ChatProviderState): ChatContextValue {
     peerReadByConversation: state.peerReadByConversation,
     unreadTotal,
     error: state.error,
+    blockedUserIds: state.blockedUserIds,
+    blockingUserIds: state.blockingUserIds,
+    gameInvitations: state.gameInvitations,
+    clearError: () => state.setters.setError(null),
     ...transportSendActions(state.transportRef),
+    ...gameInviteActions(state.transportRef),
+    ...chatBlockActions(state.setters),
     ...tabViewActions(state.viewingRef, state.setters),
   };
 }

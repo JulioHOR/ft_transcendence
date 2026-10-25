@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import { PongApp } from "../games/pong/view/PongApp";
 import { WebSocketTransport } from "../transports/pong/WebSocketTransport";
@@ -8,7 +9,12 @@ import { WebSocketTransport } from "../transports/pong/WebSocketTransport";
  * Renderiza a interface do jogo e gerencia o transporte de comunicação.
  */
 export function PongPage() {
-  const transport = useMemo(() => new WebSocketTransport(), []);
+  const [searchParams] = useSearchParams();
+  const invitationId = searchParams.get("inviteId");
+  const transport = useMemo(
+    () => new WebSocketTransport(invitationId),
+    [invitationId],
+  );
   useEffect(() => () => transport.disconnect(), [transport]);
   return <PongLayout transport={transport} />;
 }

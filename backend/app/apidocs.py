@@ -4,7 +4,7 @@ from flask import Blueprint, Flask, redirect, send_from_directory, url_for
 from flask_smorest import Api
 
 from auth.routes import auth_bp
-from messages import messages_bp
+from games.pong.routes import pong_bp
 from social.routes import social_bp
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -41,7 +41,7 @@ def init_api(app: Flask) -> Api:
         },
     )
     api.register_blueprint(auth_bp)
-    api.register_blueprint(messages_bp)
+    api.register_blueprint(pong_bp)
     api.register_blueprint(social_bp)
     app.register_blueprint(docs_bp)
     return api

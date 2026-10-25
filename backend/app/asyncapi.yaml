@@ -79,6 +79,16 @@ channels:
         $ref: "#/components/messages/chatPrivateTypingRelay"
       chatPrivateReadRelay:
         $ref: "#/components/messages/chatPrivateReadRelay"
+      chatGameInvite:
+        $ref: "#/components/messages/chatGameInvite"
+      chatGameInviteResponse:
+        $ref: "#/components/messages/chatGameInviteResponse"
+      chatGameInviteCancel:
+        $ref: "#/components/messages/chatGameInviteCancel"
+      chatGameInviteIncoming:
+        $ref: "#/components/messages/chatGameInviteIncoming"
+      chatGameInviteUpdate:
+        $ref: "#/components/messages/chatGameInviteUpdate"
   friends:
     address: /
     title: Lista de amigos e presença
@@ -96,9 +106,10 @@ operations:
       $ref: "#/channels/matchmaking"
     summary: Cliente entra na fila de matchmaker
     description: |
-      Sem payload. Com dois jogadores na fila a partida começa: os dois entram
-      na sala e o servidor emite `game:status` com `state: playing`. Se o
-      cliente já estiver na fila ou em partida, o servidor emite `game:error`
+      Sem payload para partidas abertas. Convites aceitos incluem `inviteId`;
+      somente as duas pessoas convidadas podem entrar. Quando ambas entram,
+      a partida começa e o servidor emite `game:status` com `state: countdown`.
+      Se o cliente já estiver na fila ou em partida, o servidor emite `game:error`
       com `reason: already_playing` e o ack é omitido.
     messages:
       - $ref: "#/channels/matchmaking/messages/queueJoin"
@@ -248,6 +259,41 @@ operations:
     summary: Servidor entrega o recibo de leitura ao destinatário
     messages:
       - $ref: "#/channels/chat/messages/chatPrivateReadRelay"
+  sendChatGameInvite:
+    action: receive
+    channel:
+      $ref: "#/channels/chat"
+    summary: Enviar convite de Pong pelo chat privado
+    messages:
+      - $ref: "#/channels/chat/messages/chatGameInvite"
+  respondChatGameInvite:
+    action: receive
+    channel:
+      $ref: "#/channels/chat"
+    summary: Aceitar ou recusar convite de Pong
+    messages:
+      - $ref: "#/channels/chat/messages/chatGameInviteResponse"
+  cancelChatGameInvite:
+    action: receive
+    channel:
+      $ref: "#/channels/chat"
+    summary: Cancelar convite de Pong
+    messages:
+      - $ref: "#/channels/chat/messages/chatGameInviteCancel"
+  sendChatGameInviteIncoming:
+    action: send
+    channel:
+      $ref: "#/channels/chat"
+    summary: Servidor avisa o destinatário sobre um convite de Pong
+    messages:
+      - $ref: "#/channels/chat/messages/chatGameInviteIncoming"
+  sendChatGameInviteUpdate:
+    action: send
+    channel:
+      $ref: "#/channels/chat"
+    summary: Servidor atualiza o estado do convite no chat
+    messages:
+      - $ref: "#/channels/chat/messages/chatGameInviteUpdate"
   sendFriendsUpdate:
     action: send
     channel:
@@ -262,11 +308,12 @@ components:
       title: Entrar na fila
       description: |
         Resposta pelo callback de ack do Socket.IO: `{"status": "waiting"}`
-        quando ainda falta adversário, `{"status": "matched"}` quando a
-        partida começou.
+        quando ainda falta adversário, `{"status": "matched"}` após iniciar
+        partida aberta ou por convite. Partidas abertas usam `{}`; por convite,
+        o payload contém `inviteId`.
       contentType: application/json
       payload:
-        $ref: "#/components/schemas/EmptyPayload"
+        $ref: "#/components/schemas/QueueJoinPayload"
     queueLeave:
       name: "queue:leave"
       title: Sair da fila
@@ -362,6 +409,36 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/ChatPrivateReadRelayPayload"
+    chatGameInvite:
+      name: "chat:game:invite"
+      title: Convidar para Pong
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatGameInvitePayload"
+    chatGameInviteResponse:
+      name: "chat:game:invite:respond"
+      title: Responder ao convite de Pong
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatGameInviteResponsePayload"
+    chatGameInviteCancel:
+      name: "chat:game:invite:cancel"
+      title: Cancelar convite de Pong
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatGameInviteCancelPayload"
+    chatGameInviteIncoming:
+      name: "chat:game:invite"
+      title: Convite de Pong recebido
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/GameInvitationPayload"
+    chatGameInviteUpdate:
+      name: "chat:game:invite:update"
+      title: Estado do convite de Pong
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/GameInvitationPayload"
     friendsUpdate:
       name: "friends:update"
       title: Lista completa de amigos
@@ -370,11 +447,70 @@ components:
       payload:
         $ref: "#/components/schemas/FriendsUpdatePayload"
   schemas:
+    QueueJoinPayload:
+      title: Entrada na fila ou partida por convite
+      type: object
+      properties:
+        inviteId:
+          type: string
+          description: Id de um convite de Pong aceito.
+      additionalProperties: false
     EmptyPayload:
       title: Payload vazio
       description: Evento enviado sem dados; o payload chega como `{}`.
       type: object
       additionalProperties: true
+    ChatGameInvitePayload:
+      title: Pedido de convite de Pong
+      type: object
+      required:
+        - otherUserId
+      properties:
+        otherUserId:
+          type: integer
+    ChatGameInviteResponsePayload:
+      title: Resposta ao convite
+      type: object
+      required:
+        - inviteId
+        - accepted
+      properties:
+        inviteId:
+          type: string
+        accepted:
+          type: boolean
+    ChatGameInviteCancelPayload:
+      title: Cancelar convite
+      type: object
+      required:
+        - inviteId
+      properties:
+        inviteId:
+          type: string
+    GameInvitationPayload:
+      title: Convite de Pong
+      type: object
+      required:
+        - inviteId
+        - senderId
+        - senderNickname
+        - recipientId
+        - recipientNickname
+        - status
+      properties:
+        inviteId:
+          type: string
+        senderId:
+          type: integer
+        senderNickname:
+          type: string
+        recipientId:
+          type: integer
+        recipientNickname:
+          type: string
+        status:
+          type: string
+          enum: [pending, accepted, declined, cancelled, started]
     PaddleInput:
       title: Input da raquete
       type: object
@@ -465,11 +601,15 @@ components:
             - invalid
             - malformed
             - not_in_match
+            - invalid_invitation
+            - accepted_invitation
           description: |
             `already_playing` na fila com `queue:join` duplicado; `invalid`
             fora da fila, com input após o fim ou restart fora de `finished`;
             `malformed` em payload de input inválido; `not_in_match` para input
-            ou restart sem partida.
+            ou restart sem partida; `invalid_invitation` para convite ausente,
+            não aceito ou de outra pessoa; `accepted_invitation` quando há uma
+            partida aceita e é necessário entrar pelo chat.
         message:
           type: string
           description: Texto legível em português.

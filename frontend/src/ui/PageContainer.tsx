@@ -5,23 +5,27 @@ import Box from "@mui/material/Box";
 type PageContainerProps = {
   /** Conteúdo da página. */
   children: ReactNode;
+  /** Mantém a página na altura disponível, usado pelo chat. */
+  fillHeight?: boolean;
 };
 
-/** Centraliza as páginas e define espaçamento, largura e rolagem. */
-export function PageContainer({ children }: PageContainerProps) {
+/** Centraliza as páginas e define espaçamento e largura do conteúdo. */
+export function PageContainer({
+  children,
+  fillHeight = false,
+}: PageContainerProps) {
   return (
     <Box
       component="main"
       sx={{
         display: "flex",
-        height: "100%",
+        height: fillHeight ? "100%" : undefined,
+        minHeight: fillHeight ? 0 : undefined,
         width: "100%",
         maxWidth: 1120,
-        minHeight: 0,
         mx: "auto",
         flexDirection: "column",
         gap: 2.5,
-        overflowY: "auto",
         px: { xs: 2, sm: 3 },
         py: { xs: 2, sm: 3 },
       }}

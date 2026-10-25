@@ -1,5 +1,6 @@
 import type { GameSnapshot, Side } from "../protocol";
 import { TABLE, getPaddleX } from "../protocol";
+import { useSmoothedMeshPosition } from "./useSmoothedMeshPosition";
 
 const TABLE_SURFACE_Y = -0.5;
 const TABLE_BORDER_Y = -0.35;
@@ -105,8 +106,9 @@ function Paddle({
   position: number;
   color: string;
 }) {
+  const mesh = useSmoothedMeshPosition([getPaddleX(side), 0, position]);
   return (
-    <mesh position={[getPaddleX(side), 0, position]}>
+    <mesh ref={mesh}>
       <boxGeometry args={PADDLE_SIZE} />
       <meshStandardMaterial color={color} />
     </mesh>

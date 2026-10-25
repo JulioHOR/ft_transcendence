@@ -2,6 +2,7 @@ import {
   buildPrivateConversationId,
   type ChatHistory,
   type ChatMessage,
+  type GameInvitation,
 } from "../api/chat";
 import type { Friend } from "../api/friends";
 
@@ -28,10 +29,19 @@ export type ChatSession = {
   draft: string;
   error: string | null;
   canSendOnActiveTab: boolean;
+  blockedByCurrentUser: boolean;
+  blockedByOtherUser: boolean;
+  gameInvitations: GameInvitation[];
   selectTab: (tabId: string) => void;
   closeTab: (tabId: string) => void;
   setDraft: (value: string) => void;
   submitDraft: () => void;
+  sendGameInvite: (otherUserId: number) => void;
+  respondGameInvite: (inviteId: string, accepted: boolean) => void;
+  cancelGameInvite: (inviteId: string) => void;
+  clearError: () => void;
+  blockUser: (userId: number) => void;
+  unblockUser: (userId: number) => void;
 };
 
 /** Monta o path /chat com query da conversa privada. */

@@ -19,6 +19,7 @@ init_api(app)
 def register_game_routes():
     from games.pong.handlers import register_pong_handlers
     from games.pong.match import PongMatch
+    from games.pong.store import save_match
     from ws_core.matchmaker import Matchmaker
 
     def match_factory(left_user_id, right_user_id):
@@ -28,18 +29,21 @@ def register_game_routes():
             broadcast=lambda match_id, event, payload: socketio.emit(
                 event, payload, to=match_id
             ),
+            on_match_finished=save_match,
         )
 
-    return register_pong_handlers(socketio, Matchmaker(match_factory))
+    matchmaker = Matchmaker(match_factory)
+    return register_pong_handlers(socketio, matchmaker), matchmaker
 
-def register_social_routes():
+
+def register_social_routes(matchmaker):
     from social.handlers import register_social_handlers
 
-    return register_social_handlers(socketio)
+    return register_social_handlers(socketio, matchmaker)
 
 
-pong_handle_disconnect = register_game_routes()
-social_handle_disconnect = register_social_routes()
+pong_handle_disconnect, pong_matchmaker = register_game_routes()
+social_handle_disconnect = register_social_routes(pong_matchmaker)
 
 
 @socketio.on("disconnect")

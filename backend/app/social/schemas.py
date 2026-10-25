@@ -83,3 +83,16 @@ class ChatHistorySchema(Schema):
         fields.Nested(ConversationHistorySchema),
         metadata={"description": "Conversas privadas, na ordem da primeira mensagem de cada uma."},
     )
+    blockedUserIds = fields.List(
+        fields.Integer(),
+        metadata={"description": "Usuários bloqueados pela sessão."},
+    )
+    blockingUserIds = fields.List(
+        fields.Integer(),
+        metadata={"description": "Usuários que bloquearam a sessão."},
+    )
+
+
+class ChatBlockSchema(Schema):
+    status = fields.String(metadata={"description": "Resultado da ação de bloqueio."})
+    userId = fields.Integer(metadata={"description": "Usuário atualizado."})

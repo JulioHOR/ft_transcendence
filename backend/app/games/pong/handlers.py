@@ -1,7 +1,11 @@
 from collections.abc import Callable
 
 from flask import request, session
-from ws_core.matchmaker import AlreadyPlayingError, Matchmaker
+from ws_core.matchmaker import (
+    AlreadyPlayingError,
+    InvalidGameInvitationError,
+    Matchmaker,
+)
 
 from .constants import TABLE
 from .shared import clamp, now_ms
@@ -63,7 +67,8 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
         )
 
     @socketio.on("queue:join")
-    def on_queue_join(_data=None):
+    def on_queue_join(data=None):
+        invitation = None
         try:
             user_id = _user_id()
             if user_id is None:
@@ -84,9 +89,29 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
                     )
                 return {"status": "reconnected"}
 
-            match = matchmaker.join(sid, user_id)
+            invitation_id = data.get("inviteId") if isinstance(data, dict) else None
+            if invitation_id is None:
+                accepted_invitation = matchmaker.accepted_game_invitation_for_user(
+                    user_id
+                )
+                if accepted_invitation is not None:
+                    emit_error(
+                        sid,
+                        "accepted_invitation",
+                        "Você tem uma partida combinada. Abra a conversa para entrar ou cancelar o convite.",
+                    )
+                    return None
+                match = matchmaker.join(sid, user_id)
+            elif isinstance(invitation_id, str):
+                invitation = matchmaker.game_invitation(invitation_id)
+                match = matchmaker.join_invitation(sid, user_id, invitation_id)
+            else:
+                raise InvalidGameInvitationError()
         except AlreadyPlayingError:
             emit_error(_sid(), "already_playing", "Você já está em uma partida.")
+            return None
+        except InvalidGameInvitationError:
+            emit_error(_sid(), "invalid_invitation", "Este convite de jogo não está mais disponível.")
             return None
 
         if match is None:
@@ -94,6 +119,27 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
 
         for _player_id, sid, _side in matchmaker.players(match):
             socketio.server.enter_room(sid, match.id)
+        if invitation_id is not None and invitation is not None:
+            socketio.emit(
+                "chat:game:invite:update",
+                {
+                    "inviteId": invitation_id,
+                    "senderId": invitation["senderId"],
+                    "recipientId": invitation["recipientId"],
+                    "status": "started",
+                },
+                room=f"user:{invitation['senderId']}",
+            )
+            socketio.emit(
+                "chat:game:invite:update",
+                {
+                    "inviteId": invitation_id,
+                    "senderId": invitation["senderId"],
+                    "recipientId": invitation["recipientId"],
+                    "status": "started",
+                },
+                room=f"user:{invitation['recipientId']}",
+            )
         emit_countdown(socketio, matchmaker, match)
         return {"status": "matched"}
 

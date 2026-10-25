@@ -5,9 +5,7 @@ import Chip from "@mui/material/Chip";
 import MuiLink from "@mui/material/Link";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
 import {
   addFriend,
   acceptFriend,
@@ -22,6 +20,9 @@ import { ErrorText } from "../ui/ErrorText";
 import { ActionButton } from "../ui/ActionButton";
 import { AppTextField } from "../ui/AppTextField";
 import { PageContainer } from "../ui/PageContainer";
+import { PageHeading } from "../ui/PageHeading";
+import { SectionCard } from "../ui/SectionCard";
+import { EmptyState } from "../ui/EmptyState";
 
 /** Envia o nickname para adicionar um friend e limpa o campo. */
 async function submitAddFriend(
@@ -250,7 +251,7 @@ function FriendSection(props: FriendSectionProps) {
   if (props.friends.length === 0) return null;
   return (
     <Stack component="section" spacing={1.5}>
-      <Typography variant="h2">{props.title}</Typography>
+      <PageHeading>{props.title}</PageHeading>
       <FriendsList
         friends={props.friends}
         onAccept={props.onAccept}
@@ -281,9 +282,7 @@ function FriendRows(props: FriendsListProps) {
 function FriendsList(props: FriendsListProps) {
   if (props.friends.length === 0) {
     return (
-      <Typography color="text.secondary">
-        Nenhum amigo na lista ainda.
-      </Typography>
+      <EmptyState>Nenhum amigo na lista ainda.</EmptyState>
     );
   }
   return (
@@ -353,9 +352,9 @@ function FriendsContent(props: {
 }) {
   return (
     <Stack spacing={2}>
-      <Paper variant="outlined" sx={{ p: 2, borderColor: "divider" }}>
+      <SectionCard sx={{ p: 2 }}>
         <AddFriendForm />
-      </Paper>
+      </SectionCard>
       <ErrorText error={props.actionError} />
       <FriendSections friends={props.friends} handlers={props.handlers} />
     </Stack>

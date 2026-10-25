@@ -1,5 +1,52 @@
 from db import db_cursor
 
+
+def blocked_user_ids(user_id: int) -> list[int]:
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT blocked_id FROM blocked_users WHERE blocker_id = %s ORDER BY blocked_id;",
+            (user_id,),
+        )
+        return [row[0] for row in cur.fetchall()]
+
+
+def blocking_user_ids(user_id: int) -> list[int]:
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT blocker_id FROM blocked_users WHERE blocked_id = %s ORDER BY blocker_id;",
+            (user_id,),
+        )
+        return [row[0] for row in cur.fetchall()]
+
+
+def is_blocked_between(first_user_id: int, second_user_id: int) -> bool:
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT EXISTS (SELECT 1 FROM blocked_users "
+            "WHERE (blocker_id = %s AND blocked_id = %s) "
+            "OR (blocker_id = %s AND blocked_id = %s));",
+            (first_user_id, second_user_id, second_user_id, first_user_id),
+        )
+        row = cur.fetchone()
+        return bool(row and row[0])
+
+
+def block_user(blocker_id: int, blocked_id: int) -> None:
+    with db_cursor() as cur:
+        cur.execute(
+            "INSERT INTO blocked_users (blocker_id, blocked_id) VALUES (%s, %s) "
+            "ON CONFLICT (blocker_id, blocked_id) DO NOTHING;",
+            (blocker_id, blocked_id),
+        )
+
+
+def unblock_user(blocker_id: int, blocked_id: int) -> None:
+    with db_cursor() as cur:
+        cur.execute(
+            "DELETE FROM blocked_users WHERE blocker_id = %s AND blocked_id = %s;",
+            (blocker_id, blocked_id),
+        )
+
 def avatar_url(user_id: int, avatar_updated_at) -> str | None:
     if avatar_updated_at is None:
         return None
@@ -31,6 +78,19 @@ def update_nickname(user_id: int, nickname: str) -> tuple[str, object]:
         avatar_row = cur.fetchone()
         return row[0], None if avatar_row is None else avatar_row[0]
 
+def update_email(user_id: int, email: str) -> tuple[str, str, object]:
+    with db_cursor() as cur:
+        cur.execute(
+            "UPDATE users SET email = %s WHERE id = %s RETURNING nickname;",
+            (email, user_id),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError("usuário não existe")
+        cur.execute("SELECT updated_at FROM avatars WHERE user_id = %s;", (user_id,))
+        avatar_row = cur.fetchone()
+        return email, row[0], None if avatar_row is None else avatar_row[0]
+
 def set_avatar(user_id: int, content_type: str, data: bytes) -> object:
     with db_cursor() as cur:
         cur.execute(
@@ -44,6 +104,10 @@ def set_avatar(user_id: int, content_type: str, data: bytes) -> object:
         if row is None:
             raise RuntimeError("O UPSERT não devolveu linha.")
         return row[0]
+
+def delete_avatar(user_id: int) -> None:
+    with db_cursor() as cur:
+        cur.execute("DELETE FROM avatars WHERE user_id = %s;", (user_id,))
 
 def get_avatar(user_id: int) -> tuple[str, bytes, object] | None:
     with db_cursor() as cur:

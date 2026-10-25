@@ -1,7 +1,9 @@
+import logging
 import os
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from typing import Literal
 
 from .constants import Side
@@ -19,6 +21,7 @@ TICK_HZ = 30
 TICK_INTERVAL = 1.0 / TICK_HZ
 THREAD_JOIN_TIMEOUT = 1.0
 DEFAULT_COUNTDOWN_SECONDS = 5.0
+logger = logging.getLogger(__name__)
 
 RematchOutcome = Literal["rejected", "pending", "countdown"]
 
@@ -31,10 +34,19 @@ def _countdown_seconds() -> float:
 
 
 class PongMatch:
-    def __init__(self, left_user_id: int, right_user_id: int, broadcast, countdown_seconds=None):
+    def __init__(
+        self,
+        left_user_id: int,
+        right_user_id: int,
+        broadcast,
+        countdown_seconds=None,
+        on_match_finished: Callable[[str, int, int, int, int, int], None] | None = None,
+    ):
         self.id = uuid.uuid4().hex
+        self.game_id = uuid.uuid4().hex
         self.sides: dict[int, Side] = {left_user_id: "left", right_user_id: "right"}
         self.broadcast = broadcast
+        self.on_match_finished = on_match_finished
         self.sim: SimState = create_initial_sim_state()
         self._countdown_seconds = (
             _countdown_seconds()
@@ -96,6 +108,7 @@ class PongMatch:
             delta_seconds, last_frame_time = compute_delta_seconds(last_frame_time)
             status = None
             snapshot = None
+            finished_result = None
 
             with self._lock:
                 if self.phase == "countdown" and now_ms() >= self.starts_at_ms:
@@ -106,6 +119,29 @@ class PongMatch:
                     step_simulation(self.sim, delta_seconds)
                     if is_match_finished(self.sim):
                         self.phase = "finished"
+                        winner_user_id = next(
+                            user_id
+                            for user_id, side in self.sides.items()
+                            if side == self.sim.winner
+                        )
+                        left_user_id = next(
+                            user_id
+                            for user_id, side in self.sides.items()
+                            if side == "left"
+                        )
+                        right_user_id = next(
+                            user_id
+                            for user_id, side in self.sides.items()
+                            if side == "right"
+                        )
+                        finished_result = (
+                            self.game_id,
+                            left_user_id,
+                            right_user_id,
+                            winner_user_id,
+                            self.sim.score_left,
+                            self.sim.score_right,
+                        )
 
                 if self.phase in ("playing", "finished"):
                     snapshot = to_snapshot(self.sim, now_ms())
@@ -114,6 +150,11 @@ class PongMatch:
                 self.broadcast(self.id, "game:status", status)
             if snapshot is not None:
                 self.broadcast(self.id, "game:snapshot", snapshot)
+            if finished_result is not None and self.on_match_finished is not None:
+                try:
+                    self.on_match_finished(*finished_result)
+                except Exception:
+                    logger.exception("Não foi possível salvar o resultado da partida.")
 
             time.sleep(max(0.0, TICK_INTERVAL - (time.monotonic() - started)))
 
@@ -140,6 +181,7 @@ class PongMatch:
                 return "pending"
 
             self.sim = create_initial_sim_state()
+            self.game_id = uuid.uuid4().hex
             self._start_countdown()
             return "countdown"
 

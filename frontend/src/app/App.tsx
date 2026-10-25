@@ -1,9 +1,8 @@
 import { Suspense, lazy, type ReactNode } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 
-import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { AuthProvider } from "./AuthProvider";
@@ -39,7 +38,6 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/home" element={protectedPage(<HomePage />)} />
         <Route path="/pong" element={protectedPage(<PongPage />)} />
         <Route path="/profile" element={protectedPage(<ProfilePage />)} />
         <Route
@@ -83,21 +81,32 @@ export default function App() {
 function AppShell() {
   return (
     <BrowserRouter>
-      <Box
-        sx={{
-          display: "flex",
-          height: "100svh",
-          width: "100%",
-          flexDirection: "column",
-          bgcolor: "background.default",
-          color: "text.primary",
-        }}
-      >
-        <AppNavigation />
-        <Box sx={{ minHeight: 0, flex: 1 }}>
-          <AppRoutes />
-        </Box>
-      </Box>
+      <AppShellContent />
     </BrowserRouter>
+  );
+}
+
+/** Ajusta a altura do aplicativo conforme a página ativa. */
+function AppShellContent() {
+  const { pathname } = useLocation();
+  const fixedHeight = pathname === "/chat" || pathname === "/pong";
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        height: fixedHeight ? "100svh" : "auto",
+        minHeight: "100svh",
+        width: "100%",
+        flexDirection: "column",
+        bgcolor: "background.default",
+        color: "text.primary",
+      }}
+    >
+      <AppNavigation />
+      <Box sx={{ minHeight: 0, flex: 1 }}>
+        <AppRoutes />
+      </Box>
+    </Box>
   );
 }

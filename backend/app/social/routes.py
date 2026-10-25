@@ -6,13 +6,14 @@ import psycopg2
 from flask import Response, jsonify, request, session
 from flask_smorest import Blueprint
 
-from auth.validators import validate_nickname
+from auth.validators import normalize_email, validate_email, validate_nickname
 from schemas import ErrorResponseSchema
 
 from . import handlers
 from . import store
 from .handlers import conversation_id
 from .schemas import (
+    ChatBlockSchema,
     ChatHistorySchema,
     FriendSchema,
     ProfileSchema,
@@ -28,15 +29,20 @@ social_bp = Blueprint("social", __name__, description="Perfil, amigos e chat.")
 
 PROFILE_UPDATE_REQUEST_BODY = {
     "description": (
-        "Campos id e email do corpo são recebidos e ignorados: quem vale é a sessão."
+        "Atualiza o email ou apelido do usuário da sessão."
     ),
     "required": True,
     "content": {
         "application/json": {
             "schema": {
                 "type": "object",
-                "required": ["nickname"],
+                "minProperties": 1,
                 "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "description": "Novo e-mail de acesso.",
+                    },
                     "nickname": {
                         "type": "string",
                         "pattern": "^[A-Za-z0-9_]+$",
@@ -46,7 +52,7 @@ PROFILE_UPDATE_REQUEST_BODY = {
                     },
                 },
             },
-            "example": {"nickname": "ana2"},
+            "example": {"email": "ana@example.com"},
         }
     },
 }
@@ -159,19 +165,18 @@ def get_profile():
     400,
     schema=ErrorResponseSchema,
     success=True,
-    description="O novo nickname veio ausente ou fora das regras de tamanho e caracteres.",
+    description="O e-mail ou apelido informado é inválido.",
 )
 @social_bp.alt_response(
     409,
     schema=ErrorResponseSchema,
     success=True,
-    description="Alguém já usa esse nickname.",
+    description="O e-mail ou apelido já está em uso.",
 )
 @social_bp.doc(
     summary="Atualizar o próprio perfil",
     description=(
-        "Troca o apelido do usuário da sessão. A resposta traz o e-mail atual; "
-        "não existe troca de e-mail pela API."
+        "Atualiza o e-mail de acesso ou o apelido do usuário da sessão."
     ),
     requestBody=PROFILE_UPDATE_REQUEST_BODY,
     security=[{"cookieAuth": []}],
@@ -180,7 +185,30 @@ def patch_profile():
     user_id = _session_user_id()
     if user_id is None:
         return _unauthorized()
-    nickname = _json_body().get("nickname")
+    body = _json_body()
+    if "nickname" not in body and "email" in body:
+        email = body["email"]
+        if not isinstance(email, str):
+            return jsonify({"error": "Informe um e-mail válido."}), 400
+        validation_error = validate_email(email)
+        if validation_error is not None:
+            return jsonify({"error": validation_error}), 400
+        email = normalize_email(email)
+        try:
+            email, nickname, avatar_ts = store.update_email(user_id, email)
+        except psycopg2.IntegrityError:
+            return jsonify({"error": "Este e-mail já está cadastrado."}), 409
+        except LookupError:
+            session.clear()
+            return _unauthorized()
+        return {
+            "id": user_id,
+            "email": email,
+            "nickname": nickname,
+            "avatarUrl": store.avatar_url(user_id, avatar_ts),
+        }
+
+    nickname = body.get("nickname")
     if not isinstance(nickname, str):
         return jsonify({"error": "Informe o novo nickname."}), 400
     validation_error = validate_nickname(nickname)
@@ -253,6 +281,32 @@ def post_avatar():
         "avatarUrl": store.avatar_url(user_id, profile[1]),
     }
 
+@social_bp.delete("/api/profile/avatar")
+@social_bp.response(200, ProfileSchema, description="Foto removida do perfil.")
+@social_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sessão ausente, expirada ou inválida.",
+)
+@social_bp.doc(
+    summary="Remover a própria foto",
+    description="Apaga a foto do usuário autenticado.",
+    security=[{"cookieAuth": []}],
+)
+def delete_avatar():
+    user_id = _session_user_id()
+    if user_id is None:
+        return _unauthorized()
+    store.delete_avatar(user_id)
+    profile = store.get_user_profile(user_id)
+    handlers.broadcast_friends()
+    return {
+        "id": user_id,
+        "nickname": profile[0] if profile else "",
+        "avatarUrl": None,
+    }
+
 @social_bp.get("/api/profile/avatar/<int:user_id>")
 @social_bp.response(
     200,
@@ -321,7 +375,68 @@ def get_chat_history():
             }
             conversations[conv_id] = entry
         entry["messages"].append(message)
-    return {"global": store.global_rows(), "conversations": list(conversations.values())}
+    return {
+        "global": store.global_rows(),
+        "conversations": list(conversations.values()),
+        "blockedUserIds": store.blocked_user_ids(user_id),
+        "blockingUserIds": store.blocking_user_ids(user_id),
+    }
+
+
+@social_bp.post("/api/chat/blocks/<int:user_id>")
+@social_bp.response(200, ChatBlockSchema, description="Usuário bloqueado.")
+@social_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sessão ausente, expirada ou inválida.",
+)
+@social_bp.alt_response(
+    400,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="A conta atual não pode ser bloqueada.",
+)
+@social_bp.alt_response(
+    404,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="O usuário informado não existe.",
+)
+@social_bp.doc(
+    summary="Bloquear mensagens privadas de um usuário",
+    security=[{"cookieAuth": []}],
+)
+def post_chat_block(user_id: int):
+    current_user_id = _session_user_id()
+    if current_user_id is None:
+        return _unauthorized()
+    if user_id == current_user_id:
+        return jsonify({"error": "Você não pode bloquear sua própria conta."}), 400
+    if store.get_user_profile(user_id) is None:
+        return jsonify({"error": "Usuário não encontrado."}), 404
+    store.block_user(current_user_id, user_id)
+    return {"status": "blocked", "userId": user_id}
+
+
+@social_bp.delete("/api/chat/blocks/<int:user_id>")
+@social_bp.response(200, ChatBlockSchema, description="Usuário desbloqueado.")
+@social_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sessão ausente, expirada ou inválida.",
+)
+@social_bp.doc(
+    summary="Desbloquear mensagens privadas de um usuário",
+    security=[{"cookieAuth": []}],
+)
+def delete_chat_block(user_id: int):
+    current_user_id = _session_user_id()
+    if current_user_id is None:
+        return _unauthorized()
+    store.unblock_user(current_user_id, user_id)
+    return {"status": "unblocked", "userId": user_id}
 
 @social_bp.post("/api/friends")
 @social_bp.response(201, FriendSchema, description="Convite enviado.")

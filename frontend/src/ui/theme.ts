@@ -27,6 +27,7 @@ const sharedThemeOptions = {
     button: { fontWeight: 600, textTransform: "none" },
     h1: { fontSize: "1.5rem", fontWeight: 650 },
     h2: { fontSize: "1.15rem", fontWeight: 600 },
+    h3: { fontSize: "1rem", fontWeight: 600 },
   },
   components: {
     MuiButton: {

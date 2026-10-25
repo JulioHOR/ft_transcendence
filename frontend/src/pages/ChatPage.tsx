@@ -741,7 +741,7 @@ export function ChatPage() {
   const { user } = useAuth();
   const { friends } = useFriends();
   return (
-    <PageContainer>
+    <PageContainer fillHeight>
       <ChatContent
         session={useChatSession(user?.id)}
         selfAvatarUrl={user?.avatarUrl}

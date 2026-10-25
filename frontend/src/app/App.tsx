@@ -1,5 +1,5 @@
 import { Suspense, lazy, type ReactNode } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 
@@ -81,21 +81,32 @@ export default function App() {
 function AppShell() {
   return (
     <BrowserRouter>
-      <Box
-        sx={{
-          display: "flex",
-          height: "100svh",
-          width: "100%",
-          flexDirection: "column",
-          bgcolor: "background.default",
-          color: "text.primary",
-        }}
-      >
-        <AppNavigation />
-        <Box sx={{ minHeight: 0, flex: 1 }}>
-          <AppRoutes />
-        </Box>
-      </Box>
+      <AppShellContent />
     </BrowserRouter>
+  );
+}
+
+/** Ajusta a altura do aplicativo conforme a página ativa. */
+function AppShellContent() {
+  const { pathname } = useLocation();
+  const fixedHeight = pathname === "/chat" || pathname === "/pong";
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        height: fixedHeight ? "100svh" : "auto",
+        minHeight: "100svh",
+        width: "100%",
+        flexDirection: "column",
+        bgcolor: "background.default",
+        color: "text.primary",
+      }}
+    >
+      <AppNavigation />
+      <Box sx={{ minHeight: 0, flex: 1 }}>
+        <AppRoutes />
+      </Box>
+    </Box>
   );
 }

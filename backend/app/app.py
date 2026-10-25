@@ -19,6 +19,7 @@ init_api(app)
 def register_game_routes():
     from games.pong.handlers import register_pong_handlers
     from games.pong.match import PongMatch
+    from games.pong.store import save_match
     from ws_core.matchmaker import Matchmaker
 
     def match_factory(left_user_id, right_user_id):
@@ -28,6 +29,7 @@ def register_game_routes():
             broadcast=lambda match_id, event, payload: socketio.emit(
                 event, payload, to=match_id
             ),
+            on_match_finished=save_match,
         )
 
     matchmaker = Matchmaker(match_factory)

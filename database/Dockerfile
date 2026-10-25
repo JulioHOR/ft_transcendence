@@ -12,6 +12,7 @@ COPY tools/init_db.sh /usr/local/bin/init_db.sh
 COPY init/02-users.sql /docker-entrypoint-initdb.d/02-users.sql
 COPY init/03-social.sql /docker-entrypoint-initdb.d/03-social.sql
 COPY init/04-chat-features.sql /docker-entrypoint-initdb.d/04-chat-features.sql
+COPY init/05-pong-matches.sql /docker-entrypoint-initdb.d/05-pong-matches.sql
 
 RUN chmod +x /usr/local/bin/init_db.sh
 

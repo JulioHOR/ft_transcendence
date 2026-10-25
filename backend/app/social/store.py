@@ -78,6 +78,19 @@ def update_nickname(user_id: int, nickname: str) -> tuple[str, object]:
         avatar_row = cur.fetchone()
         return row[0], None if avatar_row is None else avatar_row[0]
 
+def update_email(user_id: int, email: str) -> tuple[str, str, object]:
+    with db_cursor() as cur:
+        cur.execute(
+            "UPDATE users SET email = %s WHERE id = %s RETURNING nickname;",
+            (email, user_id),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError("usuário não existe")
+        cur.execute("SELECT updated_at FROM avatars WHERE user_id = %s;", (user_id,))
+        avatar_row = cur.fetchone()
+        return email, row[0], None if avatar_row is None else avatar_row[0]
+
 def set_avatar(user_id: int, content_type: str, data: bytes) -> object:
     with db_cursor() as cur:
         cur.execute(
@@ -91,6 +104,10 @@ def set_avatar(user_id: int, content_type: str, data: bytes) -> object:
         if row is None:
             raise RuntimeError("O UPSERT não devolveu linha.")
         return row[0]
+
+def delete_avatar(user_id: int) -> None:
+    with db_cursor() as cur:
+        cur.execute("DELETE FROM avatars WHERE user_id = %s;", (user_id,))
 
 def get_avatar(user_id: int) -> tuple[str, bytes, object] | None:
     with db_cursor() as cur:

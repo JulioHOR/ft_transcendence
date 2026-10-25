@@ -12,6 +12,12 @@ def normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
+def validate_email(email: str) -> str | None:
+    if not EMAIL_RE.match(normalize_email(email)):
+        return "O e-mail informado não é válido."
+    return None
+
+
 def validate_nickname(nickname: str) -> str | None:
     if not NICKNAME_MIN <= len(nickname) <= NICKNAME_MAX:
         return f"O nickname precisa ter entre {NICKNAME_MIN} e {NICKNAME_MAX} caracteres."
@@ -21,8 +27,9 @@ def validate_nickname(nickname: str) -> str | None:
 
 
 def validate_signup(email: str, nickname: str, password: str) -> str | None:
-    if not EMAIL_RE.match(normalize_email(email)):
-        return "O e-mail informado não é válido."
+    email_error = validate_email(email)
+    if email_error is not None:
+        return email_error
     nickname_error = validate_nickname(nickname)
     if nickname_error is not None:
         return nickname_error

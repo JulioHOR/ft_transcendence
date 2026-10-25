@@ -64,18 +64,20 @@ export async function getProfile(): Promise<User> {
   }
 }
 
-/** Atualiza o nickname do usuário autenticado. */
-export async function updateNickname(nickname: string): Promise<User> {
+/** Atualiza os dados de acesso ou o apelido do usuário autenticado. */
+export async function updateProfile(
+  changes: Partial<Pick<User, "email" | "nickname">>,
+): Promise<User> {
   const user = await me();
   const response = await fetch(profileUrl, {
     method: "PATCH",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: user.id, email: user.email, nickname }),
+    body: JSON.stringify(changes),
   });
   if (!response.ok) {
     throw new Error(
-      await errorMessage(response, "Falha ao atualizar o apelido"),
+      await errorMessage(response, "Falha ao atualizar o perfil"),
     );
   }
   const data = (await response.json()) as User;
@@ -99,6 +101,18 @@ export async function uploadAvatar(avatarDataUrl: string): Promise<Profile> {
     const fallback =
       response.status === 413 ? AVATAR_TOO_LARGE : "Falha ao enviar avatar";
     throw new Error(await errorMessage(response, fallback));
+  }
+  return response.json() as Promise<Profile>;
+}
+
+/** Remove a foto do perfil do usuário autenticado. */
+export async function deleteAvatar(): Promise<Profile> {
+  const response = await fetch(profileAvatarUrl, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error(await errorMessage(response, "Falha ao remover avatar"));
   }
   return response.json() as Promise<Profile>;
 }

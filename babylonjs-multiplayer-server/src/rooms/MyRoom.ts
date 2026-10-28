@@ -68,6 +68,7 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput }> {
     this.state.players.set(
       client.sessionId,
       new Player({
+		name: String(options?.name ?? "Player").slice(0, 16),
         x: ARENA_WIDTH / 2 + Math.cos(angle) * 1,
         y: ARENA_HEIGHT / 2 + Math.sin(angle) * 1,
         height: 0,

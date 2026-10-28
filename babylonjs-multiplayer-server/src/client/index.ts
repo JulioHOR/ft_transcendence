@@ -176,6 +176,33 @@ function createGun(
   return pivot;
 }
 
+function createNameTag(text: string, parent: BABYLON.TransformNode): BABYLON.Mesh {
+	const plane = BABYLON.MeshBuilder.CreatePlane(`nametag_${text}`, { width: 1, height: 0.25 }, scene);
+	plane.parent = parent;
+	plane.position.y = CHARACTER_HEIGHT + 0.3;
+	plane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL; // always faces the camera
+	plane.isPickable = false;
+
+	const tex = new BABYLON.DynamicTexture("nametag_tex", { width: 512, height: 128 }, scene, true);
+	tex.hasAlpha = true;
+	tex.drawText(text, null, 90, "bold 80px sans-serif", "white", "transparent", true);
+
+	const mat = new BABYLON.StandardMaterial("nametag_mat", scene);
+	mat.diffuseTexture = tex;
+	mat.opacityTexture = tex;
+	mat.emissiveColor = BABYLON.Color3.White(); // unaffected by scene lighting
+	mat.disableLighting = true;
+	plane.material = mat;
+	return plane;
+}
+
+function setMeshVisiblity(node: BABYLON.TransformNode, visible: boolean) {
+	if (!node) return;
+		for (const mesh of node.getChildMeshes()) {
+			mesh.isVisible = visible;
+		}
+}
+
 async function main() {
   let micTurnedOffWarning: boolean = false as boolean;
 
@@ -187,8 +214,8 @@ async function main() {
       console.error(e);
     }
   });
-
-  const room = await client.joinOrCreate("my_room");
+  const playerName = "Player";
+  const room = await client.joinOrCreate("my_room", {name: playerName});
   // Will amount to something like 10 seconds after Vite is down
   room.reconnection.maxRetries = 5;
 
@@ -230,6 +257,7 @@ async function main() {
   // 1. Declare your tracking map and callbacks first
   const playerMeshes = new Map<string, BABYLON.AbstractMesh>();
   const playerHeads = new Map<string, BABYLON.TransformNode>();
+  const playerTagAnchors = new Map<string, BABYLON.TransformNode>();
   type PlayerAnim = {
     groups: BABYLON.AnimationGroup[];
     // idle?: BABYLON.AnimationGroup;
@@ -363,13 +391,21 @@ async function main() {
       const viewGun = createGun(gunContainer, "gun_self", GUN_SCALE);
       viewGun.parent = camera;
       viewGun.position.copyFrom(VIEWMODEL_OFFSET);
+	  setMeshVisiblity(viewGun, false);
     } else {
       // Other players' guns hang from an invisible head that turns with their aim.
       const head = new BABYLON.TransformNode(`head_${sessionId}`, scene);
       const gun = createGun(gunContainer, `gun_${sessionId}`, HELD_GUN_SCALE);
+	  setMeshVisiblity(gun, false);
       gun.parent = head;
       gun.position.copyFrom(HELD_GUN_OFFSET);
       playerHeads.set(sessionId, head);
+		const tagAnchor = new BABYLON.TransformNode(`tag_${sessionId}`, scene);
+		tagAnchor.parent = null;
+		createNameTag(player.name, tagAnchor);
+		playerTagAnchors.set(sessionId, tagAnchor);
+
+
 
       callPeer(sessionId).catch((err) => console.error(err));
     }
@@ -386,6 +422,9 @@ async function main() {
     // Disposing the head takes its gun with it
     playerHeads.get(sessionId)?.dispose();
     playerHeads.delete(sessionId);
+
+	playerTagAnchors.get(sessionId)?.dispose();
+	playerTagAnchors.delete(sessionId);
 
     // Animation groups aren't children of the mesh, so they need their own disposal
     playerAnimations.get(sessionId)?.groups.forEach((anim) => anim.dispose());
@@ -404,6 +443,8 @@ async function main() {
       anims.groups.forEach((anim) => anim.dispose()),
     );
     playerAnimations.clear();
+	playerTagAnchors.forEach((a) => a.dispose());
+	playerTagAnchors.clear();
 
     removeAllVoiceConnections();
   });
@@ -568,7 +609,8 @@ async function main() {
           head.position.set(posX, posHeight + EYE_HEIGHT, posZ);
           head.rotation.set(player.pitch, player.yaw, 0);
         }
-
+		const anchor = playerTagAnchors.get(sessionId);
+		if (anchor) anchor.position.set(posX, posHeight, posZ);  
         const distance = Math.hypot(
           posX - camera.position.x,
           posZ - camera.position.z,

@@ -10,9 +10,9 @@
         font:
           16px/1.5 system-ui,
           sans-serif;
-        margin: 2rem auto;
-        max-width: 848px;
-        padding: 0 1rem;
+        /* margin: 2rem auto; */
+        /* max-width: 848px; */
+        /* padding: 0 1rem; */
         background: #1a1a1a;
         color: #f0f0f0;
       }
@@ -20,9 +20,9 @@
         font-weight: 600;
       }
       #threejs_canvas {
-        width: 800px;
-        height: 600px;
-        max-width: 100%;
+        width: 100%;
+        height: 100%;
+        /* max-width: 100%; */
         background: #111;
         border-radius: 0.5rem;
         display: block;
@@ -34,14 +34,14 @@
     </style>
   </head>
   <body>
-    <h1>Colyseus + Babylon.js</h1>
+    <!-- <h1>Colyseus + Babylon.js</h1> -->
     <p id="status">Connecting…</p>
     <canvas id="threejs_canvas"></canvas>
-    <p>
+    <!-- <p>
       Click the canvas to lock mouse. Move with <kbd>WASD</kbd>. Open a second
       tab to see another player.
-    </p>
-    <p><a href="/playground">Playground</a> · <a href="/monitor">Monitor</a></p>
+    </p> -->
+    <!-- <p><a href="/playground">Playground</a> · <a href="/monitor">Monitor</a></p> -->
     <script type="module" src="/src/client/index.ts"></script>
   </body>
 </html>

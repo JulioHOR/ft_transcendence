@@ -19,6 +19,7 @@ export const MoveInput = schema({
 export type MoveInput = SchemaType<typeof MoveInput>;
 
 export const Player = schema({
+  name: t.string(),
   x: t.number(),
   y: t.number(),
   height: t.number(),

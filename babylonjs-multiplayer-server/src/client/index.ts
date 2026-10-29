@@ -83,12 +83,27 @@ function axis(negative: string[], positive: string[]): -1 | 0 | 1 {
 const engine = new BABYLON.Engine(useCanvas, true, {
   preserveDrawingBuffer: true,
   stencil: true,
+  // adaptToDeviceRatio: true,
 });
 const scene = new BABYLON.Scene(engine);
 scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.1, 1);
 
 // Enable collision engine
 scene.collisionsEnabled = true;
+
+// input detection
+const inputMap: { [key: string]: boolean } = {}; 
+scene.actionManager = new BABYLON.ActionManager(scene);
+
+// tracked special inputs
+scene.actionManager.registerAction(
+    new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, (evt) => {
+        inputMap[evt.sourceEvent.key.toLowerCase()] = true;
+    })
+);
+
+
+
 
 // Camera Setup (Universal Camera for 3D navigation)
 const camera = new BABYLON.UniversalCamera(
@@ -98,7 +113,7 @@ const camera = new BABYLON.UniversalCamera(
 );
 camera.minZ = 0.01; // the gun sits a few centimetres from the eye; 0.1 would cut it off
 camera.maxZ = 1000;
-camera.fov = 90 * (Math.PI / 180);
+camera.fov = 70 * (Math.PI / 180);
 camera.inertia = 0; // Remove floaty movement for crisp mouse look
 
 // Adjust mouse sensitivity (lower number = more sensitive)
@@ -490,6 +505,16 @@ async function main() {
         const rawForward = axis(["s", "arrowdown"], ["w", "arrowup"]);
         const rawRight = axis(["a", "arrowleft"], ["d", "arrowright"]);
         const yaw = camera.rotation.y;
+
+        scene.onBeforeRenderObservable.add(() => {
+            if (inputMap["1"]) {
+                setMeshVisiblity(gun, true);
+            }
+            if (inputMap["a"]) {
+                // Move left
+            }
+        });
+        
         // const sin = Math.sin(yaw);
         // const cos = Math.cos(yaw);
 

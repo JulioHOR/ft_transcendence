@@ -14,6 +14,7 @@ import {
 } from "./MatchScreens";
 import type { GameSnapshot, MatchState, Transport } from "../protocol";
 import { createInitialMatchState, TABLE } from "../protocol";
+import { logUnexpectedError } from "../../../api/http";
 
 /** Metade da largura da visualização da mesa. */
 const VIEW_HALF_X = TABLE.halfLength * 1.2;
@@ -26,7 +27,14 @@ function useMatchState(transport: Transport): MatchState {
 
   useEffect(() => {
     transport.onState(setState);
-    void transport.connect();
+    void transport.connect().catch((failure: unknown) => {
+      logUnexpectedError("Falha ao conectar ao Pong", failure);
+      setState((current) => ({
+        ...current,
+        phase: "error",
+        errorMessage: "Não foi possível entrar na partida. Tente novamente.",
+      }));
+    });
     return () => transport.disconnect();
   }, [transport]);
 

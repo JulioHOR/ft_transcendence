@@ -4,6 +4,7 @@ import { me } from "../api/auth";
 import { getProfileById } from "../api/profile";
 import type { User } from "../api/types";
 import { AuthContext } from "./auth-session";
+import { logUnexpectedError } from "../api/http";
 
 /** Propriedades do provedor de autenticação. */
 type AuthProviderProps = {
@@ -12,8 +13,9 @@ type AuthProviderProps = {
 };
 
 /** Junta o usuário da sessão com o avatar do perfil. */
-async function loadSessionUser(): Promise<User> {
+async function loadSessionUser(): Promise<User | null> {
   const user = await me();
+  if (user == null) return null;
   try {
     const profile = await getProfileById(user.id);
     return { ...user, avatarUrl: profile.avatarUrl };
@@ -33,7 +35,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     void loadSessionUser()
       .then(setUser)
-      .catch(() => setUser(null))
+      .catch((failure: unknown) => {
+        logUnexpectedError("Falha ao verificar a sessão", failure);
+        setUser(null);
+      })
       .finally(() => setReady(true));
   }, []);
 

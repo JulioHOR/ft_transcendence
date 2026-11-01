@@ -7,6 +7,7 @@ from . import store
 
 SEM_AMIZADE_ACEITA = "Não é possível enviar mensagem privada: vocês ainda não são amigos."
 USUARIO_BLOQUEADO = "Não é possível enviar mensagem: existe um bloqueio entre as contas."
+MAX_CHAT_MESSAGE_LENGTH = 1000
 
 identities: dict[str, tuple[int, str]] = {}
 _online: dict[int, int] = {}
@@ -119,6 +120,13 @@ def register_social_handlers(socketio, matchmaker) -> Callable[[str], None]:
         text = text.strip()
         if not text:
             return
+        if len(text) > MAX_CHAT_MESSAGE_LENGTH:
+            socketio.emit(
+                "chat:private:error",
+                {"message": "A mensagem pode ter até 1000 caracteres."},
+                room=_request_sid(),
+            )
+            return
         message = store.insert_message(identity[0], None, text)
         socketio.emit("chat:message", message)
     @socketio.on("chat:private:send")
@@ -136,6 +144,13 @@ def register_social_handlers(socketio, matchmaker) -> Callable[[str], None]:
         if not text:
             return
         user_id = identity[0]
+        if len(text) > MAX_CHAT_MESSAGE_LENGTH:
+            socketio.emit(
+                "chat:private:error",
+                {"message": "A mensagem pode ter até 1000 caracteres."},
+                room=_request_sid(),
+            )
+            return
         if not _is_accepted_friend(user_id, other_id):
             socketio.emit(
                 "chat:private:error", {"message": SEM_AMIZADE_ACEITA}, room=_request_sid()

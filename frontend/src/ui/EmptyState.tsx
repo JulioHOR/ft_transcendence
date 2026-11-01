@@ -13,7 +13,12 @@ export function EmptyState({
   return (
     <Stack
       spacing={1.5}
-      sx={{ alignItems: "center", justifyContent: "center", py: 3, textAlign: "center" }}
+      sx={{
+        alignItems: "flex-start",
+        justifyContent: "center",
+        py: 3,
+        textAlign: "left",
+      }}
     >
       <Typography color="text.secondary">{children}</Typography>
       {action}

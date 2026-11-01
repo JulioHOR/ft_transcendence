@@ -14,7 +14,7 @@ down:
 	$(COMPOSE) down
 
 logs:
-	$(COMPOSE) logs -f
+	$(COMPOSE) logs -f $(SERVICE)
 
 ps:
 	$(COMPOSE) ps

@@ -1,16 +1,17 @@
 import { useState, type ChangeEventHandler, type SubmitEvent } from "react";
 import { Navigate, useNavigate, type NavigateFunction } from "react-router-dom";
-import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 
 import { login, signup } from "../api/auth";
+import { friendlyError } from "../api/http";
 import { useAuth } from "../app/auth-session";
 import type { User } from "../api/types";
 import { ActionButton } from "../ui/ActionButton";
 import { AppTextField } from "../ui/AppTextField";
+import { ErrorText } from "../ui/ErrorText";
 
 /** Modo exibido no formulário de autenticação. */
 type AuthMode = "login" | "signup";
@@ -142,7 +143,13 @@ async function handleLoginSubmit(
     setUser(await authenticate(form));
     navigate("/profile");
   } catch (err) {
-    form.setError(err instanceof Error ? err.message : "falhou");
+    form.setError(
+      friendlyError(
+        err,
+        "Não foi possível entrar. Tente novamente.",
+        "Falha na autenticação",
+      ),
+    );
   } finally {
     form.setPending(false);
   }
@@ -156,12 +163,7 @@ function toggleAuthMode(form: LoginFormModel): void {
 
 /** Exibe o erro do formulário, se houver. */
 function FormError({ error }: { error: string | null }) {
-  if (error === null) return null;
-  return (
-    <Alert severity="error" variant="outlined" role="alert">
-      {error}
-    </Alert>
-  );
+  return <ErrorText error={error} />;
 }
 
 /** Botões de submit e alternância de modo. */

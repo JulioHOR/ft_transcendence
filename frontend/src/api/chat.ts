@@ -2,6 +2,9 @@ import { io, type Socket } from "socket.io-client";
 import { chatHistoryUrl, chatSocketPath } from "./endpoints";
 import { errorMessage } from "./http";
 
+/** Limite de caracteres permitido por mensagem de chat. */
+export const MAX_CHAT_MESSAGE_LENGTH = 1000;
+
 /** Mensagem do chat global ou de uma conversa privada. */
 export type ChatMessage = {
   id: string;
@@ -140,7 +143,10 @@ function chatSendApi(
   getSocket: () => Socket | null,
 ): Pick<
   ChatTransport,
-  "sendGlobalMessage" | "sendPrivateMessage" | "sendPrivateTyping" | "sendPrivateRead"
+  | "sendGlobalMessage"
+  | "sendPrivateMessage"
+  | "sendPrivateTyping"
+  | "sendPrivateRead"
 > {
   return {
     sendGlobalMessage: (text) => getSocket()?.emit("chat:send", { text }),
@@ -156,7 +162,10 @@ function chatSendApi(
 /** Envio e resposta a convites de partida. */
 function chatGameInviteSendApi(
   getSocket: () => Socket | null,
-): Pick<ChatTransport, "sendGameInvite" | "respondGameInvite" | "cancelGameInvite"> {
+): Pick<
+  ChatTransport,
+  "sendGameInvite" | "respondGameInvite" | "cancelGameInvite"
+> {
   return {
     sendGameInvite: (otherUserId) =>
       getSocket()?.emit("chat:game:invite", { otherUserId }),
@@ -276,6 +285,8 @@ async function updateChatBlock(userId: number, method: "POST" | "DELETE") {
     credentials: "include",
   });
   if (!response.ok) {
-    throw new Error(await errorMessage(response, "falha ao atualizar bloqueio"));
+    throw new Error(
+      await errorMessage(response, "falha ao atualizar bloqueio"),
+    );
   }
 }

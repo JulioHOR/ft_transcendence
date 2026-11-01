@@ -1,13 +1,15 @@
 import { useEffect, useState, type SubmitEvent } from "react";
-import { Link, useParams } from "react-router-dom";
-import Badge from "@mui/material/Badge";
+import { useParams } from "react-router-dom";
+import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
-import MuiLink from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import CloseIcon from "@mui/icons-material/Close";
+import { acceptFriend, addFriend } from "../api/friends";
 import {
   deleteAvatar,
   getProfile,
@@ -16,14 +18,17 @@ import {
   updateProfile,
   uploadAvatar,
 } from "../api/profile";
+import { friendlyError } from "../api/http";
 import type { Profile, User } from "../api/types";
 import { useAuth } from "../app/auth-session";
+import { useFriends } from "../app/friends-session";
 import { Avatar } from "../ui/Avatar";
 import { ErrorText } from "../ui/ErrorText";
 import { ActionButton } from "../ui/ActionButton";
 import { AppTextField } from "../ui/AppTextField";
 import { PageContainer } from "../ui/PageContainer";
 import { SectionCard } from "../ui/SectionCard";
+import { useToaster } from "../ui/toaster-context";
 import { PongStatistics } from "../games/pong/PongStatistics";
 
 const NICKNAME_MIN_LENGTH = 3;
@@ -47,91 +52,87 @@ function profileFieldSlots(field: "email" | "nickname") {
     : undefined;
 }
 
-/** Persiste um campo do perfil e mostra falhas ao salvar. */
+type ProfileFieldFormProps = {
+  field: "email" | "nickname";
+  label: string;
+  value: string;
+  onSaved: (user: User, message?: string) => void;
+};
+
+type ProfileFieldCallbacks = {
+  setValue: (value: string) => void;
+  setError: (value: string | null) => void;
+  setEditing: (value: boolean) => void;
+  setPending: (value: boolean) => void;
+};
+
 async function submitProfileField(
-  field: "email" | "nickname",
+  props: ProfileFieldFormProps,
   value: string,
-  onSaved: (user: User) => void,
-  setError: (value: string | null) => void,
-  setPending: (value: boolean) => void,
+  callbacks: ProfileFieldCallbacks,
 ): Promise<void> {
-  setError(null);
-  setPending(true);
+  callbacks.setError(null);
+  callbacks.setPending(true);
   try {
-    onSaved(await updateProfile({ [field]: value }));
+    const user = await updateProfile({ [props.field]: value });
+    props.onSaved(user, `${props.label} atualizado.`);
+    callbacks.setValue(user[props.field]);
+    callbacks.setEditing(false);
   } catch (failure: unknown) {
-    setError(failure instanceof Error ? failure.message : "falha ao salvar");
+    callbacks.setError(
+      friendlyError(failure, "Falha ao salvar.", "Falha ao salvar perfil"),
+    );
   } finally {
-    setPending(false);
+    callbacks.setPending(false);
   }
 }
 
-/** Formulário para atualizar um campo do próprio perfil. */
-function handleProfileFieldSubmit(
-  event: SubmitEvent<HTMLFormElement>,
-  props: { field: "email" | "nickname"; onSaved: (user: User) => void },
-  value: string,
-  setError: (value: string | null) => void,
-  setPending: (value: boolean) => void,
-): void {
-  event.preventDefault();
-  void submitProfileField(
-    props.field,
-    value,
-    props.onSaved,
-    setError,
-    setPending,
-  );
-}
-
-function ProfileFieldForm(props: {
-  field: "email" | "nickname";
-  label: string;
-  value: string;
-  onSaved: (user: User) => void;
-}) {
+function ProfileFieldForm(props: ProfileFieldFormProps) {
   const [value, setValue] = useState(props.value);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const [pending, setPending] = useState(false);
-  const onSubmit = (event: SubmitEvent<HTMLFormElement>) =>
-    handleProfileFieldSubmit(event, props, value, setError, setPending);
+  const callbacks = { setValue, setError, setEditing, setPending };
+  const save = () => void submitProfileField(props, value, callbacks);
   return (
-    <Stack component="form" spacing={1.5} onSubmit={onSubmit}>
-      <ProfileFieldInput
-        field={props.field}
-        label={props.label}
-        value={value}
-        pending={pending}
-        error={error}
-        onChange={setValue}
-      />
-    </Stack>
+    <ProfileFieldFormLayout
+      {...props}
+      value={value}
+      error={error}
+      editing={editing}
+      pending={pending}
+      callbacks={callbacks}
+      onSave={save}
+      onCancel={() => cancelProfileFieldEdit(props.value, callbacks)}
+      onSubmit={(event) => {
+        event.preventDefault();
+        save();
+      }}
+    />
   );
 }
 
-function ProfileFieldInput(props: {
-  field: "email" | "nickname";
-  label: string;
+type ProfileFieldFormLayoutProps = ProfileFieldFormProps & {
   value: string;
-  pending: boolean;
   error: string | null;
-  onChange: (value: string) => void;
-}) {
+  editing: boolean;
+  pending: boolean;
+  callbacks: ProfileFieldCallbacks;
+  onSave: () => void;
+  onCancel: () => void;
+  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
+};
+
+function ProfileFieldFormLayout(props: ProfileFieldFormLayoutProps) {
   return (
-    <Stack spacing={1.5}>
+    <Stack component="form" spacing={1} onSubmit={props.onSubmit}>
       <ProfileFieldRow {...props} />
       <ErrorText error={props.error} />
     </Stack>
   );
 }
 
-function ProfileFieldRow(props: {
-  field: "email" | "nickname";
-  label: string;
-  value: string;
-  pending: boolean;
-  onChange: (value: string) => void;
-}) {
+function ProfileFieldRow(props: ProfileFieldFormLayoutProps) {
   return (
     <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
       <AppTextField
@@ -139,27 +140,75 @@ function ProfileFieldRow(props: {
         label={props.label}
         type={props.field === "email" ? "email" : "text"}
         required
+        disabled={!props.editing || props.pending}
         slotProps={profileFieldSlots(props.field)}
         value={props.value}
-        onChange={(event) => props.onChange(event.target.value)}
+        onChange={(event) => props.callbacks.setValue(event.target.value)}
         sx={{ flex: 1 }}
       />
-      <ProfileSaveButton pending={props.pending} />
+      <ProfileFieldAction {...props} />
     </Stack>
   );
 }
 
-function ProfileSaveButton({ pending }: { pending: boolean }) {
+function ProfileFieldAction(props: ProfileFieldFormLayoutProps) {
+  return (
+    <Stack direction="row" spacing={1}>
+      {props.editing ? <CancelProfileFieldButton {...props} /> : null}
+      <SaveProfileFieldButton {...props} />
+    </Stack>
+  );
+}
+
+function CancelProfileFieldButton(props: ProfileFieldFormLayoutProps) {
+  return (
+    <IconButton
+      type="button"
+      aria-label={`Cancelar edição de ${props.label}`}
+      title="Cancelar edição"
+      disabled={props.pending}
+      onClick={props.onCancel}
+    >
+      <CloseIcon />
+    </IconButton>
+  );
+}
+
+function SaveProfileFieldButton(props: ProfileFieldFormLayoutProps) {
   return (
     <ActionButton
-      appearance="primary"
-      type="submit"
-      disabled={pending}
-      sx={{ width: { xs: "100%", sm: "auto" } }}
+      appearance={props.editing ? "primary" : "secondary"}
+      type="button"
+      disabled={props.pending}
+      onClick={
+        props.editing
+          ? props.onSave
+          : () => enableProfileFieldEdit(props.callbacks)
+      }
+      startIcon={
+        props.pending ? (
+          <CircularProgress size={16} color="inherit" />
+        ) : undefined
+      }
+      sx={{ width: "auto", flex: { xs: 1, sm: "initial" } }}
     >
-      {pending ? "Salvando…" : "Salvar"}
+      {props.pending ? "Salvando…" : props.editing ? "Salvar" : "Editar"}
     </ActionButton>
   );
+}
+
+function enableProfileFieldEdit(callbacks: ProfileFieldCallbacks): void {
+  callbacks.setError(null);
+  callbacks.setEditing(true);
+}
+
+function cancelProfileFieldEdit(
+  originalValue: string,
+  callbacks: ProfileFieldCallbacks,
+): void {
+  callbacks.setValue(originalValue);
+  callbacks.setError(null);
+  callbacks.setEditing(false);
 }
 
 /** Salva uma alteração do avatar e mostra falhas ao usuário. */
@@ -172,14 +221,27 @@ async function saveAvatarChange(
   setError(null);
   setPending(true);
   try {
-    onSaved(await update());
+    const profile = await update();
+    await loadAvatar(profile.avatarUrl);
+    onSaved(profile);
   } catch (failure: unknown) {
     setError(
-      failure instanceof Error ? failure.message : "falha ao salvar avatar",
+      friendlyError(
+        failure,
+        "Falha ao salvar avatar.",
+        "Falha ao salvar avatar",
+      ),
     );
   } finally {
     setPending(false);
   }
+}
+
+async function loadAvatar(avatarUrl: string | null | undefined): Promise<void> {
+  if (!avatarUrl) return;
+  const image = new Image();
+  image.src = avatarUrl;
+  await image.decode().catch(() => undefined);
 }
 
 function AvatarFileButton(props: {
@@ -193,13 +255,16 @@ function AvatarFileButton(props: {
       color="primary"
       disabled={props.pending}
       aria-label="Trocar foto do perfil"
-      sx={{ bgcolor: "background.paper", border: 1, borderColor: "divider" }}
+      sx={{
+        position: "absolute",
+        right: 0,
+        bottom: 0,
+        bgcolor: "background.paper",
+        border: 1,
+        borderColor: "divider",
+      }}
     >
-      {props.pending ? (
-        <CircularProgress size={18} color="inherit" />
-      ) : (
-        <PhotoCameraIcon fontSize="small" />
-      )}
+      <PhotoCameraIcon fontSize="small" />
       <AvatarFileInput onFile={props.onFile} />
     </IconButton>
   );
@@ -239,16 +304,28 @@ function EditableAvatar(props: {
   onFile: (file: File | undefined) => void;
 }) {
   return (
-    <Badge
-      overlap="circular"
-      anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      badgeContent={
-        <AvatarFileButton pending={props.pending} onFile={props.onFile} />
-      }
-      sx={{ "& .MuiBadge-badge": { padding: 0, bgcolor: "transparent" } }}
+    <Box sx={{ position: "relative", width: 96, height: 96 }}>
+      <Avatar avatarUrl={props.avatarUrl} alt={props.nickname} size="xl" />
+      {props.pending ? <AvatarUploadProgress /> : null}
+      <AvatarFileButton pending={props.pending} onFile={props.onFile} />
+    </Box>
+  );
+}
+
+function AvatarUploadProgress() {
+  return (
+    <Box
+      sx={{
+        position: "absolute",
+        inset: 0,
+        display: "grid",
+        placeItems: "center",
+        bgcolor: "action.disabledBackground",
+        borderRadius: "50%",
+      }}
     >
-      <Avatar avatarUrl={props.avatarUrl} alt={props.nickname} size="lg" />
-    </Badge>
+      <CircularProgress size={40} aria-label="Enviando foto do perfil" />
+    </Box>
   );
 }
 
@@ -262,7 +339,7 @@ function AvatarEditorContent(props: {
   onRemove: () => void;
 }) {
   return (
-    <Stack spacing={1.5}>
+    <Stack spacing={1.5} sx={{ height: "100%", justifyContent: "center" }}>
       <AvatarEditorActions {...props} />
       <ErrorText error={props.error} />
     </Stack>
@@ -277,7 +354,7 @@ function AvatarEditorActions(props: {
   onRemove: () => void;
 }) {
   return (
-    <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+    <Stack spacing={1} sx={{ alignItems: "center" }}>
       <EditableAvatar {...props} />
       {props.avatarUrl ? (
         <AvatarRemoveButton pending={props.pending} onRemove={props.onRemove} />
@@ -335,7 +412,11 @@ function saveAvatarFile(
 /** Corpo editável do próprio perfil. */
 function OwnProfileBody(props: { user: User; onSaved: (user: User) => void }) {
   return (
-    <Stack spacing={3}>
+    <Stack
+      direction={{ xs: "column", sm: "row" }}
+      spacing={3}
+      sx={{ alignItems: { xs: "center", sm: "stretch" } }}
+    >
       <AvatarEditor
         avatarUrl={props.user.avatarUrl}
         nickname={props.user.nickname}
@@ -352,24 +433,33 @@ function OwnProfileBody(props: { user: User; onSaved: (user: User) => void }) {
   );
 }
 
-function ProfileFields(props: { user: User; onSaved: (user: User) => void }) {
+type ProfileFieldsProps = {
+  user: User;
+  onSaved: (user: User, message?: string) => void;
+};
+
+function ProfileFields(props: ProfileFieldsProps) {
+  const fields = [
+    { field: "email", label: "E-mail", value: props.user.email },
+    { field: "nickname", label: "Apelido", value: props.user.nickname },
+  ] as const;
   return (
-    <>
-      <ProfileFieldForm
-        key={props.user.email}
-        field="email"
-        label="E-mail"
-        value={props.user.email}
-        onSaved={props.onSaved}
-      />
-      <ProfileFieldForm
-        key={props.user.nickname}
-        field="nickname"
-        label="Apelido"
-        value={props.user.nickname}
-        onSaved={props.onSaved}
-      />
-    </>
+    <Stack
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        width: "100%",
+        justifyContent: { xs: "flex-start", sm: "space-around" },
+      }}
+    >
+      {fields.map((field) => (
+        <ProfileFieldForm
+          key={field.value}
+          {...field}
+          onSaved={props.onSaved}
+        />
+      ))}
+    </Stack>
   );
 }
 
@@ -386,9 +476,11 @@ function useOwnProfileLoad(): {
       .then(setUser)
       .catch((failure: unknown) => {
         setError(
-          failure instanceof Error
-            ? failure.message
-            : "Falha ao carregar perfil",
+          friendlyError(
+            failure,
+            "Falha ao carregar perfil",
+            "Falha ao carregar perfil",
+          ),
         );
       });
   }, []);
@@ -399,7 +491,7 @@ function useOwnProfileLoad(): {
 function OwnProfileLoaded(props: {
   user: User | null;
   error: string | null;
-  onSaved: (user: User) => void;
+  onSaved: (user: User, message?: string) => void;
 }) {
   if (!props.error && !props.user) {
     return <Typography color="text.secondary">Carregando…</Typography>;
@@ -419,7 +511,7 @@ function OwnProfileLoaded(props: {
 function OwnProfileContent(props: {
   user: User | null;
   error: string | null;
-  onSaved: (user: User) => void;
+  onSaved: (user: User, message?: string) => void;
 }) {
   return (
     <Stack spacing={2}>
@@ -437,9 +529,11 @@ function OwnProfileContent(props: {
 function OwnProfilePage() {
   const { setUser: setSessionUser } = useAuth();
   const { user, setUser, error } = useOwnProfileLoad();
-  function onSaved(next: User): void {
+  const showToast = useToaster();
+  function onSaved(next: User, message?: string): void {
     setUser(next);
     setSessionUser(next);
+    showToast(message ?? "Perfil atualizado.", "success");
   }
   return (
     <PageContainer>
@@ -460,14 +554,69 @@ function OtherProfileContent(props: { profile: Profile }) {
             size="lg"
           />
           <Typography variant="h2">{props.profile.nickname}</Typography>
-          <MuiLink component={Link} to="/friends" underline="hover">
-            Voltar aos amigos
-          </MuiLink>
+          <OtherProfileFriendAction profile={props.profile} />
         </Stack>
       </SectionCard>
       <PongStatistics userId={props.profile.id} />
     </Stack>
   );
+}
+
+function OtherProfileFriendAction({ profile }: { profile: Profile }) {
+  const { friends } = useFriends();
+  const friend = friends.find((item) => item.id === profile.id);
+  if (friend?.relation === "friend") return <Chip label="Amigo" />;
+  if (friend?.relation === "outgoing") {
+    return <Chip label="Solicitação enviada" variant="outlined" />;
+  }
+  const incoming = friend?.relation === "incoming";
+  return <OtherProfileFriendButton profile={profile} incoming={incoming} />;
+}
+
+function OtherProfileFriendButton(props: {
+  profile: Profile;
+  incoming: boolean;
+}) {
+  const showToast = useToaster();
+  const [pending, setPending] = useState(false);
+  return (
+    <ActionButton
+      appearance="primary"
+      disabled={pending}
+      onClick={() => void updateProfileFriendship(props, showToast, setPending)}
+    >
+      {pending
+        ? "Aguarde…"
+        : props.incoming
+          ? "Aceitar solicitação"
+          : "Adicionar amigo"}
+    </ActionButton>
+  );
+}
+
+async function updateProfileFriendship(
+  props: { profile: Profile; incoming: boolean },
+  showToast: ReturnType<typeof useToaster>,
+  setPending: (pending: boolean) => void,
+): Promise<void> {
+  setPending(true);
+  try {
+    if (props.incoming) await acceptFriend(props.profile.id);
+    else await addFriend(props.profile.nickname);
+    showToast(
+      props.incoming ? "Solicitação aceita." : "Solicitação enviada.",
+      "success",
+    );
+  } catch (failure: unknown) {
+    const message = friendlyError(
+      failure,
+      "Não foi possível atualizar a amizade.",
+      "Falha ao atualizar amizade pelo perfil",
+    );
+    showToast(message, "error");
+  } finally {
+    setPending(false);
+  }
 }
 
 /** Carrega perfil de outro usuário por id. */
@@ -480,9 +629,11 @@ function useOtherProfile(userId: number) {
       .then(setProfile)
       .catch((failure: unknown) => {
         setError(
-          failure instanceof Error
-            ? failure.message
-            : "Falha ao carregar perfil",
+          friendlyError(
+            failure,
+            "Falha ao carregar perfil",
+            "Falha ao carregar perfil público",
+          ),
         );
       });
   }, [userId]);

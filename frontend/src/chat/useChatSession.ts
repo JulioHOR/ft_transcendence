@@ -4,6 +4,7 @@ import { useChat } from "../app/chat-session";
 import { useFriends } from "../app/friends-session";
 import { useLatestRef } from "../app/useLatestRef";
 import type { Friend } from "../api/friends";
+import { MAX_CHAT_MESSAGE_LENGTH } from "../api/chat";
 import {
   GLOBAL_CHAT_TAB_ID,
   isAcceptedFriend,
@@ -151,6 +152,7 @@ function submitDraft(
   emitTyping(activeTabId, chat.privateChatTabs, friends, chat, false);
   setDraft("");
   if (text === "") return;
+  if (text.length > MAX_CHAT_MESSAGE_LENGTH) return;
   if (activeTabId === GLOBAL_CHAT_TAB_ID) {
     chat.sendGlobalMessage(text);
     return;
@@ -253,11 +255,17 @@ function chatActionsSnapshot(
   | "blockUser"
   | "unblockUser"
 > {
-  return { ...chatRestrictionSnapshot(chat, privateTab), ...chatInvitationActions(chat) };
+  return {
+    ...chatRestrictionSnapshot(chat, privateTab),
+    ...chatInvitationActions(chat),
+  };
 }
 
 /** Estado de bloqueio da conversa ativa. */
-function chatRestrictionSnapshot(chat: ChatApi, privateTab: PrivateChatTab | null) {
+function chatRestrictionSnapshot(
+  chat: ChatApi,
+  privateTab: PrivateChatTab | null,
+) {
   return {
     blockedByCurrentUser: isUserBlocked(chat.blockedUserIds, privateTab),
     blockedByOtherUser: isUserBlocked(chat.blockingUserIds, privateTab),

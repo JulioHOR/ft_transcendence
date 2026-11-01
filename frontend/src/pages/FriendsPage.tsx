@@ -13,6 +13,7 @@ import {
   removeFriend,
   type Friend,
 } from "../api/friends";
+import { friendlyError } from "../api/http";
 import { useFriends } from "../app/friends-session";
 import { buildPrivateChatPath } from "../chat/privateChat";
 import { Avatar } from "../ui/Avatar";
@@ -44,7 +45,11 @@ async function submitAddFriend(
     setNickname("");
   } catch (failure: unknown) {
     setError(
-      failure instanceof Error ? failure.message : "Falha ao adicionar amigo.",
+      friendlyError(
+        failure,
+        "Falha ao adicionar amigo.",
+        "Falha ao adicionar amigo",
+      ),
     );
   } finally {
     setPending(false);
@@ -326,7 +331,9 @@ function friendHandlers(setError: (value: string | null) => void) {
   const run = (action: () => Promise<unknown>, fallback: string) => {
     setError(null);
     void action().catch((failure: unknown) => {
-      setError(failure instanceof Error ? failure.message : fallback);
+      setError(
+        friendlyError(failure, fallback, "Falha em uma ação de amizade"),
+      );
     });
   };
   return {

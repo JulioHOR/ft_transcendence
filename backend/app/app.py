@@ -16,7 +16,7 @@ app.config.update(SESSION_COOKIE_OPTIONS)
 
 init_api(app)
 
-PUBLIC_API_ENDPOINTS = {"auth.signup", "auth.login"}
+PUBLIC_API_ENDPOINTS = {"auth.signup", "auth.login", "auth.me"}
 
 
 @app.before_request

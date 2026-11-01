@@ -10,7 +10,9 @@ import MuiLink from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import type { ChatMessage } from "../api/chat";
+import InputAdornment from "@mui/material/InputAdornment";
+import { alpha } from "@mui/material/styles";
+import { MAX_CHAT_MESSAGE_LENGTH, type ChatMessage } from "../api/chat";
 import type { Friend } from "../api/friends";
 import { liveAvatarUrl } from "../api/profile";
 import { useAuth } from "../app/auth-session";
@@ -407,12 +409,28 @@ function ChatDraftInput({ session }: { session: ChatSession }) {
       fullWidth
       sx={{ flex: 1, minWidth: 0 }}
       value={session.draft}
+      slotProps={{
+        htmlInput: { maxLength: MAX_CHAT_MESSAGE_LENGTH },
+        input: {
+          endAdornment: <MessageLengthCounter value={session.draft.length} />,
+        },
+      }}
       required
       disabled={!session.canSendOnActiveTab}
       onChange={(event) => session.setDraft(event.target.value)}
       placeholder="mensagem"
       aria-label="Mensagem"
     />
+  );
+}
+
+function MessageLengthCounter({ value }: { value: number }) {
+  return (
+    <InputAdornment position="end">
+      <Typography variant="caption" color="text.secondary">
+        {value}/{MAX_CHAT_MESSAGE_LENGTH}
+      </Typography>
+    </InputAdornment>
   );
 }
 
@@ -597,21 +615,44 @@ function GameInvitationNotice({
   const sentByCurrentUser = invitation.senderId === session.currentUserId;
   const accepted = invitation.status === "accepted";
   const finished = ["declined", "cancelled"].includes(invitation.status);
+  const action = finished ? undefined : (
+    <GameInvitationActions
+      invitation={invitation}
+      session={session}
+      accepted={accepted}
+      sentByCurrentUser={sentByCurrentUser}
+    />
+  );
+  return (
+    <GameInvitationAlert
+      accepted={accepted}
+      action={action}
+      message={gameInvitationMessage(invitation, session)}
+    />
+  );
+}
+
+function GameInvitationAlert(props: {
+  accepted: boolean;
+  action?: ReactNode;
+  message: string;
+}) {
   return (
     <Alert
-      severity={accepted ? "success" : "info"}
-      action={
-        finished ? undefined : (
-          <GameInvitationActions
-            invitation={invitation}
-            session={session}
-            accepted={accepted}
-            sentByCurrentUser={sentByCurrentUser}
-          />
-        )
-      }
+      severity={props.accepted ? "success" : "info"}
+      variant="outlined"
+      sx={{
+        borderColor: (theme) =>
+          alpha(
+            props.accepted
+              ? theme.palette.success.main
+              : theme.palette.info.main,
+            0.25,
+          ),
+      }}
+      action={props.action}
     >
-      {gameInvitationMessage(invitation, session)}
+      {props.message}
     </Alert>
   );
 }

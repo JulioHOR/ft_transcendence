@@ -22,6 +22,7 @@ def _db_kwargs() -> dict:
         "dbname": os.environ["POSTGRES_DB"],
         "user": os.environ["POSTGRES_USER"],
         "password": read_secret("db_password"),
+        "options": "-c client_encoding=UTF8",
     }
 
 

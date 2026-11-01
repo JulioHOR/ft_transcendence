@@ -4,13 +4,14 @@ import MuiLink from "@mui/material/Link";
 import { resolveAvatarUrl } from "../api/profile";
 
 /** Tamanhos suportados do avatar. */
-export type AvatarSize = "sm" | "md" | "lg";
+export type AvatarSize = "sm" | "md" | "lg" | "xl";
 
 /** Dimensões em pixels para cada tamanho de avatar suportado. */
 const sizePx: Record<AvatarSize, number> = {
   sm: 32,
   md: 40,
   lg: 80,
+  xl: 96,
 };
 
 /** Avatar circular; com userId vira link para o perfil. */

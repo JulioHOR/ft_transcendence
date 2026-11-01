@@ -68,11 +68,12 @@ export async function logout(): Promise<void> {
 }
 
 /** Retorna o usuário da sessão atual, se autenticado. */
-export async function me(): Promise<User> {
+export async function me(): Promise<User | null> {
   const res = await fetch("/api/me", {
     method: "GET",
     credentials: "include",
   });
+  if (res.status === 204) return null;
   if (!res.ok) {
     throw new Error(await errorMessage(res, "não autenticado"));
   }

@@ -16,6 +16,7 @@ import {
   type GameInvitation,
   type ChatTransport,
 } from "../api/chat";
+import { friendlyError } from "../api/http";
 import {
   appendPrivateMessage,
   historyToClientState,
@@ -121,7 +122,6 @@ function bindTransport(
   viewingRef: { current: string | null },
   setters: ChatSetters,
 ): void {
-  const seenInvitationIds = new Set<string>();
   transport.onGlobalMessage((message) => {
     setters.setGlobal((current) => [...current, message]);
   });
@@ -129,13 +129,35 @@ function bindTransport(
     applyPrivateMessage(message, userId, viewingRef, setters);
   });
   transport.onPrivateError(setters.setError);
-  transport.onGameInvite((invitation) => {
-    receiveGameInvitation(invitation, userId, viewingRef, setters, seenInvitationIds);
-  });
-  transport.onGameInviteUpdate((invitation) => {
-    receiveGameInvitation(invitation, userId, viewingRef, setters, seenInvitationIds);
-  });
+  bindGameInvitationEvents(transport, userId, viewingRef, setters);
   bindPrivateSignals(transport, setters);
+}
+
+function bindGameInvitationEvents(
+  transport: ChatTransport,
+  userId: number,
+  viewingRef: { current: string | null },
+  setters: ChatSetters,
+): void {
+  const handleInvitation = createInvitationHandler(userId, viewingRef, setters);
+  transport.onGameInvite(handleInvitation);
+  transport.onGameInviteUpdate(handleInvitation);
+}
+
+function createInvitationHandler(
+  userId: number,
+  viewingRef: { current: string | null },
+  setters: ChatSetters,
+): (invitation: GameInvitation) => void {
+  const seenInvitationIds = new Set<string>();
+  return (invitation) =>
+    receiveGameInvitation(
+      invitation,
+      userId,
+      viewingRef,
+      setters,
+      seenInvitationIds,
+    );
 }
 
 /** Abre a conversa e marca convites recebidos como não lidos. */
@@ -146,16 +168,32 @@ function receiveGameInvitation(
   setters: ChatSetters,
   seenInvitationIds: Set<string>,
 ): void {
-  const active =
-    invitation.status !== "declined" &&
-    invitation.status !== "cancelled" &&
-    invitation.status !== "started";
-  if (active && !seenInvitationIds.has(invitation.inviteId)) {
+  if (isNewInvitation(invitation, seenInvitationIds)) {
     seenInvitationIds.add(invitation.inviteId);
-    const conversationId = openInvitationConversation(invitation, userId, setters);
-    markInvitationUnread(invitation, userId, conversationId, viewingRef, setters);
+    const conversationId = openInvitationConversation(
+      invitation,
+      userId,
+      setters,
+    );
+    markInvitationUnread(
+      invitation,
+      userId,
+      conversationId,
+      viewingRef,
+      setters,
+    );
   }
   updateGameInvitation(setters, invitation);
+}
+
+function isNewInvitation(
+  invitation: GameInvitation,
+  seenInvitationIds: Set<string>,
+): boolean {
+  const active = !["declined", "cancelled", "started"].includes(
+    invitation.status,
+  );
+  return active && !seenInvitationIds.has(invitation.inviteId);
 }
 
 /** Cria a aba privada correspondente ao convite. */
@@ -171,7 +209,11 @@ function openInvitationConversation(
     : invitation.senderNickname;
   const conversationId = buildPrivateConversationId(userId, otherUserId);
   setters.setTabs((current) =>
-    upsertPrivateChatTab(current, { conversationId, otherUserId, otherNickname }),
+    upsertPrivateChatTab(current, {
+      conversationId,
+      otherUserId,
+      otherNickname,
+    }),
   );
   return conversationId;
 }
@@ -184,7 +226,10 @@ function markInvitationUnread(
   viewingRef: { current: string | null },
   setters: ChatSetters,
 ): void {
-  if (invitation.recipientId !== userId || viewingRef.current === conversationId) {
+  if (
+    invitation.recipientId !== userId ||
+    viewingRef.current === conversationId
+  ) {
     return;
   }
   setters.setUnread((current) => ({
@@ -204,7 +249,9 @@ function updateGameInvitation(
     );
     return;
   }
-  setters.setGameInvitations((current) => upsertGameInvitation(current, invitation));
+  setters.setGameInvitations((current) =>
+    upsertGameInvitation(current, invitation),
+  );
   if (invitation.status === "declined" || invitation.status === "cancelled") {
     setTimeout(() => {
       setters.setGameInvitations((current) =>
@@ -255,7 +302,11 @@ function loadHistory(cancelled: () => boolean, setters: ChatSetters): void {
     .catch((failure: unknown) => {
       if (!cancelled()) {
         setters.setError(
-          failure instanceof Error ? failure.message : "falha no chat",
+          friendlyError(
+            failure,
+            "Não foi possível carregar o chat.",
+            "Falha ao carregar o chat",
+          ),
         );
       }
     });
@@ -273,18 +324,29 @@ function openChatTransport(
   transportRef.current = transport;
   bindTransport(transport, userId, viewingRef, setters);
   loadHistory(() => cancelled, setters);
-  void transport.connect().catch((failure: unknown) => {
-    if (!cancelled) {
-      setters.setError(
-        failure instanceof Error ? failure.message : "falha no chat",
-      );
-    }
-  });
+  connectChatTransport(transport, () => cancelled, setters.setError);
   return () => {
     cancelled = true;
     transport.disconnect();
     transportRef.current = null;
   };
+}
+
+function connectChatTransport(
+  transport: ChatTransport,
+  cancelled: () => boolean,
+  setError: (message: string) => void,
+): void {
+  void transport.connect().catch((failure: unknown) => {
+    if (cancelled()) return;
+    setError(
+      friendlyError(
+        failure,
+        "Não foi possível conectar ao chat.",
+        "Falha ao conectar ao chat",
+      ),
+    );
+  });
 }
 
 /** Conecta histórico + socket (mesmo papel do useFriendsConnection). */
@@ -315,7 +377,10 @@ function transportSendActions(transportRef: {
   current: ChatTransport | null;
 }): Pick<
   ChatContextValue,
-  "sendGlobalMessage" | "sendPrivateMessage" | "sendPrivateTyping" | "notifyPrivateRead"
+  | "sendGlobalMessage"
+  | "sendPrivateMessage"
+  | "sendPrivateTyping"
+  | "notifyPrivateRead"
 > {
   return {
     sendGlobalMessage: (text) => transportRef.current?.sendGlobalMessage(text),
@@ -368,11 +433,13 @@ function updateChatBlock(
     )
     .catch((failure: unknown) =>
       setters.setError(
-        failure instanceof Error
-          ? failure.message
-          : blocked
-            ? "falha ao bloquear usuário"
-            : "falha ao desbloquear usuário",
+        friendlyError(
+          failure,
+          blocked
+            ? "Falha ao bloquear usuário."
+            : "Falha ao desbloquear usuário.",
+          "Falha ao atualizar bloqueio de chat",
+        ),
       ),
     );
 }

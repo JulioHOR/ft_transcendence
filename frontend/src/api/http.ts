@@ -6,6 +6,10 @@ export async function errorMessage(
   res: Response,
   fallback: string,
 ): Promise<string> {
+  if (res.status >= 500) {
+    logUnexpectedError("Resposta inesperada da API", { status: res.status });
+    return fallback;
+  }
   const data: unknown = await res.json().catch(() => null);
 
   if (
@@ -17,5 +21,23 @@ export async function errorMessage(
     return (data as { error: string }).error;
   }
 
+  return fallback;
+}
+
+/** Registra uma falha inesperada com identificação do aplicativo. */
+export function logUnexpectedError(context: string, failure: unknown): void {
+  console.info(`[ft_transcendence] ${context}`, failure);
+}
+
+/** Retorna uma mensagem útil e registra falhas técnicas inesperadas. */
+export function friendlyError(
+  failure: unknown,
+  fallback: string,
+  context: string,
+): string {
+  if (failure instanceof Error && !(failure instanceof TypeError)) {
+    return failure.message;
+  }
+  logUnexpectedError(context, failure);
   return fallback;
 }

@@ -11,6 +11,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import Toolbar from "@mui/material/Toolbar";
 import { logout } from "../api/auth";
+import { logUnexpectedError } from "../api/http";
 import { useAuth } from "./auth-session";
 import { useChat } from "./chat-session";
 import { useColorMode } from "../ui/color-mode-context";
@@ -100,7 +101,9 @@ function useSignOut() {
     signedIn: user !== null,
     signOut: () => {
       void logout()
-        .catch(() => undefined)
+        .catch((failure: unknown) => {
+          logUnexpectedError("Falha ao encerrar a sessão", failure);
+        })
         .finally(() => {
           setUser(null);
           navigate("/login");
@@ -203,11 +206,7 @@ function DesktopNavigation(props: NavigationProps) {
   return (
     <Box sx={desktopNavigationSx}>
       <NavItems {...props} />
-      <Button
-        color="inherit"
-        size="small"
-        onClick={props.toggleMode}
-      >
+      <Button color="inherit" size="small" onClick={props.toggleMode}>
         Tema: {props.mode === "dark" ? "escuro" : "claro"}
       </Button>
       {props.signedIn ? (

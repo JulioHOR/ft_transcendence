@@ -29,9 +29,6 @@ SESSION_COOKIE_OPTIONS = {
 }
 
 INVALID_CREDENTIALS = "E-mail ou senha não conferem."
-UNAUTHENTICATED = "Você não está logado."
-
-
 class UserSchema(Schema):
     id = fields.Integer(metadata={"description": "Identificador do usuário"})
     email = fields.String(metadata={"description": "E-mail normalizado (minúsculas)"})
@@ -226,12 +223,7 @@ def logout():
 
 @auth_bp.get("/api/me")
 @auth_bp.response(200, UserSchema, description="Usuário da sessão atual.")
-@auth_bp.alt_response(
-    401,
-    schema=ErrorResponseSchema,
-    success=True,
-    description="Sessão ausente, expirada ou apontando para um usuário que não existe.",
-)
+@auth_bp.response(204, description="Não há uma sessão ativa.")
 @auth_bp.doc(
     summary="Usuário autenticado",
     description="Retorna o usuário dono do cookie de sessão.",
@@ -240,7 +232,7 @@ def logout():
 def me():
     user_id = session.get("user_id")
     if user_id is None:
-        return jsonify({"error": UNAUTHENTICATED}), 401
+        return "", 204
     with db_cursor() as cur:
         cur.execute(
             "SELECT email, nickname FROM users WHERE id = %s;",
@@ -249,5 +241,5 @@ def me():
         row = cur.fetchone()
     if row is None:
         session.clear()
-        return jsonify({"error": UNAUTHENTICATED}), 401
+        return "", 204
     return {"id": user_id, "email": row[0], "nickname": row[1]}, 200

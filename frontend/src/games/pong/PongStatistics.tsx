@@ -17,6 +17,7 @@ import {
   getPongStatistics,
   type PongStatistics as PongStatisticsData,
 } from "../../api/pongStatistics";
+import { friendlyError } from "../../api/http";
 import { EmptyState } from "../../ui/EmptyState";
 import { ErrorText } from "../../ui/ErrorText";
 import { AppIcon, type AppIconName } from "../../ui/AppIcon";
@@ -50,9 +51,11 @@ function usePongStatistics(userId: number) {
       .then(setStatistics)
       .catch((failure: unknown) => {
         setError(
-          failure instanceof Error
-            ? failure.message
-            : "Falha ao carregar dados de Pong",
+          friendlyError(
+            failure,
+            "Falha ao carregar dados de Pong",
+            "Falha ao carregar estatísticas",
+          ),
         );
       });
   }, [userId]);
@@ -199,7 +202,10 @@ function AchievementCard({ achievement }: AchievementCardProps) {
   return (
     <Card
       variant="outlined"
-      sx={{ borderColor: completed ? "primary.main" : "divider" }}
+      sx={{
+        borderColor: completed ? "primary.main" : "divider",
+        bgcolor: completed ? "action.hover" : "background.paper",
+      }}
     >
       <AchievementCardContent achievement={achievement} completed={completed} />
     </Card>

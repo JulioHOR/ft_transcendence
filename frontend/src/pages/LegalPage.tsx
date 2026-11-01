@@ -16,28 +16,24 @@ const legalDocuments: Record<"privacy" | "terms", LegalDocument> = {
     title: "Política de privacidade",
     sections: [
       {
-        heading: "Dados da conta",
-        text: "Para criar sua conta, o projeto guarda seu e-mail, apelido e um hash da senha. A foto, as amizades, as mensagens e os resultados do Pong também ficam no banco de dados.",
+        heading: "O que fica registrado",
+        text: "O cadastro pede seu e-mail, apelido e senha. Se você adicionar uma foto, ela aparece no perfil. Também guardamos sua lista de amigos, suas mensagens e os resultados das partidas.",
+      },
+      {
+        heading: "Como usamos essas informações",
+        text: "Usamos essas informações para você acessar sua conta, conversar com outras pessoas e consultar perfis e partidas.",
       },
       {
         heading: "Quem pode ver",
-        text: "Usuários conectados podem consultar perfis e estatísticas. As mensagens da sala pública podem ser lidas por todos eles. Mensagens privadas ficam disponíveis às pessoas da conversa.",
+        text: "Outros usuários podem ver seu apelido, sua foto e suas estatísticas. As mensagens da sala pública podem ser lidas por quem está conectado. As mensagens privadas ficam visíveis para as pessoas da conversa.",
       },
       {
-        heading: "Senha e acesso",
-        text: "A senha não fica guardada em texto. O site e a comunicação com o servidor usam HTTPS. No ambiente local, o certificado pode ser autoassinado.",
+        heading: "Alterar ou apagar",
+        text: "Na página de perfil, você pode mudar o e-mail e o apelido ou remover a foto. No momento, não é possível apagar a conta ou as mensagens pelo aplicativo. Os dados podem ser apagados durante a manutenção do projeto.",
       },
       {
-        heading: "Sessão",
-        text: "Um cookie mantém sua sessão enquanto você está conectado.",
-      },
-      {
-        heading: "Alterar ou apagar dados",
-        text: "Na página de perfil, você pode alterar o e-mail e o apelido ou remover a foto. A interface não permite excluir a conta nem as mensagens. Os dados podem ser apagados na limpeza do ambiente de demonstração.",
-      },
-      {
-        heading: "Uso do projeto",
-        text: "Este é um projeto acadêmico. Use dados de teste e evite enviar informações pessoais ou confidenciais pelo chat.",
+        heading: "Sobre o projeto",
+        text: "Este é um projeto acadêmico. Evite compartilhar no chat informações pessoais que não sejam necessárias.",
       },
     ],
     otherDocument: { label: "Termos de serviço", path: "/terms" },

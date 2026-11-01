@@ -1,8 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { MatchState, Side } from "../protocol";
+import { SectionCard } from "../../../ui/SectionCard";
 
 /** Componente para exibir uma tela de status. */
 export function StatusScreen({
@@ -163,21 +165,73 @@ export function ResultScreen({
   onRequestRematch,
   onRequestLeave,
 }: ResultScreenProps) {
-  const side = state.playerSide;
-  const flags = acceptanceFlags(side, state.rematchAccepted);
-  const { score, winner } = state.snapshot;
+  const accepted = state.playerSide
+    ? state.rematchAccepted[state.playerSide]
+    : false;
   return (
-    <StatusScreen title={resultTitle(side, winner)}>
-      <Typography variant="h2" sx={{ fontVariantNumeric: "tabular-nums" }}>
-        {score.left} — {score.right}
-      </Typography>
-      <Typography color="text.secondary">{acceptanceLabel(flags)}</Typography>
-      <RematchButton
-        accepted={flags.playerAccepted}
-        onRequestRematch={onRequestRematch}
-      />
+    <StatusScreen title={resultTitle(state.playerSide, state.snapshot.winner)}>
+      <ResultDetails state={state} />
+      <RematchButton accepted={accepted} onRequestRematch={onRequestRematch} />
       <LeaveMatchButton onLeave={onRequestLeave} />
     </StatusScreen>
+  );
+}
+
+function ResultDetails({ state }: { state: MatchState }) {
+  const side = state.playerSide;
+  const { score } = state.snapshot;
+  const playerScore = side === "right" ? score.right : score.left;
+  const opponentScore = side === "right" ? score.left : score.right;
+  const flags = acceptanceFlags(side, state.rematchAccepted);
+  return (
+    <SectionCard sx={{ width: "100%", maxWidth: 480 }}>
+      <Stack spacing={2} sx={{ alignItems: "center" }}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+          <ScorePlayer label="Você" score={playerScore} />
+          <Typography variant="h2" color="text.secondary">
+            —
+          </Typography>
+          <ScorePlayer label="Oponente" score={opponentScore} />
+        </Stack>
+        <RematchStatus flags={flags} />
+      </Stack>
+    </SectionCard>
+  );
+}
+
+function ScorePlayer(props: { label: string; score: number }) {
+  return (
+    <Stack spacing={0.5} sx={{ alignItems: "center" }}>
+      <Typography variant="h1" sx={{ fontVariantNumeric: "tabular-nums" }}>
+        {props.score}
+      </Typography>
+      <Typography color="text.secondary">{props.label}</Typography>
+    </Stack>
+  );
+}
+
+function RematchStatus({ flags }: { flags: AcceptanceFlags }) {
+  return (
+    <Stack
+      direction="row"
+      spacing={1}
+      sx={{ flexWrap: "wrap", justifyContent: "center" }}
+    >
+      <Chip
+        size="small"
+        label={flags.playerAccepted ? "Você confirmou" : "Você não confirmou"}
+        color={flags.playerAccepted ? "success" : "default"}
+        variant={flags.playerAccepted ? "filled" : "outlined"}
+      />
+      <Chip
+        size="small"
+        label={
+          flags.opponentAccepted ? "Oponente confirmou" : "Aguardando oponente"
+        }
+        color={flags.opponentAccepted ? "success" : "default"}
+        variant={flags.opponentAccepted ? "filled" : "outlined"}
+      />
+    </Stack>
   );
 }
 

@@ -52,6 +52,7 @@ export async function getProfileById(userId: number): Promise<Profile> {
 /** Lê o perfil do usuário autenticado. */
 export async function getProfile(): Promise<User> {
   const user = await me();
+  if (user == null) throw new Error("Sua sessão expirou. Entre novamente.");
   try {
     const profile = await getProfileById(user.id);
     return {
@@ -68,7 +69,6 @@ export async function getProfile(): Promise<User> {
 export async function updateProfile(
   changes: Partial<Pick<User, "email" | "nickname">>,
 ): Promise<User> {
-  const user = await me();
   const response = await fetch(profileUrl, {
     method: "PATCH",
     credentials: "include",
@@ -83,7 +83,7 @@ export async function updateProfile(
   const data = (await response.json()) as User;
   return {
     id: data.id,
-    email: data.email ?? user.email,
+    email: data.email,
     nickname: data.nickname,
     avatarUrl: data.avatarUrl ?? null,
   };

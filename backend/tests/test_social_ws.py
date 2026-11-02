@@ -74,6 +74,7 @@ def env(monkeypatch):
     )
     monkeypatch.setattr(store_pkg, "global_rows", lambda: [])
     monkeypatch.setattr(store_pkg, "private_rows", lambda me: [])
+    monkeypatch.setattr(store_pkg, "is_blocked_between", lambda _a, _b: False)
     app = Flask(__name__)
     app.secret_key = os.urandom(32)
     app.config.update(SESSION_COOKIE_OPTIONS)

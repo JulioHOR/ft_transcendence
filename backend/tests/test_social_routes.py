@@ -72,6 +72,16 @@ class FakeStore:
     def delete_edges(self, a, b):
         self.edges.pop((min(a, b), max(a, b)), None)
 
+    def blocked_user_ids(self, user_id):
+        return [
+            other_id
+            for other_id, status in self.edges.items()
+            if user_id in other_id and status[1] == "blocked"
+        ]
+
+    def blocking_user_ids(self, user_id):
+        return []
+
 @pytest.fixture
 def store():
     return FakeStore()
@@ -88,6 +98,8 @@ def client(monkeypatch, store):
     monkeypatch.setattr(store_pkg, "accept_edge", fake.accept_edge)
     monkeypatch.setattr(store_pkg, "reject_edge", fake.reject_edge)
     monkeypatch.setattr(store_pkg, "delete_edges", fake.delete_edges)
+    monkeypatch.setattr(store_pkg, "blocked_user_ids", fake.blocked_user_ids)
+    monkeypatch.setattr(store_pkg, "blocking_user_ids", fake.blocking_user_ids)
     monkeypatch.setattr(handlers, "_socketio", None)
     app = Flask(__name__)
     app.secret_key = os.urandom(32)

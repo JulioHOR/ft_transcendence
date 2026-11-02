@@ -161,3 +161,127 @@ def test_reconectar_usuario_substitui_sid_e_preserva_lado():
     assert mm.get_side("new-left") == "left"
     assert mm.get_user_id_for_sid("new-left") == 1
     assert match.sides == {1: "left", 2: "right"}
+
+def test_convite_expirado_sai_do_inventario():
+    factory, _created = make_factory()
+    mm = Matchmaker(factory)
+    invitation_id = mm.create_game_invitation(1, 2)
+    invitation = mm._game_invitations[invitation_id]
+    invitation.created_at_ms = 0.0
+
+    assert mm.game_invitations_for_user(1) == []
+    assert mm.accepted_game_invitation_for_user(2) is None
+    assert invitation_id not in mm._game_invitations
+
+def test_convite_criado_recentemente_permanece():
+    factory, _created = make_factory()
+    mm = Matchmaker(factory)
+    invitation_id = mm.create_game_invitation(1, 2)
+
+    assert len(mm.game_invitations_for_user(1)) == 1
+    assert mm.accepted_game_invitation_for_user(2) is None
+    assert mm._game_invitations[invitation_id].created_at_ms > 0
+
+def test_cancelar_convite_de_usuario_lanca_e_limpa_sem_side_preservado():
+    factory, _created = make_factory()
+    mm = Matchmaker(factory)
+    invitation_id = mm.create_game_invitation(1, 2)
+    event = mm.respond_game_invitation(invitation_id, 2, True)
+    mm.join_invitation("sid-1", 1, invitation_id)
+
+    payloads = mm.cancel_invitations_for_user(2)
+
+    assert [payload["inviteId"] for payload in payloads] == [invitation_id]
+    assert payloads[0]["senderId"] == 1
+    assert payloads[0]["recipientId"] == 2
+    assert payloads[0]["waitingUserIds"] == [1]
+    assert mm.game_invitation(invitation_id) is None
+    assert mm.get_user_id_for_sid("sid-1") == 1
+
+def test_cancelar_convites_para_usuario_sem_convite_devolve_lista_vazia():
+    factory, _created = make_factory()
+    mm = Matchmaker(factory)
+
+    assert mm.cancel_invitations_for_user(9) == []
+
+def test_cancel_manual_preserva_mapeamento_do_aguardando():
+    factory, _created = make_factory()
+    mm = Matchmaker(factory)
+    invitation_id = mm.create_game_invitation(1, 2)
+    mm.respond_game_invitation(invitation_id, 2, True)
+    mm.join_invitation("sid-1", 1, invitation_id)
+
+    event = mm.cancel_game_invitation(invitation_id, 1)
+
+    assert event["waitingUserIds"] == [1]
+    assert mm.get_user_id_for_sid("sid-1") == 1
+    assert mm.get_match("sid-1") is None
+
+def test_join_recusa_usuario_em_match_sem_sid():
+    factory, created = make_factory()
+    mm = Matchmaker(factory)
+    mm.join("a", 1)
+    mm.join("b", 2)
+    mm._sid_by_user_id.pop(1)
+
+    with pytest.raises(AlreadyPlayingError):
+        mm.join("c", 1)
+
+def test_claim_stale_match_move_registros_de_ambos_lados():
+    factory, created = make_factory()
+    mm = Matchmaker(factory)
+    mm.join("a", 1)
+    mm.join("b", 2)
+    match = created[0]
+
+    assert mm.claim_stale_match("a", 1, match) is True
+    assert mm.get_match("a") is None
+    assert mm.get_match("b") is None
+    assert mm.get_user_id_for_sid("a") is None
+    assert mm.get_user_id_for_sid("b") is None
+    assert 1 not in mm._match_by_user_id
+    assert 2 not in mm._match_by_user_id
+
+def test_claim_stale_match_falha_apos_reconexão():
+    factory, created = make_factory()
+    mm = Matchmaker(factory)
+    mm.join("a", 1)
+    mm.join("b", 2)
+    match = created[0]
+    match.phase = "paused"
+    mm.reconnect_user(1, "new-a")
+    match.phase = "playing"
+
+    assert mm.claim_stale_match("a", 1, match) is False
+    assert mm.get_user_id_for_sid("new-a") == 1
+    assert mm.get_match("new-a") is match
+
+def test_reconecta_somente_com_sid_antigo_morto():
+    factory, created = make_factory()
+    mm = Matchmaker(factory)
+    mm.join("old", 1)
+    mm.join("peer", 2)
+    match = created[0]
+    match.phase = "paused"
+
+    assert mm.reconnect_user(1, "tab2", lambda _sid: True) is None
+    assert mm.get_match("old") is match
+
+    assert mm.reconnect_user(1, "tab2", lambda _sid: False) is match
+    assert mm.get_user_id_for_sid("tab2") == 1
+
+def test_in_queue_aceita_aguardando_convite():
+    factory, _created = make_factory()
+    mm = Matchmaker(factory)
+    invitation_id = mm.create_game_invitation(1, 2)
+    mm.respond_game_invitation(invitation_id, 2, True)
+    mm.join_invitation("sid-1", 1, invitation_id)
+
+    assert mm.in_queue("sid-1") is True
+    assert mm.in_queue("outro") is False
+
+def test_in_queue_falso_sem_sid():
+    factory, _created = make_factory()
+    mm = Matchmaker(factory)
+
+    assert mm.in_queue("ninguem") is False

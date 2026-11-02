@@ -315,10 +315,8 @@ def register_social_handlers(socketio, matchmaker) -> Callable[[str], None]:
                 room=_request_sid(),
             )
             return
-        for game_sid in event.pop("socketIds"):
-            socketio.emit(
-                "game:status", {"state": "opponent_left"}, to=game_sid
-            )
+        for waiting_user_id in event.pop("waitingUserIds"):
+            _emit_to_user(waiting_user_id, "game:status", {"state": "opponent_left"})
         event["status"] = "cancelled"
         sender_profile = store.get_user_profile(event["senderId"])
         recipient_profile = store.get_user_profile(event["recipientId"])
@@ -338,6 +336,21 @@ def register_social_handlers(socketio, matchmaker) -> Callable[[str], None]:
                 if _online[user_id] <= 0:
                     del _online[user_id]
                     went_offline = True
-        if went_offline:
+        if went_offline and identity is not None:
+            _cancel_invitations(identity[0])
             broadcast_friends()
+
+    def _cancel_invitations(user_id: int) -> None:
+        for event in matchmaker.cancel_invitations_for_user(user_id):
+            event["status"] = "cancelled"
+            sender_profile = store.get_user_profile(event["senderId"])
+            recipient_profile = store.get_user_profile(event["recipientId"])
+            if sender_profile is None or recipient_profile is None:
+                return
+            event["senderNickname"] = sender_profile[0]
+            event["recipientNickname"] = recipient_profile[0]
+            _emit_to_user(event["senderId"], "chat:game:invite:update", event)
+            _emit_to_user(event["recipientId"], "chat:game:invite:update", event)
+            for waiting_user_id in event.pop("waitingUserIds"):
+                _emit_to_user(waiting_user_id, "game:status", {"state": "opponent_left"})
     return handle_disconnect

@@ -48,6 +48,13 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
         if sid:
             socketio.emit("game:error", {"reason": reason, "message": message}, to=sid)
 
+    def socket_is_alive(sid: str) -> bool:
+        try:
+            socketio.server.eio.get_session(sid)
+        except KeyError:
+            return False
+        return True
+
     def release_match(match) -> None:
         for _user_id, player_sid, _side in matchmaker.players(match):
             matchmaker.leave(player_sid)
@@ -75,7 +82,7 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
                 emit_error(_sid(), "unauthorized", "Entre na sua conta para jogar.")
                 return None
             sid = _sid()
-            match = matchmaker.reconnect_user(user_id, sid)
+            match = matchmaker.reconnect_user(user_id, sid, socket_is_alive)
             if match is not None:
                 socketio.server.enter_room(sid, match.id)
                 state = {"paused": "resume_pending", "finished": "finished"}.get(
@@ -246,11 +253,12 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
     def expire_disconnected_match(user_id, disconnected_sid, match):
         socketio.sleep(30)
 
-        if user_id is not None:
-            if matchmaker.get_user_id_for_sid(disconnected_sid) != user_id:
-                return
-
         other_sid = opponent_sid(match, disconnected_sid)
+        if user_id is not None and not matchmaker.claim_stale_match(
+            disconnected_sid, user_id, match
+        ):
+            return
+
         if other_sid:
             socketio.emit(
                 "game:status",

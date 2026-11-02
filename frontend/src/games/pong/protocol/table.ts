@@ -21,6 +21,8 @@ export const TABLE = {
   ballRadius: 0.35,
 } as const;
 
+export const inputLimit = TABLE.halfWidth - TABLE.paddleHalfDepth;
+
 /** Quantidade de pontos necessária para vencer a partida. */
 export const POINTS_TO_WIN = 3;
 

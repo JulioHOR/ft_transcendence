@@ -291,6 +291,9 @@ class Matchmaker:
     def get_user_id_for_sid(self, sid: str) -> int | None:
         return self._user_id_by_sid.get(sid)
 
+    def get_sid_for_user(self, user_id: int) -> str | None:
+        return self._sid_by_user_id.get(user_id)
+
     def players(self, match: Match) -> list[tuple[int, str, str]]:
         with self._lock:
             return [

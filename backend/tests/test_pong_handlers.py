@@ -123,3 +123,21 @@ def test_convite_iniciado_leva_nicknames(env):
         assert payload["recipientId"] == 2
         assert payload["senderNickname"] == "ana"
         assert payload["recipientNickname"] == "bia"
+
+
+def test_sair_da_fila_durante_espera_de_convite(env):
+    _app, socketio, matchmaker = env
+    invitation_id = matchmaker.create_game_invitation(1, 2)
+    assert matchmaker.respond_game_invitation(invitation_id, 2, True)
+
+    ana = _connect(env, 1)
+    _drain(ana)
+
+    ack = ana.emit("queue:join", {"inviteId": invitation_id}, callback=True)
+    assert ack == {"status": "waiting"}
+    sid_ana = matchmaker.get_sid_for_user(1)
+
+    ack = ana.emit("queue:leave", callback=True)
+
+    assert ack == {"status": "left"}
+    assert matchmaker.in_queue(sid_ana) is False

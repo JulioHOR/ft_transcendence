@@ -19,6 +19,7 @@ from .step import step_simulation
 
 TICK_HZ = 30
 TICK_INTERVAL = 1.0 / TICK_HZ
+MAX_STEP_SECONDS = 0.05
 THREAD_JOIN_TIMEOUT = 1.0
 DEFAULT_COUNTDOWN_SECONDS = 5.0
 logger = logging.getLogger(__name__)
@@ -80,8 +81,8 @@ class PongMatch:
             if self.phase in ("playing", "countdown", "paused"):
                 if self.phase != "paused":
                     self._phase_before_pause = self.phase
-                self.phase = "paused"
-                self._accepted_sides.clear()
+                    self.phase = "paused"
+                    self._accepted_sides.clear()
     
     def accept_resume(self, user_id: int) -> str:
         side = self.sides.get(user_id)
@@ -101,11 +102,27 @@ class PongMatch:
             self._accepted_sides.clear()
             return "resumed"
 
+    def try_close(self) -> bool:
+        with self._lock:
+            if self.phase not in ("paused", "finished"):
+                return False
+            self.phase = "closed"
+        self._destroyed.set()
+        return True
+
+    def force_close(self) -> None:
+        with self._lock:
+            if self.phase != "closed":
+                self.phase = "closed"
+        self._destroyed.set()
+
     def _run(self) -> None:
         last_frame_time = 0.0
-        while not self._destroyed.is_set():
+        finished_emitted = False
+        while not self._destroyed.is_set() and not finished_emitted:
             started = time.monotonic()
             delta_seconds, last_frame_time = compute_delta_seconds(last_frame_time)
+            delta_seconds = min(delta_seconds, MAX_STEP_SECONDS)
             status = None
             snapshot = None
             finished_result = None
@@ -119,43 +136,57 @@ class PongMatch:
                     step_simulation(self.sim, delta_seconds)
                     if is_match_finished(self.sim):
                         self.phase = "finished"
-                        winner_user_id = next(
-                            user_id
-                            for user_id, side in self.sides.items()
-                            if side == self.sim.winner
-                        )
-                        left_user_id = next(
-                            user_id
-                            for user_id, side in self.sides.items()
-                            if side == "left"
-                        )
-                        right_user_id = next(
-                            user_id
-                            for user_id, side in self.sides.items()
-                            if side == "right"
-                        )
-                        finished_result = (
-                            self.game_id,
-                            left_user_id,
-                            right_user_id,
-                            winner_user_id,
-                            self.sim.score_left,
-                            self.sim.score_right,
-                        )
 
-                if self.phase in ("playing", "finished"):
+                if self.phase == "finished":
+                    snapshot = to_snapshot(self.sim, now_ms())
+                    winner_user_id = next(
+                        user_id
+                        for user_id, side in self.sides.items()
+                        if side == self.sim.winner
+                    )
+                    left_user_id = next(
+                        user_id
+                        for user_id, side in self.sides.items()
+                        if side == "left"
+                    )
+                    right_user_id = next(
+                        user_id
+                        for user_id, side in self.sides.items()
+                        if side == "right"
+                    )
+                    finished_result = (
+                        self.game_id,
+                        left_user_id,
+                        right_user_id,
+                        winner_user_id,
+                        self.sim.score_left,
+                        self.sim.score_right,
+                    )
+
+                elif self.phase in ("playing",):
                     snapshot = to_snapshot(self.sim, now_ms())
 
-            if status is not None:
-                self.broadcast(self.id, "game:status", status)
-            if snapshot is not None:
-                self.broadcast(self.id, "game:snapshot", snapshot)
+            try:
+                if status is not None:
+                    self.broadcast(self.id, "game:status", status)
+                if snapshot is not None:
+                    self.broadcast(self.id, "game:snapshot", snapshot)
+            except Exception:
+                logger.exception("Não foi possível transmitir o quadro da partida.")
+                self.force_close()
+                return
+
             if finished_result is not None and self.on_match_finished is not None:
                 try:
                     self.on_match_finished(*finished_result)
                 except Exception:
                     logger.exception("Não foi possível salvar o resultado da partida.")
+                finished_emitted = True
+            elif finished_result is not None:
+                finished_emitted = True
 
+            if finished_emitted:
+                return
             time.sleep(max(0.0, TICK_INTERVAL - (time.monotonic() - started)))
 
     def apply_input(self, user_id: int, position: float, timestamp_ms: float) -> bool:
@@ -180,10 +211,17 @@ class PongMatch:
             if len(self._accepted_sides) < 2:
                 return "pending"
 
+            self._destroyed.set()
+            self._thread.join(timeout=THREAD_JOIN_TIMEOUT)
+            if self.phase != "finished":
+                return "rejected"
             self.sim = create_initial_sim_state()
             self.game_id = uuid.uuid4().hex
             self._start_countdown()
-            return "countdown"
+        self._destroyed.clear()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+        return "countdown"
 
     def destroy(self) -> None:
         self._destroyed.set()

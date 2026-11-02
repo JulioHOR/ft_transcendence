@@ -1,3 +1,4 @@
+import math
 from collections.abc import Callable
 
 from flask import request, session
@@ -240,7 +241,7 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
         if match is None:
             emit_error(sid, "not_in_match", "Você não está em uma partida.")
             return None
-        if match.phase not in ("paused", "finished"):
+        if match.phase not in ("paused", "finished") or not match.try_close():
             emit_error(sid, "invalid", "A partida ainda não pode ser encerrada.")
             return None
 

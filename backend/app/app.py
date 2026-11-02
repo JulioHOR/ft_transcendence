@@ -1,12 +1,12 @@
 import os
 
-from flask import Flask, jsonify, request, session
+from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from api_key import has_valid_api_key
 from apidocs import init_api
-from auth.routes import SESSION_COOKIE_OPTIONS
+from auth.routes import SESSION_COOKIE_OPTIONS, current_session_user_id
 from db import read_secret, wait_db
 from rate_limit import limiter
 
@@ -30,7 +30,7 @@ def require_api_access():
         return None
     if request.path.startswith("/api/docs") or request.endpoint in SESSIONLESS_API_ENDPOINTS:
         return None
-    if session.get("user_id") is not None:
+    if current_session_user_id() is not None:
         return None
     if has_valid_api_key(request.headers.get("X-API-Key")):
         return None

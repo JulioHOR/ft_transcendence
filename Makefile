@@ -30,6 +30,9 @@ clean: setup
 	@$(COMPOSE) run --rm --no-deps --build --user root --entrypoint sh database -c 'find /var/lib/postgresql/data -mindepth 1 -delete'
 	@$(COMPOSE) down --rmi all
 
+test:
+	@cd backend && ../.venv/bin/python -m pytest tests -q
+
 re: clean up
 
-.PHONY: all setup up down logs ps clean re
+.PHONY: all setup up test down logs ps clean re

@@ -194,6 +194,8 @@ def update_profile():
     nickname = body.get("nickname")
     if not isinstance(email, str) or not isinstance(nickname, str):
         return jsonify({"error": "Informe um e-mail e um apelido válidos."}), 400
+    email = email.strip()
+    nickname = nickname.strip()
     validation_error = validate_email(email)
     if validation_error is not None:
         return jsonify({"error": validation_error}), 400

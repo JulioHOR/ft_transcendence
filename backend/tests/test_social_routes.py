@@ -217,6 +217,14 @@ def test_put_para_os_mesmos_dados_passa_e_mantem_200(client):
     assert response.status_code == 200
     assert response.get_json()["nickname"] == "ana"
 
+def test_put_com_nickname_com_espacos_e_aceito(client):
+    login(client, 1)
+    response = client.put(
+        "/api/profile", json={"email": "ana@x.io", "nickname": " ana "}
+    )
+    assert response.status_code == 200
+    assert response.get_json()["nickname"] == "ana"
+
 def test_put_da_sessao_de_usuario_removido_401(client, monkeypatch):
     login(client, 42)
     def missing(user_id, email, nickname):

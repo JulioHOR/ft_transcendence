@@ -1,10 +1,14 @@
+import os
+
 import psycopg2
 from flask import jsonify, request, session
+from flask_limiter.util import get_remote_address
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from db import db_cursor
+from rate_limit import limiter
 from schemas import ErrorResponseSchema
 
 from .validators import (
@@ -29,6 +33,18 @@ SESSION_COOKIE_OPTIONS = {
 }
 
 INVALID_CREDENTIALS = "E-mail ou senha não conferem."
+
+_DUMMY_PASSWORD_HASH = generate_password_hash(os.urandom(16).hex())
+
+
+def login_rate_key():
+    body = request.get_json(silent=True)
+    email = body.get("email") if isinstance(body, dict) else None
+    if isinstance(email, str) and email:
+        return f"login:{email.strip().lower()}"
+    return get_remote_address()
+
+
 class UserSchema(Schema):
     id = fields.Integer(metadata={"description": "Identificador do usuário"})
     email = fields.String(metadata={"description": "E-mail normalizado (minúsculas)"})
@@ -105,6 +121,22 @@ def _text_fields(body: dict, *names: str) -> tuple[str, ...] | None:
     return tuple(values)
 
 
+def current_session_user_id() -> int | None:
+    user_id = session.get("user_id")
+    if user_id is None:
+        return None
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT session_version FROM users WHERE id = %s;",
+            (user_id,),
+        )
+        row = cur.fetchone()
+    if row is None or row[0] != session.get("session_version"):
+        session.clear()
+        return None
+    return user_id
+
+
 def _json_body() -> dict:
     body = request.get_json(silent=True)
     return body if isinstance(body, dict) else {}
@@ -116,10 +148,8 @@ def _conflict(cur, email: str, nickname: str) -> str | None:
         (email, nickname),
     )
     rows = cur.fetchall()
-    if any(row[0] == email for row in rows):
-        return "Este e-mail já está cadastrado."
-    if any(row[1] == nickname for row in rows):
-        return "Este nickname já está em uso por outro usuário."
+    if any(row[0] == email or row[1] == nickname for row in rows):
+        return "E-mail ou nickname já está em uso."
     return None
 
 
@@ -155,6 +185,7 @@ def _insert_user(cur, email: str, nickname: str, password_hash: str) -> int:
     ),
     requestBody=SIGNUP_REQUEST_BODY,
 )
+@limiter.limit("3 per hour")
 def signup():
     fields = _text_fields(_json_body(), "email", "nickname", "password")
     if fields is None:
@@ -171,8 +202,9 @@ def signup():
                 return jsonify({"error": conflict}), 409
             user_id = _insert_user(cur, email, nickname, generate_password_hash(password))
     except psycopg2.IntegrityError:
-        return jsonify({"error": "Este e-mail ou nickname já está cadastrado."}), 409
+        return jsonify({"error": "E-mail ou nickname já está em uso."}), 409
     session["user_id"] = user_id
+    session["session_version"] = 0
     return {"id": user_id, "email": email, "nickname": nickname}, 201
 
 
@@ -192,6 +224,7 @@ def signup():
     ),
     requestBody=LOGIN_REQUEST_BODY,
 )
+@limiter.limit("5 per minute", key_func=login_rate_key)
 def login():
     fields = _text_fields(_json_body(), "email", "password")
     if fields is None:
@@ -201,16 +234,25 @@ def login():
         return jsonify({"error": INVALID_CREDENTIALS}), 401
     with db_cursor() as cur:
         cur.execute(
-            "SELECT id, email, nickname, password_hash FROM users WHERE email = %s;",
+            "SELECT id, email, nickname, password_hash, session_version "
+            "FROM users WHERE email = %s;",
             (normalize_email(email),),
         )
         row = cur.fetchone()
     if row is None:
-        return jsonify({"error": INVALID_CREDENTIALS}), 401
-    user_id, email, nickname, password_hash = row
+        user_id, email, nickname, password_hash, session_version = (
+            None,
+            "",
+            "",
+            _DUMMY_PASSWORD_HASH,
+            0,
+        )
+    else:
+        user_id, email, nickname, password_hash, session_version = row
     if not check_password_hash(password_hash, password):
         return jsonify({"error": INVALID_CREDENTIALS}), 401
     session["user_id"] = user_id
+    session["session_version"] = session_version
     return {"id": user_id, "email": email, "nickname": nickname}, 200
 
 
@@ -222,6 +264,13 @@ def login():
     security=[{"cookieAuth": []}],
 )
 def logout():
+    user_id = session.get("user_id")
+    if user_id is not None:
+        with db_cursor() as cur:
+            cur.execute(
+                "UPDATE users SET session_version = session_version + 1 WHERE id = %s;",
+                (user_id,),
+            )
     session.clear()
     return "", 204
 
@@ -237,7 +286,7 @@ def logout():
     ),
 )
 def me():
-    user_id = session.get("user_id")
+    user_id = current_session_user_id()
     if user_id is None:
         return "", 204
     with db_cursor() as cur:

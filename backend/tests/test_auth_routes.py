@@ -35,6 +35,13 @@ class FakeUsers:
         self.rows = []
         self.next_id = 1
         self.race = False
+        self.versions = {}
+
+    def _version(self, user_id):
+        return self.versions.get(user_id, 0)
+
+    def _row(self, row):
+        return (*row, self._version(row[0]))
 
     @contextmanager
     def db_cursor(self):
@@ -60,10 +67,17 @@ class FakeUsers:
                 return []
             email, nickname = params
             return [(row[1], row[2]) for row in self.rows if row[1] == email or row[2] == nickname]
+        if "SELECT session_version" in sql:
+            (user_id,) = params
+            return [(self._version(user_id),)]
+        if "UPDATE users" in sql:
+            (user_id,) = params
+            self.versions[user_id] = self._version(user_id) + 1
+            return []
         if "WHERE email" in sql:
             (email,) = params
             row = self._by_email(email)
-            return [row] if row else []
+            return [self._row(row)] if row else []
         if "WHERE id" in sql:
             (user_id,) = params
             row = next((row for row in self.rows if row[0] == user_id), None)
@@ -78,11 +92,15 @@ def store():
 
 @pytest.fixture
 def client(monkeypatch, store):
+    from rate_limit import limiter
+
     monkeypatch.setattr(routes, "db_cursor", store.db_cursor)
     app = Flask(__name__)
     app.secret_key = os.urandom(32)
     app.config.update(SESSION_COOKIE_OPTIONS)
     app.register_blueprint(auth_bp)
+    limiter.init_app(app)
+    limiter.reset()
     with app.test_client() as test_client:
         yield test_client
 
@@ -110,14 +128,14 @@ def test_signup_email_duplicado_case_insensitive(client):
     assert signup(client).status_code == 201
     conflict = signup(client, email="ALICE@example.com", nickname="bob")
     assert conflict.status_code == 409
-    assert conflict.get_json() == {"error": "Este e-mail já está cadastrado."}
+    assert conflict.get_json() == {"error": "E-mail ou nickname já está em uso."}
 
 
 def test_signup_nickname_duplicado(client):
     assert signup(client).status_code == 201
     conflict = signup(client, email="bob@example.com", nickname=SIGNUP_OK["nickname"])
     assert conflict.status_code == 409
-    assert conflict.get_json() == {"error": "Este nickname já está em uso por outro usuário."}
+    assert conflict.get_json() == {"error": "E-mail ou nickname já está em uso."}
 
 
 def test_signup_corrida_trata_unique_violation(client, store):
@@ -125,7 +143,7 @@ def test_signup_corrida_trata_unique_violation(client, store):
     store.race = True
     conflict = signup(client, nickname="bob")
     assert conflict.status_code == 409
-    assert conflict.get_json() == {"error": "Este e-mail ou nickname já está cadastrado."}
+    assert conflict.get_json() == {"error": "E-mail ou nickname já está em uso."}
 
 
 @pytest.mark.parametrize(
@@ -160,6 +178,21 @@ def test_signup_body_vazio_400(client, store):
     response = client.post("/api/auth/signup", json={})
     assert response.status_code == 400
     assert store.rows == []
+
+
+def test_login_email_inexistente_compara_senha_dummy(monkeypatch, client):
+    hashes = []
+
+    def espiar(hash_, _password):
+        hashes.append(hash_)
+        return False
+
+    monkeypatch.setattr(routes, "check_password_hash", espiar)
+    client.post(
+        "/api/auth/login",
+        json={"email": "fantasma@example.com", "password": "senha-forte-123"},
+    )
+    assert hashes == [routes._DUMMY_PASSWORD_HASH]
 
 
 def test_login_correto_cria_sessao(client):
@@ -199,6 +232,31 @@ def test_login_falha_sempre_401_generico(client, body):
 def test_me_sem_sessao_204(client):
     response = client.get("/api/me")
     assert response.status_code == 204
+
+
+def test_login_guarda_session_version(client, store):
+    signup(client)
+    client.post("/api/auth/logout")
+    store.versions[1] = 3
+    response = client.post("/api/auth/login", json=LOGIN_OK)
+    assert response.status_code == 200
+    with client.session_transaction() as session:
+        assert session["session_version"] == 3
+
+
+def test_logout_bumpa_session_version(client, store):
+    signup(client)
+    client.post("/api/auth/logout")
+    assert store.versions[1] == 1
+
+
+def test_cookie_com_versao_antiga_204_no_me(client, store):
+    signup(client)
+    store.versions[1] = 99
+    response = client.get("/api/me")
+    assert response.status_code == 204
+    with client.session_transaction() as session:
+        assert "user_id" not in session
 
 
 def test_me_com_sessao_de_usuario_inexistente_204(client):

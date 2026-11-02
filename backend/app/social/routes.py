@@ -244,6 +244,9 @@ def post_avatar():
     user_id = _session_user_id()
     if user_id is None:
         return _unauthorized()
+    if store.get_user_profile(user_id) is None:
+        session.clear()
+        return jsonify({"error": UNAUTHENTICATED}), 401
     raw = _json_body().get("avatarDataUrl")
     if not isinstance(raw, str):
         return jsonify(
@@ -295,6 +298,9 @@ def delete_avatar():
     user_id = _session_user_id()
     if user_id is None:
         return _unauthorized()
+    if store.get_user_profile(user_id) is None:
+        session.clear()
+        return jsonify({"error": UNAUTHENTICATED}), 401
     store.delete_avatar(user_id)
     profile = store.get_user_profile(user_id)
     handlers.broadcast_friends()
@@ -434,6 +440,18 @@ def post_chat_block(user_id: int):
     success=True,
     description="Sessão ausente, expirada ou inválida.",
 )
+@social_bp.alt_response(
+    400,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="A conta atual não pode ser bloqueada.",
+)
+@social_bp.alt_response(
+    404,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="O usuário informado não existe.",
+)
 @social_bp.doc(
     summary="Desbloquear mensagens privadas de um usuário",
     description="Exige o cookie de sessão. A chave de API sozinha não autoriza esta ação.",
@@ -443,6 +461,10 @@ def delete_chat_block(user_id: int):
     current_user_id = _session_user_id()
     if current_user_id is None:
         return _unauthorized()
+    if user_id == current_user_id:
+        return jsonify({"error": "Você não pode bloquear sua própria conta."}), 400
+    if store.get_user_profile(user_id) is None:
+        return jsonify({"error": "Usuário não encontrado."}), 404
     store.unblock_user(current_user_id, user_id)
     return {"status": "unblocked", "userId": user_id}
 

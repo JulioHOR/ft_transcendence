@@ -203,8 +203,11 @@ def global_rows() -> list[dict]:
             "FROM chat_messages m "
             "JOIN users u ON u.id = m.sender_id "
             "LEFT JOIN avatars a ON a.user_id = m.sender_id "
-            "WHERE m.recipient_id IS NULL ORDER BY m.id;",
+            "WHERE m.recipient_id IS NULL "
+            "ORDER BY m.id DESC LIMIT 200;",
         )
+        fetched = cur.fetchall()
+        fetched.reverse()
         return [
             {
                 "id": str(row[0]),
@@ -214,36 +217,62 @@ def global_rows() -> list[dict]:
                 "text": row[2],
                 "createdAt": int(row[3].timestamp() * 1000),
             }
-            for row in cur.fetchall()
+            for row in fetched
         ]
 
 def private_rows(me_id: int) -> list[dict]:
     with db_cursor() as cur:
         cur.execute(
-            "SELECT m.id, m.sender_id, m.recipient_id, m.text, m.created_at, "
-            "s.nickname, s_avatar.updated_at, r.nickname "
+            "SELECT "
+            "CASE WHEN m.sender_id = %s THEN m.recipient_id ELSE m.sender_id END "
+            "AS peer_id, MAX(m.id) AS last_id "
             "FROM chat_messages m "
-            "JOIN users s ON s.id = m.sender_id "
-            "LEFT JOIN avatars s_avatar ON s_avatar.user_id = m.sender_id "
-            "JOIN users r ON r.id = m.recipient_id "
-            "WHERE m.sender_id = %s OR m.recipient_id = %s ORDER BY m.id;",
-            (me_id, me_id),
+            "WHERE m.recipient_id IS NOT NULL "
+            "AND (m.sender_id = %s OR m.recipient_id = %s) "
+            "GROUP BY peer_id ORDER BY last_id DESC;",
+            (me_id, me_id, me_id),
         )
-        rows = cur.fetchall()
+        peer_ids = [row[0] for row in cur.fetchall()]
         messages = []
-        for (message_id, sender_id, recipient_id, text, created_at,
-             sender_nickname, sender_avatar_ts, _r_nickname) in rows:
-            own = sender_id == me_id
-            messages.append({
-                "id": str(message_id),
-                "senderId": sender_id,
-                "recipientId": recipient_id,
-                "peerId": recipient_id if own else sender_id,
-                "peerNickname": sender_nickname if own else _r_nickname,
-                "userId": sender_id,
-                "nickname": sender_nickname,
-                "avatarUrl": avatar_url(sender_id, sender_avatar_ts),
-                "text": text,
-                "createdAt": int(created_at.timestamp() * 1000),
-            })
+        for peer_id in peer_ids:
+            messages.extend(_private_rows_for_pair(cur, me_id, peer_id))
         return messages
+
+
+_CHAT_HISTORY_EXPRESSIONS = (
+    "SELECT m.id, m.sender_id, m.recipient_id, m.text, m.created_at, "
+    "s.nickname, s_avatar.updated_at, r.nickname "
+    "FROM chat_messages m "
+    "JOIN users s ON s.id = m.sender_id "
+    "LEFT JOIN avatars s_avatar ON s_avatar.user_id = m.sender_id "
+    "JOIN users r ON r.id = m.recipient_id "
+)
+
+
+def _private_rows_for_pair(cur, me_id: int, peer_id: int) -> list[dict]:
+    cur.execute(
+        _CHAT_HISTORY_EXPRESSIONS
+        + "WHERE (m.sender_id = %s AND m.recipient_id = %s) "
+        "OR (m.sender_id = %s AND m.recipient_id = %s) "
+        "ORDER BY m.id DESC LIMIT 200;",
+        (me_id, peer_id, peer_id, me_id),
+    )
+    rows = cur.fetchall()
+    rows.reverse()
+    messages = []
+    for (message_id, sender_id, recipient_id, text, created_at,
+         sender_nickname, sender_avatar_ts, _r_nickname) in rows:
+        own = sender_id == me_id
+        messages.append({
+            "id": str(message_id),
+            "senderId": sender_id,
+            "recipientId": recipient_id,
+            "peerId": recipient_id if own else sender_id,
+            "peerNickname": sender_nickname if own else _r_nickname,
+            "userId": sender_id,
+            "nickname": sender_nickname,
+            "avatarUrl": avatar_url(sender_id, sender_avatar_ts),
+            "text": text,
+            "createdAt": int(created_at.timestamp() * 1000),
+        })
+    return messages

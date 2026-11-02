@@ -40,6 +40,20 @@ def block_user(blocker_id: int, blocked_id: int) -> None:
         )
 
 
+def message_in_conversation(sender_id: int, recipient_id: int, message_id: str) -> bool:
+    try:
+        numeric_id = int(message_id)
+    except ValueError:
+        return False
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT 1 FROM chat_messages WHERE id = %s AND sender_id = %s "
+            "AND recipient_id = %s;",
+            (numeric_id, sender_id, recipient_id),
+        )
+        return cur.fetchone() is not None
+
+
 def unblock_user(blocker_id: int, blocked_id: int) -> None:
     with db_cursor() as cur:
         cur.execute(

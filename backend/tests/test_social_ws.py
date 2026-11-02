@@ -75,6 +75,15 @@ def env(monkeypatch):
     monkeypatch.setattr(store_pkg, "global_rows", lambda: [])
     monkeypatch.setattr(store_pkg, "private_rows", lambda me: [])
     monkeypatch.setattr(store_pkg, "is_blocked_between", lambda _a, _b: False)
+    monkeypatch.setattr(store_pkg, "blocked_user_ids", lambda me: [])
+    monkeypatch.setattr(store_pkg, "blocking_user_ids", lambda me: [])
+    monkeypatch.setattr(
+        store_pkg,
+        "message_in_conversation",
+        lambda _sender, _recipient, message_id: message_id.isdigit()
+        and int(message_id) >= 9,
+    )
+    handlers._last_chat_event_at.clear()
     app = Flask(__name__)
     app.secret_key = os.urandom(32)
     app.config.update(SESSION_COOKIE_OPTIONS)
@@ -326,3 +335,62 @@ def test_presenca_refcount_dois_sockets_do_mesmo_usuario(env):
             "relation": "friend",
         }
     ]]
+
+def test_bloqueio_suprime_chat_global(env, monkeypatch):
+    monkeypatch.setattr(store_pkg, "blocked_user_ids", lambda me: [2])
+    ana = connect_api(env, 1)
+    bia = connect_api(env, 2)
+    carl = connect_api(env, 3)
+    drain(ana)
+    drain(bia)
+    drain(carl)
+
+    ana.emit("chat:send", {"text": "oi para quem pode ouvir"})
+
+    assert drain(bia, "chat:message") == []
+    assert len(drain(carl, "chat:message")) == 1
+    assert len(drain(ana, "chat:message")) == 1
+
+def test_chat_send_muito_rapido_e_recusado(env):
+    ana = connect_api(env, 1)
+    bia = connect_api(env, 2)
+    drain(ana)
+    drain(bia)
+    ana.emit("chat:send", {"text": "primeira"})
+    assert len(drain(ana, "chat:message")) == 1
+
+    ana.emit("chat:send", {"text": "segunda"})
+
+    assert drain(ana, "chat:error") == [
+        {"message": "Você está enviando mensagens rápido demais."}
+    ]
+    assert drain(ana, "chat:message") == []
+
+def test_chat_privado_muito_rapido_e_recusado(env):
+    ana = connect_api(env, 1)
+    bia = connect_api(env, 2)
+    drain(ana)
+    drain(bia)
+    ana.emit("chat:private:send", {"otherUserId": 2, "text": "primeira"})
+    assert len(drain(bia, "chat:private:message")) == 1
+
+    ana.emit("chat:private:send", {"otherUserId": 2, "text": "segunda"})
+
+    assert drain(ana, "chat:private:error") == [
+        {"message": "Você está enviando mensagens rápido demais."}
+    ]
+    assert drain(bia, "chat:private:message") == []
+
+def test_recibo_com_mensagem_ajena_e_ignorado(env):
+    ana = connect_api(env, 1)
+    bia = connect_api(env, 2)
+    drain(ana)
+    drain(bia)
+
+    ana.emit("chat:private:read", {"otherUserId": 2, "lastMessageId": "3"})
+
+    assert drain(bia, "chat:private:read") == []
+
+    ana.emit("chat:private:read", {"otherUserId": 2, "lastMessageId": "9"})
+
+    assert len(drain(bia, "chat:private:read")) == 1

@@ -1,5 +1,5 @@
-from flask import request
-from flask_smorest import Blueprint, abort
+from flask import jsonify, request
+from flask_smorest import Blueprint
 
 from . import store
 from .schemas import PongStatisticsSchema
@@ -25,10 +25,10 @@ def get_pong_statistics():
     try:
         user_id = int(request.args.get("id", ""))
     except ValueError:
-        abort(400, message="Informe um id de usuário válido.")
+        return jsonify({"error": "Informe um id de usuário válido."}), 400
 
     if not store.user_exists(user_id):
-        abort(404, message="Usuário não encontrado.")
+        return jsonify({"error": "Usuário não encontrado."}), 404
 
     statistics = store.get_statistics(user_id)
     statistics["history"] = store.get_match_history(user_id)

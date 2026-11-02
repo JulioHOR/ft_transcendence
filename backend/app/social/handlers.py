@@ -1,4 +1,5 @@
 import threading
+import time
 from collections.abc import Callable
 
 from flask import request, session
@@ -7,15 +8,27 @@ from . import store
 
 SEM_AMIZADE_ACEITA = "Não é possível enviar mensagem privada: vocês ainda não são amigos."
 USUARIO_BLOQUEADO = "Não é possível enviar mensagem: existe um bloqueio entre as contas."
+CHAT_MUITO_RAPIDO = "Você está enviando mensagens rápido demais."
 MAX_CHAT_MESSAGE_LENGTH = 1000
+CHAT_EVENT_INTERVAL_SECONDS = 0.3
 
 identities: dict[str, tuple[int, str]] = {}
 _online: dict[int, int] = {}
 _state_lock = threading.Lock()
 _socketio = None
+_last_chat_event_at: dict[int, float] = {}
 
 def _request_sid() -> str:
     return getattr(request, "sid", "")
+
+def _chat_event_allowed(user_id: int) -> bool:
+    with _state_lock:
+        now = time.monotonic()
+        last = _last_chat_event_at.get(user_id)
+        if last is not None and now - last < CHAT_EVENT_INTERVAL_SECONDS:
+            return False
+        _last_chat_event_at[user_id] = now
+        return True
 
 def conversation_id(a: int, b: int) -> str:
     return f"{min(a, b)}:{max(a, b)}"
@@ -127,8 +140,21 @@ def register_social_handlers(socketio, matchmaker) -> Callable[[str], None]:
                 room=_request_sid(),
             )
             return
-        message = store.insert_message(identity[0], None, text)
-        socketio.emit("chat:message", message)
+        user_id = identity[0]
+        if not _chat_event_allowed(user_id):
+            socketio.emit(
+                "chat:error", {"message": CHAT_MUITO_RAPIDO}, room=_request_sid()
+            )
+            return
+        message = store.insert_message(user_id, None, text)
+        blocked = set(store.blocked_user_ids(user_id))
+        blocked.update(store.blocking_user_ids(user_id))
+        with _state_lock:
+            online_ids = list(_online)
+        for other_id in online_ids:
+            if other_id in blocked:
+                continue
+            _emit_to_user(other_id, "chat:message", message)
     @socketio.on("chat:private:send")
     def on_chat_private_send(raw=None):
         identity = identities.get(_request_sid())
@@ -159,6 +185,11 @@ def register_social_handlers(socketio, matchmaker) -> Callable[[str], None]:
         if store.is_blocked_between(user_id, other_id):
             socketio.emit(
                 "chat:private:error", {"message": USUARIO_BLOQUEADO}, room=_request_sid()
+            )
+            return
+        if not _chat_event_allowed(user_id):
+            socketio.emit(
+                "chat:private:error", {"message": CHAT_MUITO_RAPIDO}, room=_request_sid()
             )
             return
         message = store.insert_message(user_id, other_id, text)
@@ -202,6 +233,8 @@ def register_social_handlers(socketio, matchmaker) -> Callable[[str], None]:
         if not _is_accepted_friend(user_id, other_id) or store.is_blocked_between(
             user_id, other_id
         ):
+            return
+        if not store.message_in_conversation(user_id, other_id, last_message_id):
             return
         _emit_to_user(
             other_id,

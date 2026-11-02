@@ -125,6 +125,9 @@ function attachSocketListeners(socket: Socket, handlers: ChatHandlers): void {
   socket.on("chat:private:error", (payload: { message?: string }) => {
     handlers.onError?.(payload?.message ?? "falha no chat privado");
   });
+  socket.on("chat:error", (payload: { message?: string }) => {
+    handlers.onError?.(payload?.message ?? "falha no chat");
+  });
   socket.on("chat:private:typing", (event: PrivateTypingEvent) => {
     handlers.onTyping?.(event);
   });

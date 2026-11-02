@@ -160,13 +160,17 @@ def test_asyncapi_e_valido_no_arquivo_fonte():
         "chat:message",
         "chat:private:message",
         "chat:private:error",
+        "chat:game:invite",
+        "chat:game:invite:cancel",
+        "chat:game:invite:respond",
+        "chat:game:invite:update",
         "friends:update",
     }
     received = {
         name for name, operation in document["operations"].items()
         if operation["action"] == "receive"
     }
-    assert len(received) == 9
+    assert len(received) == 12
     for operation in document["operations"].values():
         channel_name = operation["channel"]["$ref"].split("/")[-1]
         channel_messages = set(document["channels"][channel_name]["messages"])
@@ -176,18 +180,30 @@ def test_asyncapi_e_valido_no_arquivo_fonte():
             assert message["$ref"][len(prefix):] in channel_messages
     snapshot = document["components"]["schemas"]["GameSnapshot"]["properties"]
     assert set(snapshot) == {
-        "leftPaddleOffset",
-        "rightPaddleOffset",
+        "leftPaddlePosition",
+        "rightPaddlePosition",
         "ball",
         "score",
         "winner",
         "timestamp",
     }
+    assert document["components"]["schemas"]["GameStatus"]["properties"]["state"]["enum"] == [
+        "countdown",
+        "playing",
+        "rematch_pending",
+        "resume_pending",
+        "finished",
+        "opponent_disconnected",
+        "opponent_left",
+    ]
     assert document["components"]["schemas"]["GameError"]["properties"]["reason"]["enum"] == [
         "already_playing",
         "invalid",
         "malformed",
         "not_in_match",
+        "invalid_invitation",
+        "accepted_invitation",
+        "unauthorized",
     ]
 
 

@@ -533,26 +533,34 @@ components:
         state:
           type: string
           enum:
+            - countdown
             - playing
+            - rematch_pending
+            - resume_pending
+            - finished
+            - opponent_disconnected
             - opponent_left
           description: |
-            `playing` no início e no restart; `opponent_left` quando o
-            adversário desconecta.
+            `countdown` antes da primeira jogada; `playing` no início e no
+            restart; `rematch_pending` esperando confirmação de revanche;
+            `resume_pending` esperando confirmação de retomada; `finished` em
+            reconexão a partida encerrada; `opponent_disconnected` e
+            `opponent_left` na desconexão do adversário.
     GameSnapshot:
       title: Quadro da simulação
       type: object
       required:
-        - leftPaddleOffset
-        - rightPaddleOffset
+        - leftPaddlePosition
+        - rightPaddlePosition
         - ball
         - score
         - winner
         - timestamp
       properties:
-        leftPaddleOffset:
+        leftPaddlePosition:
           type: number
           description: Deslocamento da raquete esquerda.
-        rightPaddleOffset:
+        rightPaddlePosition:
           type: number
           description: Deslocamento da raquete direita.
         ball:
@@ -603,13 +611,15 @@ components:
             - not_in_match
             - invalid_invitation
             - accepted_invitation
+            - unauthorized
           description: |
             `already_playing` na fila com `queue:join` duplicado; `invalid`
             fora da fila, com input após o fim ou restart fora de `finished`;
             `malformed` em payload de input inválido; `not_in_match` para input
             ou restart sem partida; `invalid_invitation` para convite ausente,
             não aceito ou de outra pessoa; `accepted_invitation` quando há uma
-            partida aceita e é necessário entrar pelo chat.
+            partida aceita e é necessário entrar pelo chat; `unauthorized`
+            para quem não está autenticado.
         message:
           type: string
           description: Texto legível em português.

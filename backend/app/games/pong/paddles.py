@@ -1,8 +1,11 @@
 
 import math
 
-from .constants import PADDLE_VELOCITY_DECAY
+from .constants import BASE_PADDLE_SPEED, PADDLE_VELOCITY_DECAY
+from .shared import clamp
 from .state import SimState
+
+PADDLE_DELTA_FLOOR_SECONDS = 1 / 60
 
 def get_paddle_position(state: SimState, side: str) -> float:
     return state.left_paddle_position if side == "left" else state.right_paddle_position
@@ -35,7 +38,13 @@ def set_paddle_position(
     state: SimState, side: str, position: float, delta_seconds: float
 ) -> None:
     previous_position = get_paddle_position(state, side)
-    velocity = (position - previous_position) / delta_seconds if delta_seconds > 0 else 0.0
+    if delta_seconds <= 0:
+        velocity = 0.0
+    else:
+        velocity = (position - previous_position) / max(
+            delta_seconds, PADDLE_DELTA_FLOOR_SECONDS
+        )
+        velocity = clamp(velocity, -BASE_PADDLE_SPEED, BASE_PADDLE_SPEED)
 
     if side == "left":
         state.left_paddle_position = position

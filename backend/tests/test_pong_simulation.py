@@ -124,13 +124,20 @@ def test_input_de_paddle_calcula_velocidade():
     assert get_paddle_velocity(state, "left") == 0.0
 
     apply_paddle_input(state, "left", 4.0, 1100.0)
-    assert get_paddle_velocity(state, "left") == 10.0
+    assert get_paddle_velocity(state, "left") == BASE_PADDLE_SPEED
 
 def test_set_paddle_position_atualiza_velocidade():
     state = create_initial_sim_state()
 
     set_paddle_position(state, "right", 2.0, 0.2)
-    assert get_paddle_velocity(state, "right") == 10.0
+    assert get_paddle_velocity(state, "right") == BASE_PADDLE_SPEED
+
+def test_rajada_de_inputs_nao_arma_a_velocidade():
+    state = create_initial_sim_state()
+    apply_paddle_input(state, "left", -4.0, 1000.0)
+    apply_paddle_input(state, "left", 4.0, 1000.1)
+
+    assert abs(get_paddle_velocity(state, "left")) <= BASE_PADDLE_SPEED
 
 def test_input_fora_da_mesa_deixa_passar_sem_crash_clamp_feito_no_handler():
     state = create_initial_sim_state()

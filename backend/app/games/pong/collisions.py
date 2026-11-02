@@ -54,9 +54,12 @@ def place_ball_on_paddle_face(state: SimState, side: str) -> None:
 def apply_paddle_bounce_velocity(state: SimState, side: str, hit_ratio: float) -> None:
     direction_x = 1 if side == "left" else -1
     paddle_motion = get_paddle_velocity(state, side) * PADDLE_MOTION_FACTOR
+    max_velocity_z = ANGLE_FACTOR + PADDLE_MOTION_FACTOR * BASE_PADDLE_SPEED
 
     state.velocity_x = direction_x * BASE_PADDLE_SPEED
-    state.velocity_z = hit_ratio * ANGLE_FACTOR + paddle_motion
+    state.velocity_z = clamp(
+        hit_ratio * ANGLE_FACTOR + paddle_motion, -max_velocity_z, max_velocity_z
+    )
 
 def bounce_on_paddle(state: SimState, side: str) -> None:
     hit_ratio = get_paddle_hit_ratio(state, side)

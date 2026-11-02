@@ -2,7 +2,7 @@
 set -e
 
 echo "Waiting for database..."
-python3 -c "import app; app.wait_db()"
+python3 -c "import app; app.wait_db(); app.ensure_schema()"
 
 echo "Starting backend (gunicorn, 1 worker) on port ${BACKEND_INTERNAL_PORT}..."
 # 1 worker: o estado das partidas vive em memória do processo.

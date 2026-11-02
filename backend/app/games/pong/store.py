@@ -1,3 +1,8 @@
+import time
+
+import psycopg2
+from psycopg2.pool import PoolError
+
 from db import db_cursor
 from .constants import POINTS_TO_WIN
 
@@ -31,6 +36,15 @@ WITH player_results AS (
 """
 
 
+_SAVE_DELAYS_SECONDS = (0.2, 0.5)
+
+_SAVE_SQL = (
+    "INSERT INTO pong_matches "
+    "(id, left_user_id, right_user_id, winner_user_id, left_score, right_score) "
+    "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING;"
+)
+
+
 def save_match(
     match_id: str,
     left_user_id: int,
@@ -40,20 +54,23 @@ def save_match(
     right_score: int,
 ) -> None:
     """Persiste o resultado final uma única vez."""
-    with db_cursor() as cur:
-        cur.execute(
-            "INSERT INTO pong_matches "
-            "(id, left_user_id, right_user_id, winner_user_id, left_score, right_score) "
-            "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING;",
-            (
-                match_id,
-                left_user_id,
-                right_user_id,
-                winner_user_id,
-                left_score,
-                right_score,
-            ),
-        )
+    params = (
+        match_id,
+        left_user_id,
+        right_user_id,
+        winner_user_id,
+        left_score,
+        right_score,
+    )
+    for attempt, delay in enumerate((*_SAVE_DELAYS_SECONDS, 0.0)):
+        try:
+            with db_cursor() as cur:
+                cur.execute(_SAVE_SQL, params)
+            return
+        except (psycopg2.OperationalError, PoolError):
+            if attempt == len(_SAVE_DELAYS_SECONDS):
+                raise
+            time.sleep(delay)
 
 
 def user_exists(user_id: int) -> bool:

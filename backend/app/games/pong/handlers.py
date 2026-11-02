@@ -32,6 +32,8 @@ def _parse_input(data) -> float:
     position = data.get("position")
     if isinstance(position, bool) or not isinstance(position, (int, float)):
         raise MalformedInput()
+    if not math.isfinite(position):
+        raise MalformedInput()
     return position
 
 

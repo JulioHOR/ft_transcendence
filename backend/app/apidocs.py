@@ -16,9 +16,51 @@ COOKIE_AUTH_SCHEME = {
     "name": "session",
     "description": (
         "Cookie de sessão Flask emitido por /api/auth/signup e /api/auth/login "
-        "e destruído por /api/auth/logout."
+        "e destruído por /api/auth/logout. No Swagger, entre na aplicação na mesma "
+        "origem para que o navegador envie esse cookie automaticamente."
     ),
 }
+API_KEY_SCHEME = {
+    "type": "apiKey",
+    "in": "header",
+    "name": "X-API-Key",
+    "description": (
+        "Chave do consumidor enviada no cabeçalho X-API-Key. Ela autoriza apenas "
+        "as operações que listam apiKeyAuth; não substitui a sessão nas operações "
+        "que exigem cookieAuth."
+    ),
+}
+
+API_DESCRIPTION = """
+API HTTP do ft_transcendence.
+
+### Como autenticar
+
+- **Chave de API:** informe `X-API-Key` em **Authorize** para consumir os endpoints
+  marcados com `apiKeyAuth`. A chave está na variável `API_KEY` do `.env`.
+- **Sessão:** entre na aplicação no mesmo navegador e origem. O navegador envia
+  automaticamente o cookie `session` nos endpoints marcados com `cookieAuth`.
+  A chave de API, sozinha, não autoriza operações da conta, amizades ou chat.
+- As operações marcadas com `cookieAuth` ou `apiKeyAuth` aceitam qualquer uma
+  dessas formas. Operações marcadas apenas com `cookieAuth` exigem sessão.
+- Cadastro, login, consulta da sessão atual e documentação não exigem chave.
+
+### Endpoints que aceitam chave ou sessão
+
+- `GET /api/profile`: lê dados públicos do perfil.
+- `GET /api/profile/avatar/{user_id}`: lê o avatar público.
+- `GET /api/games/pong/statistics`: lê estatísticas, histórico e classificação.
+
+### Teste no Swagger
+
+1. Para os três endpoints acima, clique em **Authorize** e informe a chave de API.
+2. Para operações de perfil, chat ou amizades marcadas com `cookieAuth`, entre na
+   aplicação neste mesmo navegador antes de usar **Try it out**.
+3. Sem chave ou sessão válida, endpoints protegidos respondem `401`.
+
+O limite atual é de 120 requisições por minuto por endereço IP. A documentação
+dos eventos WebSocket está em `/api/docs/asyncapi.yaml`.
+"""
 
 docs_bp = Blueprint("docs", __name__)
 
@@ -37,7 +79,13 @@ def init_api(app: Flask) -> Api:
     api = Api(
         app,
         spec_kwargs={
-            "components": {"securitySchemes": {"cookieAuth": COOKIE_AUTH_SCHEME}}
+            "info": {"description": API_DESCRIPTION},
+            "components": {
+                "securitySchemes": {
+                    "cookieAuth": COOKIE_AUTH_SCHEME,
+                    "apiKeyAuth": API_KEY_SCHEME,
+                }
+            }
         },
     )
     api.register_blueprint(auth_bp)

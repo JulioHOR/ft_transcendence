@@ -150,7 +150,9 @@ def _insert_user(cur, email: str, nickname: str, password_hash: str) -> int:
 )
 @auth_bp.doc(
     summary="Criar conta e abrir sessão",
-    description="Cria o usuário, grava o hash da senha e abre a sessão no cookie.",
+    description=(
+        "Não exige chave de API nem sessão. Cria a conta e abre uma sessão no cookie."
+    ),
     requestBody=SIGNUP_REQUEST_BODY,
 )
 def signup():
@@ -184,7 +186,10 @@ def signup():
 )
 @auth_bp.doc(
     summary="Entrar",
-    description="Autentica por e-mail e senha e abre a sessão no cookie.",
+    description=(
+        "Não exige chave de API nem sessão. Autentica por e-mail e senha e abre "
+        "uma sessão no cookie."
+    ),
     requestBody=LOGIN_REQUEST_BODY,
 )
 def login():
@@ -213,7 +218,7 @@ def login():
 @auth_bp.alt_response(204, success=True, description="Sessão encerrada, sem corpo.")
 @auth_bp.doc(
     summary="Sair",
-    description="Limpa a sessão; sempre responde 204.",
+    description="Exige o cookie de sessão; encerra a sessão e responde 204.",
     security=[{"cookieAuth": []}],
 )
 def logout():
@@ -226,8 +231,10 @@ def logout():
 @auth_bp.response(204, description="Não há uma sessão ativa.")
 @auth_bp.doc(
     summary="Usuário autenticado",
-    description="Retorna o usuário dono do cookie de sessão.",
-    security=[{"cookieAuth": []}],
+    description=(
+        "Não exige chave. Retorna os dados do usuário da sessão; sem sessão, "
+        "responde 204."
+    ),
 )
 def me():
     user_id = session.get("user_id")

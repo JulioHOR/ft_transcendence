@@ -1,4 +1,5 @@
 import { errorMessage } from "./http";
+import { apiFetch } from "./api";
 import { pongStatisticsUrl } from "./endpoints";
 
 /** Progresso de uma conquista do Pong. */
@@ -46,9 +47,7 @@ export type PongStatistics = {
 export async function getPongStatistics(
   userId: number,
 ): Promise<PongStatistics> {
-  const response = await fetch(`${pongStatisticsUrl}?id=${userId}`, {
-    credentials: "include",
-  });
+  const response = await apiFetch(`${pongStatisticsUrl}?id=${userId}`);
   if (!response.ok) {
     throw new Error(
       await errorMessage(response, "Falha ao carregar estatísticas do Pong"),

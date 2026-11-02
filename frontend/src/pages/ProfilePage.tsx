@@ -56,6 +56,7 @@ type ProfileFieldFormProps = {
   field: "email" | "nickname";
   label: string;
   value: string;
+  profile: Pick<User, "email" | "nickname">;
   onSaved: (user: User, message?: string) => void;
 };
 
@@ -74,7 +75,7 @@ async function submitProfileField(
   callbacks.setError(null);
   callbacks.setPending(true);
   try {
-    const user = await updateProfile({ [props.field]: value });
+    const user = await updateProfile({ ...props.profile, [props.field]: value });
     props.onSaved(user, `${props.label} atualizado.`);
     callbacks.setValue(user[props.field]);
     callbacks.setEditing(false);
@@ -456,6 +457,7 @@ function ProfileFields(props: ProfileFieldsProps) {
         <ProfileFieldForm
           key={field.value}
           {...field}
+          profile={{ email: props.user.email, nickname: props.user.nickname }}
           onSaved={props.onSaved}
         />
       ))}

@@ -28,15 +28,13 @@ AVATAR_DATA_URL_RE = re.compile(r"^data:(image/[\w.+-]+);base64,(.+)$", re.DOTAL
 social_bp = Blueprint("social", __name__, description="Perfil, amigos e chat.")
 
 PROFILE_UPDATE_REQUEST_BODY = {
-    "description": (
-        "Atualiza o email ou apelido do usuário da sessão."
-    ),
+    "description": "Substitui o e-mail e o apelido do perfil.",
     "required": True,
     "content": {
         "application/json": {
             "schema": {
                 "type": "object",
-                "minProperties": 1,
+                "required": ["email", "nickname"],
                 "properties": {
                     "email": {
                         "type": "string",
@@ -52,7 +50,7 @@ PROFILE_UPDATE_REQUEST_BODY = {
                     },
                 },
             },
-            "example": {"email": "ana@example.com"},
+            "example": {"email": "ana@example.com", "nickname": "ana"},
         }
     },
 }
@@ -127,8 +125,11 @@ def _unauthorized():
 )
 @social_bp.doc(
     summary="Ler perfil público",
-    description="Lê o perfil de qualquer usuário pelo id.",
-    security=[{"cookieAuth": []}],
+    description=(
+        "Aceita uma chave de API ou uma sessão autenticada. Sem sessão, envie "
+        "X-API-Key. Retorna os dados públicos do perfil informado."
+    ),
+    security=[{"cookieAuth": []}, {"apiKeyAuth": []}],
     parameters=[
         {
             "name": "id",
@@ -154,7 +155,7 @@ def get_profile():
         "avatarUrl": store.avatar_url(user_id, profile[1]),
     }
 
-@social_bp.patch("/api/profile")
+@social_bp.put("/api/profile")
 @social_bp.response(200, ProfileUpdateSchema, description="Perfil atualizado.")
 @social_bp.alt_response(
     401,
@@ -177,48 +178,33 @@ def get_profile():
 @social_bp.doc(
     summary="Atualizar o próprio perfil",
     description=(
-        "Atualiza o e-mail de acesso ou o apelido do usuário da sessão."
+        "Exige o cookie de sessão. A chave de API sozinha não autoriza a alteração. "
+        "Substitui o e-mail e o apelido do usuário autenticado."
     ),
     requestBody=PROFILE_UPDATE_REQUEST_BODY,
     security=[{"cookieAuth": []}],
 )
-def patch_profile():
+def update_profile():
     user_id = _session_user_id()
     if user_id is None:
         return _unauthorized()
     body = _json_body()
-    if "nickname" not in body and "email" in body:
-        email = body["email"]
-        if not isinstance(email, str):
-            return jsonify({"error": "Informe um e-mail válido."}), 400
-        validation_error = validate_email(email)
-        if validation_error is not None:
-            return jsonify({"error": validation_error}), 400
-        email = normalize_email(email)
-        try:
-            email, nickname, avatar_ts = store.update_email(user_id, email)
-        except psycopg2.IntegrityError:
-            return jsonify({"error": "Este e-mail já está cadastrado."}), 409
-        except LookupError:
-            session.clear()
-            return _unauthorized()
-        return {
-            "id": user_id,
-            "email": email,
-            "nickname": nickname,
-            "avatarUrl": store.avatar_url(user_id, avatar_ts),
-        }
-
+    email = body.get("email")
     nickname = body.get("nickname")
-    if not isinstance(nickname, str):
-        return jsonify({"error": "Informe o novo nickname."}), 400
+    if not isinstance(email, str) or not isinstance(nickname, str):
+        return jsonify({"error": "Informe um e-mail e um apelido válidos."}), 400
+    validation_error = validate_email(email)
+    if validation_error is not None:
+        return jsonify({"error": validation_error}), 400
     validation_error = validate_nickname(nickname)
     if validation_error is not None:
         return jsonify({"error": validation_error}), 400
     try:
-        email, avatar_ts = store.update_nickname(user_id, nickname)
+        email, nickname, avatar_ts = store.update_profile(
+            user_id, normalize_email(email), nickname
+        )
     except psycopg2.IntegrityError:
-        return jsonify({"error": "Este nickname já está em uso por outro usuário."}), 409
+        return jsonify({"error": "Este e-mail ou apelido já está em uso."}), 409
     except LookupError:
         session.clear()
         return _unauthorized()
@@ -246,7 +232,10 @@ def patch_profile():
 )
 @social_bp.doc(
     summary="Enviar a própria foto",
-    description="Grava os bytes da foto no banco e devolve o endereço com a versão nova.",
+    description=(
+        "Exige o cookie de sessão. A chave de API sozinha não autoriza a alteração. "
+        "Grava a foto do usuário autenticado."
+    ),
     requestBody=PROFILE_AVATAR_REQUEST_BODY,
     security=[{"cookieAuth": []}],
 )
@@ -292,7 +281,9 @@ def post_avatar():
 )
 @social_bp.doc(
     summary="Remover a própria foto",
-    description="Apaga a foto do usuário autenticado.",
+    description=(
+        "Exige o cookie de sessão. A chave de API sozinha não autoriza a alteração."
+    ),
     security=[{"cookieAuth": []}],
 )
 def delete_avatar():
@@ -322,8 +313,11 @@ def delete_avatar():
 )
 @social_bp.doc(
     summary="Ler a foto de um usuário",
-    description="Devolve os bytes da foto gravada para o usuário informado.",
-    security=[{"cookieAuth": []}],
+    description=(
+        "Aceita uma chave de API ou uma sessão autenticada. Sem sessão, envie "
+        "X-API-Key. Retorna o avatar público do usuário informado."
+    ),
+    security=[{"cookieAuth": []}, {"apiKeyAuth": []}],
 )
 def get_avatar(user_id: int):
     avatar = store.get_avatar(user_id)
@@ -350,7 +344,8 @@ def get_avatar(user_id: int):
     summary="Histórico de chat",
     description=(
         "Traz todas as mensagens da sala pública e as conversas privadas do "
-        "usuário da sessão; apelidos e fotos resolvidos no momento da leitura."
+        "usuário da sessão; apelidos e fotos resolvidos no momento da leitura. "
+        "Exige o cookie de sessão; a chave de API sozinha não dá acesso ao chat."
     ),
     security=[{"cookieAuth": []}],
 )
@@ -407,6 +402,7 @@ def get_chat_history():
 )
 @social_bp.doc(
     summary="Bloquear mensagens privadas de um usuário",
+    description="Exige o cookie de sessão. A chave de API sozinha não autoriza esta ação.",
     security=[{"cookieAuth": []}],
 )
 def post_chat_block(user_id: int):
@@ -431,6 +427,7 @@ def post_chat_block(user_id: int):
 )
 @social_bp.doc(
     summary="Desbloquear mensagens privadas de um usuário",
+    description="Exige o cookie de sessão. A chave de API sozinha não autoriza esta ação.",
     security=[{"cookieAuth": []}],
 )
 def delete_chat_block(user_id: int):
@@ -468,7 +465,10 @@ def delete_chat_block(user_id: int):
 )
 @social_bp.doc(
     summary="Enviar convite de amizade",
-    description="Cria um convite em espera (pending) para a pessoa do nickname informado.",
+    description=(
+        "Exige o cookie de sessão. A chave de API sozinha não autoriza esta ação. "
+        "Cria um convite para a pessoa do nickname informado."
+    ),
     requestBody=FRIEND_ADD_REQUEST_BODY,
     security=[{"cookieAuth": []}],
 )
@@ -518,7 +518,8 @@ def add_friend():
     summary="Remover amigo",
     description=(
         "Quebra o vínculo entre você e o id informado, em qualquer direção ou "
-        "situação. Sem vínculo, continua devolvendo 204."
+        "situação. Exige o cookie de sessão; a chave de API sozinha não autoriza "
+        "esta ação. Sem vínculo, responde 204."
     ),
     security=[{"cookieAuth": []}],
 )
@@ -546,7 +547,10 @@ def remove_friend(friend_id: int):
 )
 @social_bp.doc(
     summary="Aceitar convite",
-    description="Confirma o convite pendente de from_id; a relação passa a ser amizade.",
+    description=(
+        "Exige o cookie de sessão. A chave de API sozinha não autoriza esta ação. "
+        "Confirma o convite pendente de from_id."
+    ),
     security=[{"cookieAuth": []}],
 )
 def accept_friend(from_id: int):
@@ -584,7 +588,10 @@ def accept_friend(from_id: int):
 )
 @social_bp.doc(
     summary="Rejeitar convite",
-    description="Recusa e descarta o convite pendente de from_id para o usuário da sessão.",
+    description=(
+        "Exige o cookie de sessão. A chave de API sozinha não autoriza esta ação. "
+        "Recusa o convite pendente de from_id."
+    ),
     security=[{"cookieAuth": []}],
 )
 def reject_friend(from_id: int):

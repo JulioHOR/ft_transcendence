@@ -9,6 +9,12 @@ setup:
 up: setup
 	@mkdir -p $(DATA_DIR)
 	$(COMPOSE) up --build -d
+	@. ./.env; \
+	if [ -n "$$LAN_IP" ]; then \
+		echo; \
+		echo "🌐 Aplicacao disponivel em: https://$$LAN_IP:$$FRONT_PUBLIC_PORT"; \
+		echo; \
+	fi
 
 down:
 	$(COMPOSE) down

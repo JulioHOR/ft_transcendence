@@ -1,4 +1,5 @@
 import { me } from "./auth";
+import { apiFetch } from "./api";
 import { defaultAvatarUrl, profileAvatarUrl, profileUrl } from "./endpoints";
 import { errorMessage } from "./http";
 import type { Profile, User } from "./types";
@@ -34,9 +35,7 @@ export function liveAvatarUrl(
 
 /** Lê o perfil de qualquer usuário por id. */
 export async function getProfileById(userId: number): Promise<Profile> {
-  const response = await fetch(`${profileUrl}?id=${userId}`, {
-    credentials: "include",
-  });
+  const response = await apiFetch(`${profileUrl}?id=${userId}`);
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Falha ao carregar perfil"));
   }
@@ -67,13 +66,12 @@ export async function getProfile(): Promise<User> {
 
 /** Atualiza os dados de acesso ou o apelido do usuário autenticado. */
 export async function updateProfile(
-  changes: Partial<Pick<User, "email" | "nickname">>,
+  profile: Pick<User, "email" | "nickname">,
 ): Promise<User> {
-  const response = await fetch(profileUrl, {
-    method: "PATCH",
-    credentials: "include",
+  const response = await apiFetch(profileUrl, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(changes),
+    body: JSON.stringify(profile),
   });
   if (!response.ok) {
     throw new Error(
@@ -91,9 +89,8 @@ export async function updateProfile(
 
 /** Envia o avatar (data URL) do usuário autenticado. */
 export async function uploadAvatar(avatarDataUrl: string): Promise<Profile> {
-  const response = await fetch(profileAvatarUrl, {
+  const response = await apiFetch(profileAvatarUrl, {
     method: "POST",
-    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ avatarDataUrl }),
   });
@@ -107,9 +104,8 @@ export async function uploadAvatar(avatarDataUrl: string): Promise<Profile> {
 
 /** Remove a foto do perfil do usuário autenticado. */
 export async function deleteAvatar(): Promise<Profile> {
-  const response = await fetch(profileAvatarUrl, {
+  const response = await apiFetch(profileAvatarUrl, {
     method: "DELETE",
-    credentials: "include",
   });
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Falha ao remover avatar"));

@@ -28,18 +28,18 @@ class FakeStore:
             return None
         avatar = self.avatars.get(user_id)
         return user["nickname"], None if avatar is None else avatar[2]
-    def update_nickname(self, user_id, nickname):
+    def update_profile(self, user_id, email, nickname):
         user = self.users.get(user_id)
         if user is None:
             raise LookupError("usuário não existe")
         if any(
-            other_id != user_id and other["nickname"] == nickname
+            other_id != user_id and (other["email"] == email or other["nickname"] == nickname)
             for other_id, other in self.users.items()
         ):
             raise psycopg2.IntegrityError("duplicate")
-        user["nickname"] = nickname
+        user.update(email=email, nickname=nickname)
         avatar = self.avatars.get(user_id)
-        return user["email"], None if avatar is None else avatar[2]
+        return user["email"], user["nickname"], None if avatar is None else avatar[2]
     def set_avatar(self, user_id, content_type, data):
         assert user_id in self.users
         self.avatars[user_id] = (content_type, data, AVATAR_TS)
@@ -80,7 +80,7 @@ def store():
 def client(monkeypatch, store):
     fake = store
     monkeypatch.setattr(store_pkg, "get_user_profile", fake.get_user_profile)
-    monkeypatch.setattr(store_pkg, "update_nickname", fake.update_nickname)
+    monkeypatch.setattr(store_pkg, "update_profile", fake.update_profile)
     monkeypatch.setattr(store_pkg, "set_avatar", fake.set_avatar)
     monkeypatch.setattr(store_pkg, "get_avatar", fake.get_avatar)
     monkeypatch.setattr(store_pkg, "find_user_by_nickname", fake.find_user_by_nickname)
@@ -130,69 +130,70 @@ def test_le_perfil_inexistente_404(client):
     assert response.status_code == 404
     assert response.get_json() == {"error": "Usuário não encontrado para o id informado."}
 
-def test_patch_de_perfil_sem_sessao_401(client):
-    response = client.patch("/api/profile", json={"nickname": "ana2"})
+def test_put_de_perfil_sem_sessao_401(client):
+    response = client.put("/api/profile", json={"email": "ana@x.io", "nickname": "ana2"})
     assert response.status_code == 401
     assert response.get_json() == {"error": "Você não está logado."}
 
-def test_patch_da_sessao_ignora_id_e_email_do_corpo(client, store):
+def test_put_atualiza_email_e_apelido_da_sessao(client, store):
     login(client, 1)
-    response = client.patch(
-        "/api/profile", json={"id": 999, "email": "hacker@x.io", "nickname": "ana2"}
+    response = client.put(
+        "/api/profile", json={"id": 999, "email": "ana2@x.io", "nickname": "ana2"}
     )
     assert response.status_code == 200
     assert response.get_json() == {
         "id": 1,
-        "email": "ana@x.io",
+        "email": "ana2@x.io",
         "nickname": "ana2",
         "avatarUrl": None,
     }
-    assert all(other["email"] == "ana@x.io" for other in store.users.values())
+    assert store.users[1]["email"] == "ana2@x.io"
+    assert all(other["email"] != "hacker@x.io" for other in store.users.values())
 
-def test_patch_sem_nickname_400(client, monkeypatch):
+def test_put_sem_email_ou_apelido_400(client, monkeypatch):
     login(client, 1)
     called = []
-    def boom(user_id, nickname):
-        called.append((user_id, nickname))
-        return "ana@x.io", None
-    monkeypatch.setattr(store_pkg, "update_nickname", boom)
-    for body in ({}, {"nickname": None}, {"nickname": 7}, {"nickname": []}):
-        response = client.patch("/api/profile", json=body)
+    def boom(user_id, email, nickname):
+        called.append((user_id, email, nickname))
+        return email, nickname, None
+    monkeypatch.setattr(store_pkg, "update_profile", boom)
+    for body in ({}, {"email": None, "nickname": "ana"}, {"email": 7, "nickname": "ana"}, {"email": "ana@x.io", "nickname": []}):
+        response = client.put("/api/profile", json=body)
         assert response.status_code == 400
-        assert response.get_json() == {"error": "Informe o novo nickname."}
+        assert response.get_json() == {"error": "Informe um e-mail e um apelido válidos."}
     assert called == []
 
-def test_patch_com_nickname_fora_da_regra_400(client, monkeypatch):
+def test_put_com_nickname_fora_da_regra_400(client, monkeypatch):
     login(client, 1)
-    monkeypatch.setattr(store_pkg, "update_nickname", lambda *_: ("e", None))
+    monkeypatch.setattr(store_pkg, "update_profile", lambda *_: ("e", "n", None))
     for nickname, message in (
         ("ab", "O nickname precisa ter entre 3 e 20 caracteres."),
         ("tem espaco", "O nickname só aceita letras, números e _."),
         ("com-acento", "O nickname só aceita letras, números e _."),
     ):
-        response = client.patch("/api/profile", json={"nickname": nickname})
+        response = client.put("/api/profile", json={"email": "ana@x.io", "nickname": nickname})
         assert response.status_code == 400
         assert response.get_json() == {"error": message}
 
-def test_patch_com_nickname_duplicado_409(client, store):
+def test_put_com_apelido_duplicado_409(client, store):
     store.users[2] = {"email": "bia@x.io", "nickname": "bia"}
     login(client, 1)
-    response = client.patch("/api/profile", json={"nickname": "bia"})
-    assert response.get_json() == {"error": "Este nickname já está em uso por outro usuário."}
+    response = client.put("/api/profile", json={"email": "ana@x.io", "nickname": "bia"})
+    assert response.get_json() == {"error": "Este e-mail ou apelido já está em uso."}
     assert response.status_code == 409
 
-def test_patch_para_o_mesmo_nickname_passa_e_mantem_200(client):
+def test_put_para_os_mesmos_dados_passa_e_mantem_200(client):
     login(client, 1)
-    response = client.patch("/api/profile", json={"nickname": "ana"})
+    response = client.put("/api/profile", json={"email": "ana@x.io", "nickname": "ana"})
     assert response.status_code == 200
     assert response.get_json()["nickname"] == "ana"
 
-def test_patch_da_sessao_de_usuario_removido_401(client, monkeypatch):
+def test_put_da_sessao_de_usuario_removido_401(client, monkeypatch):
     login(client, 42)
-    def missing(user_id, nickname):
+    def missing(user_id, email, nickname):
         raise LookupError("usuário não existe")
-    monkeypatch.setattr(store_pkg, "update_nickname", missing)
-    response = client.patch("/api/profile", json={"nickname": "ana2"})
+    monkeypatch.setattr(store_pkg, "update_profile", missing)
+    response = client.put("/api/profile", json={"email": "ana@x.io", "nickname": "ana2"})
     assert response.status_code == 401
     assert response.get_json() == {"error": "Você não está logado."}
     with client.session_transaction() as sess:
@@ -278,7 +279,12 @@ def test_historico_vazio(client, monkeypatch):
     monkeypatch.setattr(store_pkg, "private_rows", lambda me: [])
     response = client.get("/api/chat/history")
     assert response.status_code == 200
-    assert response.get_json() == {"global": [], "conversations": []}
+    assert response.get_json() == {
+        "global": [],
+        "conversations": [],
+        "blockedUserIds": [],
+        "blockingUserIds": [],
+    }
 
 def _private_row(sender, recipient, text, nickname, peer_id, peer_nickname="bia",
                  message_id="9"):

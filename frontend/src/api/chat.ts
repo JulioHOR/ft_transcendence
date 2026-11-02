@@ -1,4 +1,5 @@
 import { io, type Socket } from "socket.io-client";
+import { apiFetch } from "./api";
 import { chatHistoryUrl, chatSocketPath } from "./endpoints";
 import { errorMessage } from "./http";
 
@@ -98,7 +99,7 @@ export function buildPrivateConversationId(
 
 /** Busca o histórico de chat no servidor. */
 export async function fetchChatHistory(): Promise<ChatHistory> {
-  const response = await fetch(chatHistoryUrl, { credentials: "include" });
+  const response = await apiFetch(chatHistoryUrl);
   if (!response.ok) {
     throw new Error(await errorMessage(response, "falha ao carregar chat"));
   }
@@ -280,9 +281,8 @@ export async function unblockChatUser(userId: number): Promise<void> {
 }
 
 async function updateChatBlock(userId: number, method: "POST" | "DELETE") {
-  const response = await fetch(`/api/chat/blocks/${userId}`, {
+  const response = await apiFetch(`/api/chat/blocks/${userId}`, {
     method,
-    credentials: "include",
   });
   if (!response.ok) {
     throw new Error(

@@ -62,34 +62,19 @@ def get_user_profile(user_id: int) -> tuple[str, object] | None:
         )
         return cur.fetchone()
 
-def update_nickname(user_id: int, nickname: str) -> tuple[str, object]:
+def update_profile(user_id: int, email: str, nickname: str) -> tuple[str, str, object]:
     with db_cursor() as cur:
         cur.execute(
-            "UPDATE users SET nickname = %s WHERE id = %s RETURNING email;",
-            (nickname, user_id),
-        )
-        row = cur.fetchone()
-        if row is None:
-            raise LookupError("usuário não existe")
-        cur.execute(
-            "SELECT updated_at FROM avatars WHERE user_id = %s;",
-            (user_id,),
-        )
-        avatar_row = cur.fetchone()
-        return row[0], None if avatar_row is None else avatar_row[0]
-
-def update_email(user_id: int, email: str) -> tuple[str, str, object]:
-    with db_cursor() as cur:
-        cur.execute(
-            "UPDATE users SET email = %s WHERE id = %s RETURNING nickname;",
-            (email, user_id),
+            "UPDATE users SET email = %s, nickname = %s WHERE id = %s "
+            "RETURNING email, nickname;",
+            (email, nickname, user_id),
         )
         row = cur.fetchone()
         if row is None:
             raise LookupError("usuário não existe")
         cur.execute("SELECT updated_at FROM avatars WHERE user_id = %s;", (user_id,))
         avatar_row = cur.fetchone()
-        return email, row[0], None if avatar_row is None else avatar_row[0]
+        return (*row, None if avatar_row is None else avatar_row[0])
 
 def set_avatar(user_id: int, content_type: str, data: bytes) -> object:
     with db_cursor() as cur:

@@ -2,31 +2,45 @@ import os
 
 from flask import Flask, jsonify, request, session
 from flask_socketio import SocketIO
+from werkzeug.middleware.proxy_fix import ProxyFix
 
+from api_key import has_valid_api_key
 from apidocs import init_api
 from auth.routes import SESSION_COOKIE_OPTIONS
 from db import read_secret, wait_db
+from rate_limit import limiter
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 socketio = SocketIO(app, async_mode="threading", cors_allowed_origins=[])
 
 app.secret_key = read_secret("flask_secret_key")
 app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
 app.config.update(SESSION_COOKIE_OPTIONS)
+limiter.init_app(app)
 
 init_api(app)
 
-PUBLIC_API_ENDPOINTS = {"auth.signup", "auth.login", "auth.me"}
+SESSIONLESS_API_ENDPOINTS = {"auth.signup", "auth.login", "auth.me"}
 
 
 @app.before_request
-def require_api_session():
-    if (
-        request.path.startswith("/api/")
-        and request.endpoint not in PUBLIC_API_ENDPOINTS
-        and session.get("user_id") is None
-    ):
-        return jsonify({"error": "Você não está logado."}), 401
+def require_api_access():
+    if not request.path.startswith("/api/"):
+        return None
+    if request.path.startswith("/api/docs") or request.endpoint in SESSIONLESS_API_ENDPOINTS:
+        return None
+    if session.get("user_id") is not None:
+        return None
+    if has_valid_api_key(request.headers.get("X-API-Key")):
+        return None
+    return jsonify({"error": "Informe uma sessão ou uma chave de API válida."}), 401
+
+
+@app.errorhandler(429)
+def request_limit_exceeded(_error):
+    return jsonify({"error": "Muitas requisições. Tente novamente em instantes."}), 429
+
 
 def register_game_routes():
     from games.pong.handlers import register_pong_handlers

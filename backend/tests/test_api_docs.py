@@ -11,14 +11,18 @@ SPEC_OPERATIONS = {
     ("post", "/api/auth/logout"),
     ("get", "/api/me"),
     ("get", "/api/profile"),
-    ("patch", "/api/profile"),
+    ("put", "/api/profile"),
     ("post", "/api/profile/avatar"),
+    ("delete", "/api/profile/avatar"),
     ("get", "/api/profile/avatar/{user_id}"),
     ("get", "/api/chat/history"),
+    ("post", "/api/chat/blocks/{user_id}"),
+    ("delete", "/api/chat/blocks/{user_id}"),
     ("post", "/api/friends"),
     ("delete", "/api/friends/{friend_id}"),
     ("post", "/api/friends/{from_id}/accept"),
     ("post", "/api/friends/{from_id}/reject"),
+    ("get", "/api/games/pong/statistics"),
 }
 
 
@@ -38,7 +42,7 @@ def spec(client):
     return response.get_json()
 
 
-def test_spec_na_versao_3_1_2_documenta_as_treze_operacoes(client):
+def test_spec_na_versao_3_1_2_documenta_as_dezessete_operacoes(client):
     document = spec(client)
     assert document["openapi"] == "3.1.2"
     assert document["info"]["title"] == "ft_transcendence API"
@@ -79,21 +83,19 @@ def test_spec_exige_cookie_de_sessao_nas_rotas_protegidas(client):
     assert cookie_auth["type"] == "apiKey"
     assert cookie_auth["in"] == "cookie"
     assert cookie_auth["name"] == "session"
-    protected = {
-        "/api/me": "get",
-        "/api/profile": "patch",
-        "/api/profile/avatar": "post",
-        "/api/chat/history": "get",
-        "/api/friends": "post",
-        "/api/friends/{friend_id}": "delete",
-        "/api/friends/{from_id}/accept": "post",
-        "/api/friends/{from_id}/reject": "post",
-    }
-    me_401 = document["paths"]["/api/me"]["get"]["responses"]["401"]
-    assert me_401["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/ErrorResponse"
-    }
-    for path, method in protected.items():
+    protected = (
+        ("/api/profile", "put"),
+        ("/api/profile/avatar", "post"),
+        ("/api/profile/avatar", "delete"),
+        ("/api/chat/history", "get"),
+        ("/api/chat/blocks/{user_id}", "post"),
+        ("/api/chat/blocks/{user_id}", "delete"),
+        ("/api/friends", "post"),
+        ("/api/friends/{friend_id}", "delete"),
+        ("/api/friends/{from_id}/accept", "post"),
+        ("/api/friends/{from_id}/reject", "post"),
+    )
+    for path, method in protected:
         operation = document["paths"][path][method]
         assert operation["security"] == [{"cookieAuth": []}]
         assert operation["responses"]["401"]["content"]["application/json"]["schema"] == {
@@ -102,8 +104,12 @@ def test_spec_exige_cookie_de_sessao_nas_rotas_protegidas(client):
     for path, method in (
         ("/api/profile", "get"),
         ("/api/profile/avatar/{user_id}", "get"),
+        ("/api/games/pong/statistics", "get"),
     ):
-        assert "security" not in document["paths"][path][method]
+        assert document["paths"][path][method]["security"] == [
+            {"cookieAuth": []},
+            {"apiKeyAuth": []},
+        ]
 
 
 def test_swagger_ui_servido_localmente(client):
@@ -117,7 +123,7 @@ def test_swagger_ui_servido_localmente(client):
 
 
 def test_endpoints_de_documentacao_sao_publicos(client):
-    assert client.get("/api/me").status_code == 401
+    assert client.get("/api/me").status_code == 204
     assert client.get("/api/docs/").status_code == 200
 
 

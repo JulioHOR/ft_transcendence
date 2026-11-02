@@ -1,4 +1,5 @@
 import { io, type Socket } from "socket.io-client";
+import { apiFetch } from "./api";
 import { friendsSocketPath, friendsUrl } from "./endpoints";
 import { errorMessage } from "./http";
 
@@ -68,9 +69,8 @@ export function createFriendsTransport(): FriendsTransport {
 
 /** Adiciona um friend pelo nickname. */
 export async function addFriend(nickname: string): Promise<Friend> {
-  const response = await fetch(friendsUrl, {
+  const response = await apiFetch(friendsUrl, {
     method: "POST",
-    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ nickname }),
   });
@@ -82,9 +82,8 @@ export async function addFriend(nickname: string): Promise<Friend> {
 
 /** Remove um friend pelo id. */
 export async function removeFriend(friendId: number): Promise<void> {
-  const response = await fetch(`${friendsUrl}/${friendId}`, {
+  const response = await apiFetch(`${friendsUrl}/${friendId}`, {
     method: "DELETE",
-    credentials: "include",
   });
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Falha ao remover amigo"));
@@ -92,9 +91,8 @@ export async function removeFriend(friendId: number): Promise<void> {
 }
 
 export async function acceptFriend(friendId: number): Promise<Friend> {
-  const response = await fetch(`${friendsUrl}/${friendId}/accept`, {
+  const response = await apiFetch(`${friendsUrl}/${friendId}/accept`, {
     method: "POST",
-    credentials: "include",
   });
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Falha ao aceitar convite"));
@@ -103,9 +101,8 @@ export async function acceptFriend(friendId: number): Promise<Friend> {
 }
 
 export async function rejectFriend(friendId: number): Promise<void> {
-  const response = await fetch(`${friendsUrl}/${friendId}/reject`, {
+  const response = await apiFetch(`${friendsUrl}/${friendId}/reject`, {
     method: "POST",
-    credentials: "include",
   });
   if (!response.ok) {
     throw new Error(await errorMessage(response, "Falha ao recusar convite"));

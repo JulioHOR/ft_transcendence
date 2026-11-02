@@ -4,6 +4,7 @@ import pytest
 from flask import Flask, request
 from flask_socketio import SocketIO
 from auth.routes import SESSION_COOKIE_OPTIONS
+from ws_core.matchmaker import Matchmaker
 
 import social.handlers as handlers
 import social.store as store_pkg
@@ -78,7 +79,9 @@ def env(monkeypatch):
     app.config.update(SESSION_COOKIE_OPTIONS)
     app.register_blueprint(social_bp)
     socketio = SocketIO(app, async_mode="threading")
-    social_disconnect = handlers.register_social_handlers(socketio)
+    social_disconnect = handlers.register_social_handlers(
+        socketio, Matchmaker(lambda *_: None)
+    )
     @socketio.on("disconnect")
     def on_disconnect(*_args):
         social_disconnect(getattr(request, "sid", ""))
@@ -128,7 +131,6 @@ def test_chat_send_sem_identidade_ou_texto_e_ignorado(env):
     anon = connect_api(env)
     ana = connect_api(env, 1)
     assert not anon.is_connected()
-    drain(anon)
     drain(ana)
     ana.emit("chat:send", {"text": "   "})
     assert drain(ana, "chat:message") == []

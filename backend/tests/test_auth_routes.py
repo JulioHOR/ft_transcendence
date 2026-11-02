@@ -196,17 +196,16 @@ def test_login_falha_sempre_401_generico(client, body):
     assert response.get_json() == {"error": "E-mail ou senha não conferem."}
 
 
-def test_me_sem_sessao_401(client):
+def test_me_sem_sessao_204(client):
     response = client.get("/api/me")
-    assert response.status_code == 401
-    assert response.get_json() == {"error": "Você não está logado."}
+    assert response.status_code == 204
 
 
-def test_me_com_sessao_de_usuario_inexistente_401(client):
+def test_me_com_sessao_de_usuario_inexistente_204(client):
     signup(client)
     with client.session_transaction() as session:
         session["user_id"] = 999
-    assert client.get("/api/me").status_code == 401
+    assert client.get("/api/me").status_code == 204
     with client.session_transaction() as session:
         assert "user_id" not in session
 
@@ -214,7 +213,7 @@ def test_me_com_sessao_de_usuario_inexistente_401(client):
 def test_logout_destroi_sessao(client):
     signup(client)
     assert client.post("/api/auth/logout").status_code == 204
-    assert client.get("/api/me").status_code == 401
+    assert client.get("/api/me").status_code == 204
 
 
 def test_cookie_de_sessao_com_flags_de_seguranca(client):

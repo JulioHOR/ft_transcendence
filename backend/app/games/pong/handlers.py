@@ -2,6 +2,7 @@ import math
 from collections.abc import Callable
 
 from flask import request, session
+from social import store as social_store
 from ws_core.matchmaker import (
     AlreadyPlayingError,
     InvalidGameInvitationError,
@@ -130,24 +131,28 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
         for _player_id, sid, _side in matchmaker.players(match):
             socketio.server.enter_room(sid, match.id)
         if invitation_id is not None and invitation is not None:
+            started_event = {
+                "inviteId": invitation_id,
+                "senderId": invitation["senderId"],
+                "recipientId": invitation["recipientId"],
+                "status": "started",
+            }
+            sender_profile = social_store.get_user_profile(started_event["senderId"])
+            if sender_profile is not None:
+                started_event["senderNickname"] = sender_profile[0]
+            recipient_profile = social_store.get_user_profile(
+                started_event["recipientId"]
+            )
+            if recipient_profile is not None:
+                started_event["recipientNickname"] = recipient_profile[0]
             socketio.emit(
                 "chat:game:invite:update",
-                {
-                    "inviteId": invitation_id,
-                    "senderId": invitation["senderId"],
-                    "recipientId": invitation["recipientId"],
-                    "status": "started",
-                },
+                started_event,
                 room=f"user:{invitation['senderId']}",
             )
             socketio.emit(
                 "chat:game:invite:update",
-                {
-                    "inviteId": invitation_id,
-                    "senderId": invitation["senderId"],
-                    "recipientId": invitation["recipientId"],
-                    "status": "started",
-                },
+                started_event,
                 room=f"user:{invitation['recipientId']}",
             )
         emit_countdown(socketio, matchmaker, match)

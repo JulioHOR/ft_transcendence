@@ -1,8 +1,9 @@
 import os
+import time
 import threading
 
 import pytest
-from flask import Flask
+from flask import Flask, request
 from flask_socketio import SocketIO
 
 import social.handlers as social_handlers
@@ -59,10 +60,17 @@ def env(monkeypatch):
     app.config.update(SESSION_COOKIE_OPTIONS)
     socketio = SocketIO(app, async_mode="threading")
     matchmaker = Matchmaker(_make_match)
-    register_pong_handlers(socketio, matchmaker)
+    pong_disconnect = register_pong_handlers(socketio, matchmaker)
     social_disconnect = social_handlers.register_social_handlers(
         socketio, matchmaker
     )
+
+    @socketio.on("disconnect")
+    def on_disconnect() -> None:
+        sid = getattr(request, "sid", "")
+        pong_disconnect(sid)
+        social_disconnect(sid)
+
     yield (app, socketio, matchmaker)
 
     for match in list(matchmaker._match_by_user_id.values()):
@@ -141,3 +149,132 @@ def test_sair_da_fila_durante_espera_de_convite(env):
 
     assert ack == {"status": "left"}
     assert matchmaker.in_queue(sid_ana) is False
+
+
+
+
+def _wait_until(predicate, timeout=2.0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.01)
+    return False
+
+
+def _wait_for(ws, event_name, condition=None, timeout=2.0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        for event in _drain(ws, event_name):
+            if condition is None or condition(event):
+                return event
+        time.sleep(0.01)
+    return None
+
+
+def _parear(env):
+    _app, _socketio, matchmaker = env
+    invite = matchmaker.create_game_invitation(1, 2)
+    assert matchmaker.respond_game_invitation(invite, 2, True)
+    left = _connect(env, 1)
+    right = _connect(env, 2)
+    _drain(left)
+    _drain(right)
+    ack_left = left.emit("queue:join", {"inviteId": invite}, callback=True)
+    ack_right = right.emit("queue:join", {"inviteId": invite}, callback=True)
+    assert ack_left == {"status": "waiting"}
+    assert ack_right == {"status": "matched"}
+    assert _wait_until(lambda: len(matchmaker._match_by_user_id) == 2)
+    match = next(iter(matchmaker._match_by_user_id.values()))
+    return left, right, match, matchmaker
+
+
+def test_input_fora_da_mesa_e_cortado(env):
+    from games.pong.handlers import INPUT_LIMIT
+
+    left, _right, match, _matchmaker = _parear(env)
+    try:
+        left.emit("paddle:input", {"position": 99})
+        assert _wait_until(lambda: match.sim.left_paddle_position == INPUT_LIMIT)
+    finally:
+        match.destroy()
+
+
+def test_input_com_nan_e_ignorado(env):
+    left, _right, match, _matchmaker = _parear(env)
+    try:
+        left.emit("paddle:input", {"position": float("nan")})
+        erro = _wait_for(left, "game:error")
+        assert erro == {"reason": "malformed",
+                        "message": "O movimento precisa ser um número."}
+    finally:
+        match.destroy()
+
+
+def test_leave_antes_do_fim_invalido_e_no_fim_libera(env):
+    left, right, match, matchmaker = _parear(env)
+    try:
+        left.emit("game:leave")
+        assert _wait_for(
+            left, "game:error", lambda event: event.get("reason") == "invalid"
+        ) is not None
+        assert matchmaker.get_match(matchmaker.get_sid_for_user(1)) is match
+
+        match.sim.winner = "left"
+        assert _wait_until(lambda: match.phase == "finished")
+
+        ack = left.emit("game:leave", callback=True)
+        assert ack == {"status": "left"}
+        assert any(
+            payload.get("state") == "opponent_left"
+            for payload in _drain(right, "game:status")
+        )
+        assert _wait_until(lambda: len(matchmaker._match_by_user_id) == 0)
+    finally:
+        match.destroy()
+
+
+def test_desconexao_publica_retomada_e_partida_continua(env):
+    left, right, match, matchmaker = _parear(env)
+    try:
+        left.emit("paddle:input", {"position": 2.0})
+        assert _wait_until(lambda: match.sim.left_paddle_position == 2.0)
+        assert match.phase == "playing"
+
+        left.disconnect()
+        assert _wait_until(lambda: match.phase == "paused")
+        assert any(
+            payload.get("state") == "opponent_disconnected"
+            for payload in _drain(right, "game:status")
+        )
+
+        revived = _connect(env, 1)
+        ack = revived.emit("queue:join", callback=True)
+        assert ack == {"status": "reconnected"}
+        resumo = _wait_for(
+            revived, "game:status",
+            lambda payload: payload.get("state") == "resume_pending",
+        )
+        assert resumo is not None
+        assert revived.emit("game:resume", callback=True) == {"status": "pending"}
+        assert right.emit("game:resume", callback=True) == {"status": "resumed"}
+        assert match.phase == "playing"
+    finally:
+        match.destroy()
+
+
+def test_expiracao_destroi_partida_perdida(env, monkeypatch):
+    _app, socketio, matchmaker = env
+    left, right, match, _matchmaker = _parear(env)
+    monkeypatch.setattr(socketio, "sleep", lambda *_args: None)
+    try:
+        left.disconnect()
+        assert _wait_until(lambda: len(matchmaker._match_by_user_id) == 0)
+        assert any(
+            payload.get("state") == "opponent_left"
+            for payload in _drain(right, "game:status")
+        )
+        later = _connect(env, 1)
+        assert later.emit("queue:join", callback=True) == {"status": "waiting"}
+    finally:
+        match.destroy()

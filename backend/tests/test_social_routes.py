@@ -217,6 +217,14 @@ def test_avatar_sem_sessao_401(client):
     )
     assert response.status_code == 401
 
+def test_avatar_svg_400(client, store):
+    login(client, 1)
+    payload = {"avatarDataUrl": "data:image/svg+xml;base64,PHN2Zy8+"}
+    response = client.post("/api/profile/avatar", json=payload)
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "O avatar deve ser PNG, JPEG, GIF ou WebP."}
+    assert store.avatars == {}
+
 def test_avatar_ok_grava_e_devolve_url_versionada(client, store):
     login(client, 1)
     payload = {"avatarDataUrl": "data:image/png;base64,iVBORw0KGgo="}
@@ -276,6 +284,8 @@ def test_baixa_avatar_com_bytes_e_headers(client, store):
     assert response.status_code == 200
     assert response.mimetype == "image/jpeg"
     assert response.headers["Cache-Control"] == "no-cache"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["Content-Disposition"] == "inline"
 
 def test_baixa_avatar_inexistente_404(client):
     response = client.get("/api/profile/avatar/9")

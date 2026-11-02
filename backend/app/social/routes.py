@@ -24,6 +24,7 @@ UNAUTHENTICATED = "Você não está logado."
 
 AVATAR_MAX_CHARS = 800_000
 AVATAR_DATA_URL_RE = re.compile(r"^data:(image/[\w.+-]+);base64,(.+)$", re.DOTALL)
+ALLOWED_AVATAR_CONTENT_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
 social_bp = Blueprint("social", __name__, description="Perfil, amigos e chat.")
 
@@ -254,6 +255,10 @@ def post_avatar():
             {"error": "avatarDataUrl precisa ser um data URL de imagem em base64 "
                       "(ex.: data:image/png;base64,AAAA)."}
         ), 400
+    if match.group(1) not in ALLOWED_AVATAR_CONTENT_TYPES:
+        return jsonify(
+            {"error": "O avatar deve ser PNG, JPEG, GIF ou WebP."}
+        ), 400
     if len(raw) > AVATAR_MAX_CHARS:
         return jsonify({"error": "O avatar excede o limite de 600 KB."}), 400
     try:
@@ -327,7 +332,11 @@ def get_avatar(user_id: int):
     return Response(
         data,
         mimetype=content_type,
-        headers={"Cache-Control": "no-cache"},
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline",
+        },
     )
 
 @social_bp.get("/api/chat/history")

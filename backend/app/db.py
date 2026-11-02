@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -30,20 +31,41 @@ def db():
     return psycopg2.connect(**_db_kwargs())
 
 
+_pool_lock = threading.Lock()
 _pool: ThreadedConnectionPool | None = None
+
+
+def _rebuild_pool(pool: ThreadedConnectionPool) -> None:
+    global _pool
+    with _pool_lock:
+        pool.closeall()
+        _pool = None
+
+
+def _get_pool() -> ThreadedConnectionPool:
+    global _pool
+    with _pool_lock:
+        if _pool is None:
+            _pool = ThreadedConnectionPool(1, 32, **_db_kwargs())
+        return _pool
 
 
 @contextmanager
 def db_cursor() -> Iterator[psycopg2.extensions.cursor]:
-    global _pool
-    if _pool is None:
-        _pool = ThreadedConnectionPool(1, 8, **_db_kwargs())
-    conn = _pool.getconn()
+    pool = _get_pool()
+    conn = pool.getconn()
     try:
         with conn, conn.cursor() as cur:
             yield cur
-    finally:
-        _pool.putconn(conn)
+    except psycopg2.OperationalError:
+        pool.putconn(conn, close=True)
+        _rebuild_pool(pool)
+        raise
+    except BaseException:
+        pool.putconn(conn)
+        raise
+    else:
+        pool.putconn(conn)
 
 
 def wait_db():
@@ -55,3 +77,15 @@ def wait_db():
         except psycopg2.OperationalError:
             time.sleep(1)
     raise RuntimeError("O banco de dados não ficou pronto a tempo.")
+
+
+def ensure_schema():
+    conn = db()
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
+                "session_version INTEGER NOT NULL DEFAULT 0;"
+            )
+    finally:
+        conn.close()

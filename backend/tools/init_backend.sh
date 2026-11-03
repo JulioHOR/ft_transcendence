@@ -2,7 +2,7 @@
 set -e
 
 echo "Waiting for database..."
-python3 -c "import app; app.wait_db(); app.ensure_schema()"
+python3 -c "import app; import db; app.wait_db(); db.ensure_schema()"
 
 echo "Starting backend (gunicorn, 1 worker) on port ${BACKEND_INTERNAL_PORT}..."
 # 1 worker: o estado das partidas vive em memória do processo.
@@ -12,6 +12,7 @@ exec gunicorn \
     --workers 1 \
     --threads 32 \
     --bind "0.0.0.0:${BACKEND_INTERNAL_PORT}" \
+    --no-control-socket \
     --certfile /run/secrets/backend_tls_certificate \
     --keyfile /run/secrets/backend_tls_key \
     --timeout 0 \

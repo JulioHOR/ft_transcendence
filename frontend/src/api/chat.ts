@@ -114,7 +114,6 @@ function waitForConnection(socket: Socket): Promise<void> {
   });
 }
 
-/** Liga os eventos Socket.IO aos handlers. */
 function attachSocketListeners(socket: Socket, handlers: ChatHandlers): void {
   socket.on("chat:message", (message: ChatMessage) =>
     handlers.onGlobal?.(message),
@@ -128,17 +127,24 @@ function attachSocketListeners(socket: Socket, handlers: ChatHandlers): void {
   socket.on("chat:error", (payload: { message?: string }) => {
     handlers.onError?.(payload?.message ?? "falha no chat");
   });
-  socket.on("chat:private:typing", (event: PrivateTypingEvent) => {
-    handlers.onTyping?.(event);
-  });
-  socket.on("chat:private:read", (event: PrivateReadEvent) => {
-    handlers.onRead?.(event);
-  });
   socket.on("chat:game:invite", (invitation: GameInvitation) => {
     handlers.onGameInvite?.(invitation);
   });
   socket.on("chat:game:invite:update", (invitation: GameInvitation) => {
     handlers.onGameInviteUpdate?.(invitation);
+  });
+  attachChatPresenceListeners(socket, handlers);
+}
+
+function attachChatPresenceListeners(
+  socket: Socket,
+  handlers: ChatHandlers,
+): void {
+  socket.on("chat:private:typing", (event: PrivateTypingEvent) => {
+    handlers.onTyping?.(event);
+  });
+  socket.on("chat:private:read", (event: PrivateReadEvent) => {
+    handlers.onRead?.(event);
   });
 }
 

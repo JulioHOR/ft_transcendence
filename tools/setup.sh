@@ -45,6 +45,7 @@ save_environment_value() {
 
 # Detecta e salva LAN_IP quando não está configurado.
 configure_lan_ip() {
+    save_environment_value "USER_UID" "$(id -u)"
     if [ -z "${LAN_IP:-}" ]; then
         LAN_IP=$(detect_lan_ip)
         if [ -n "${LAN_IP}" ]; then

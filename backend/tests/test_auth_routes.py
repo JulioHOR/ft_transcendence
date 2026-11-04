@@ -110,14 +110,14 @@ def test_signup_email_duplicado_case_insensitive(client):
     assert signup(client).status_code == 201
     conflict = signup(client, email="ALICE@example.com", nickname="bob")
     assert conflict.status_code == 409
-    assert conflict.get_json() == {"error": "email já existe"}
+    assert conflict.get_json() == {"error": "Este e-mail já está cadastrado."}
 
 
 def test_signup_nickname_duplicado(client):
     assert signup(client).status_code == 201
     conflict = signup(client, email="bob@example.com", nickname=SIGNUP_OK["nickname"])
     assert conflict.status_code == 409
-    assert conflict.get_json() == {"error": "nickname já existe"}
+    assert conflict.get_json() == {"error": "Este nickname já está em uso por outro usuário."}
 
 
 def test_signup_corrida_trata_unique_violation(client, store):
@@ -125,7 +125,7 @@ def test_signup_corrida_trata_unique_violation(client, store):
     store.race = True
     conflict = signup(client, nickname="bob")
     assert conflict.status_code == 409
-    assert conflict.get_json() == {"error": "email ou nickname já existe"}
+    assert conflict.get_json() == {"error": "Este e-mail ou nickname já está cadastrado."}
 
 
 @pytest.mark.parametrize(
@@ -193,20 +193,19 @@ def test_login_falha_sempre_401_generico(client, body):
     client.post("/api/auth/logout")
     response = client.post("/api/auth/login", json=body)
     assert response.status_code == 401
-    assert response.get_json() == {"error": "credenciais inválidas"}
+    assert response.get_json() == {"error": "E-mail ou senha não conferem."}
 
 
-def test_me_sem_sessao_401(client):
+def test_me_sem_sessao_204(client):
     response = client.get("/api/me")
-    assert response.status_code == 401
-    assert response.get_json() == {"error": "não autenticado"}
+    assert response.status_code == 204
 
 
-def test_me_com_sessao_de_usuario_inexistente_401(client):
+def test_me_com_sessao_de_usuario_inexistente_204(client):
     signup(client)
     with client.session_transaction() as session:
         session["user_id"] = 999
-    assert client.get("/api/me").status_code == 401
+    assert client.get("/api/me").status_code == 204
     with client.session_transaction() as session:
         assert "user_id" not in session
 
@@ -214,7 +213,7 @@ def test_me_com_sessao_de_usuario_inexistente_401(client):
 def test_logout_destroi_sessao(client):
     signup(client)
     assert client.post("/api/auth/logout").status_code == 204
-    assert client.get("/api/me").status_code == 401
+    assert client.get("/api/me").status_code == 204
 
 
 def test_cookie_de_sessao_com_flags_de_seguranca(client):

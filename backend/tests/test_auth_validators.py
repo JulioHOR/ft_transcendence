@@ -9,7 +9,7 @@ def test_campos_validos_passam():
 
 @pytest.mark.parametrize("email", ["", "alice", "alice@", "@example.com", "alice@example", "a b@example.com", "alice @example.com"])
 def test_email_invalido(email):
-    assert validate_signup(**{**GOOD, "email": email}) == "email inválido"
+    assert validate_signup(**{**GOOD, "email": email}) == "O e-mail informado não é válido."
 
 def test_normaliza_email():
     assert normalize_email("  AliCe@Example.COM ") == "alice@example.com"
@@ -17,13 +17,13 @@ def test_normaliza_email():
 @pytest.mark.parametrize("nickname", ["", "al", "a" * 21])
 def test_nickname_fora_da_faixa(nickname):
     assert validate_signup(**{**GOOD, "nickname": nickname}) == (
-        "nickname deve ter entre 3 e 20 caracteres"
+        "O nickname precisa ter entre 3 e 20 caracteres."
     )
 
 @pytest.mark.parametrize("nickname", ["alice-b", "alice.b", "alice@x", "alice!", "alice b", "alicé"])
 def test_nickname_caractere_invalido(nickname):
     assert validate_signup(**{**GOOD, "nickname": nickname}) == (
-        "nickname aceita apenas letras, números e _"
+        "O nickname só aceita letras, números e _."
     )
 
 @pytest.mark.parametrize("nickname", ["abc", "a_1", "a" * 20])
@@ -33,7 +33,7 @@ def test_nickname_valido(nickname):
 @pytest.mark.parametrize("password", ["", "a" * 7])
 def test_senha_curta(password):
     assert validate_signup(**{**GOOD, "password": password}) == (
-        "senha deve ter pelo menos 8 caracteres"
+        "A senha precisa ter pelo menos 8 caracteres."
     )
 
 def test_senha_no_minimo_exato_passa():

@@ -14,6 +14,10 @@ secrets:
     file: ./secrets/db_password.txt
   flask_secret_key:
     file: ./secrets/flask_secret_key.txt
+  backend_tls_certificate:
+    file: ./secrets/backend.crt
+  backend_tls_key:
+    file: ./secrets/backend.key
 
 services:
   database:
@@ -26,8 +30,10 @@ services:
       - postgres_data:/var/lib/postgresql/data
     secrets:
       - db_password
-    env_file:
-      - .env
+    environment:
+      POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
     restart: unless-stopped
 
   backend:
@@ -39,9 +45,14 @@ services:
     secrets:
       - db_password
       - flask_secret_key
-    env_file:
-      - .env
+      - backend_tls_certificate
+      - backend_tls_key
     environment:
+      API_KEY: ${API_KEY}
+      BACKEND_INTERNAL_PORT: ${BACKEND_INTERNAL_PORT}
+      POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_HOST: database
     depends_on:
       - database
@@ -55,8 +66,13 @@ services:
       - "${FRONT_PUBLIC_PORT}:${FRONTEND_INTERNAL_PORT}"
     networks:
       - ft_transcendence
-    env_file:
-      - .env
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME}
+      FRONTEND_INTERNAL_PORT: ${FRONTEND_INTERNAL_PORT}
+      BACKEND_INTERNAL_PORT: ${BACKEND_INTERNAL_PORT}
+      LAN_IP: ${LAN_IP:-}
+    secrets:
+      - backend_tls_certificate
     depends_on:
       - backend
     restart: unless-stopped

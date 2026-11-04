@@ -1,5 +1,6 @@
 import type { GameSnapshot, Side } from "../protocol";
 import { TABLE, getPaddleX } from "../protocol";
+import { useSmoothedMeshPosition } from "./useSmoothedMeshPosition";
 
 const TABLE_SURFACE_Y = -0.5;
 const TABLE_BORDER_Y = -0.35;
@@ -25,10 +26,10 @@ type Vec3 = [number, number, number];
  * @param snapshot - Estado atual da partida
  * @param side - Lado da paddle
  */
-function getSnapshotPaddleOffset(snapshot: GameSnapshot, side: Side): number {
+function getSnapshotPaddlePosition(snapshot: GameSnapshot, side: Side): number {
   return side === "left"
-    ? snapshot.leftPaddleOffset
-    : snapshot.rightPaddleOffset;
+    ? snapshot.leftPaddlePosition
+    : snapshot.rightPaddlePosition;
 }
 
 /** Superfície da mesa no plano XZ. */
@@ -93,20 +94,21 @@ function TableBorder() {
  * Paddle 3D posicionada em X (comprimento) e Z (largura).
  *
  * @param side - Lado da mesa
- * @param offset - Posição no eixo Z (largura)
+ * @param position - Posição no eixo Z (largura)
  * @param color - Cor do material
  */
 function Paddle({
   side,
-  offset,
+  position,
   color,
 }: {
   side: Side;
-  offset: number;
+  position: number;
   color: string;
 }) {
+  const mesh = useSmoothedMeshPosition([getPaddleX(side), 0, position]);
   return (
-    <mesh position={[getPaddleX(side), 0, offset]}>
+    <mesh ref={mesh}>
       <boxGeometry args={PADDLE_SIZE} />
       <meshStandardMaterial color={color} />
     </mesh>
@@ -144,7 +146,7 @@ export function PongScene({ snapshot }: { snapshot: GameSnapshot }) {
         <Paddle
           key={side}
           side={side}
-          offset={getSnapshotPaddleOffset(snapshot, side)}
+          position={getSnapshotPaddlePosition(snapshot, side)}
           color={color}
         />
       ))}

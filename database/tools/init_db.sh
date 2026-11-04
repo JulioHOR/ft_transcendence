@@ -12,7 +12,7 @@ chmod 700 "${PGDATA}" 2>/dev/null || true
 
 if [ ! -f "${PGDATA}/PG_VERSION" ]; then
     echo "Initializing PostgreSQL data directory..."
-    gosu postgres "${PG_BIN}/initdb" -D "${PGDATA}"
+    gosu postgres "${PG_BIN}/initdb" -D "${PGDATA}" --encoding=UTF8
 
     echo "listen_addresses='*'" >>"${PGDATA}/postgresql.conf"
     echo "port = ${POSTGRES_INTERNAL_PORT}" >>"${PGDATA}/postgresql.conf"

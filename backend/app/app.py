@@ -1,65 +1,82 @@
-
 import os
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, session
 from flask_socketio import SocketIO
+from werkzeug.middleware.proxy_fix import ProxyFix
 
-from auth.routes import SESSION_COOKIE_OPTIONS, auth_bp
-from db import db_cursor, read_secret, wait_db
+from api_key import has_valid_api_key
+from apidocs import init_api
+from auth.routes import SESSION_COOKIE_OPTIONS
+from db import read_secret, wait_db
+from rate_limit import limiter
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 socketio = SocketIO(app, async_mode="threading", cors_allowed_origins=[])
 
 app.secret_key = read_secret("flask_secret_key")
-app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
 app.config.update(SESSION_COOKIE_OPTIONS)
-CONTENT_LIMIT = 1000
+limiter.init_app(app)
 
-app.register_blueprint(auth_bp)
+init_api(app)
+
+SESSIONLESS_API_ENDPOINTS = {"auth.signup", "auth.login", "auth.me"}
+
+
+@app.before_request
+def require_api_access():
+    if not request.path.startswith("/api/"):
+        return None
+    if request.path.startswith("/api/docs") or request.endpoint in SESSIONLESS_API_ENDPOINTS:
+        return None
+    if session.get("user_id") is not None:
+        return None
+    if has_valid_api_key(request.headers.get("X-API-Key")):
+        return None
+    return jsonify({"error": "Informe uma sessão ou uma chave de API válida."}), 401
+
+
+@app.errorhandler(429)
+def request_limit_exceeded(_error):
+    return jsonify({"error": "Muitas requisições. Tente novamente em instantes."}), 429
+
 
 def register_game_routes():
     from games.pong.handlers import register_pong_handlers
     from games.pong.match import PongMatch
+    from games.pong.store import save_match
     from ws_core.matchmaker import Matchmaker
 
-    def match_factory(left_sid, right_sid):
+    def match_factory(left_user_id, right_user_id):
         return PongMatch(
-            left_sid,
-            right_sid,
+            left_user_id,
+            right_user_id,
             broadcast=lambda match_id, event, payload: socketio.emit(
                 event, payload, to=match_id
             ),
+            on_match_finished=save_match,
         )
 
-    register_pong_handlers(socketio, Matchmaker(match_factory))
+    matchmaker = Matchmaker(match_factory)
+    return register_pong_handlers(socketio, matchmaker), matchmaker
 
-register_game_routes()
+
+def register_social_routes(matchmaker):
+    from social.handlers import register_social_handlers
+
+    return register_social_handlers(socketio, matchmaker)
 
 
-@app.get("/api/messages")
-def get_messages():
-    with db_cursor() as cur:
-        cur.execute("SELECT id, content FROM messages ORDER BY id;")
-        rows = [{"id": row[0], "content": row[1]} for row in cur.fetchall()]
-    return jsonify(rows)
+pong_handle_disconnect, pong_matchmaker = register_game_routes()
+social_handle_disconnect = register_social_routes(pong_matchmaker)
 
-@app.post("/api/messages")
-def post_message():
-    content = (request.get_json(silent=True) or {}).get("content", "")
-    if not isinstance(content, str):
-        return jsonify({"error": "content deve ser texto"}), 400
-    if len(content) > CONTENT_LIMIT:
-        return jsonify({"error": "content excede o limite"}), 400
-    with db_cursor() as cur:
-        cur.execute(
-            "INSERT INTO messages (content) VALUES (%s) RETURNING id;",
-            (content,),
-        )
-        row = cur.fetchone()
-        if row is None:
-            raise RuntimeError("INSERT RETURNING sem linha")
-        new_id = row[0]
-    return jsonify({"id": new_id, "content": content}), 201
+
+@socketio.on("disconnect")
+def on_client_disconnect(*_args):
+    sid = getattr(request, "sid", "")
+    pong_handle_disconnect(sid)
+    social_handle_disconnect(sid)
 
 if __name__ == "__main__":
     wait_db()

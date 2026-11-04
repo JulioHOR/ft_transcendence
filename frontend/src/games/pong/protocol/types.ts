@@ -1,51 +1,96 @@
-/**
- * Lado da mesa.
- * `left` = jogador, `right` = oponente.
- */
 export type Side = "left" | "right";
 
-/**
- * Input de paddle enviado pelo cliente ao servidor.
- */
+/** Representa a entrada do jogador para controlar a raquete. */
 export type PaddleInput = {
-  /**
-   * Posição da paddle no eixo Z (largura da mesa).
-   * Centro = 0.
-   */
-  offset: number;
-  /** Número sequencial do input, crescente a cada envio. */
-  sequence: number;
+  /** A posição da raquete na mesa. */
+  position: number;
 };
 
 /**
- * Estado da partida enviado pelo servidor ao cliente para renderização.
- * Eixos iguais aos da TABLE: X = comprimento, Z = largura.
+ * Representa o estado do jogo em um determinado momento.
+ * Contém informações sobre a posição das raquetes, bola, pontuação e vencedor.
  */
 export type GameSnapshot = {
-  /** Posição da paddle esquerda no eixo Z (largura). */
-  leftPaddleOffset: number;
-  /** Posição da paddle direita no eixo Z (largura). */
-  rightPaddleOffset: number;
-  /** Posição da bola: `x` no comprimento, `z` na largura. */
+  leftPaddlePosition: number;
+  rightPaddlePosition: number;
   ball: { x: number; z: number };
   score: { left: number; right: number };
-  /** Vencedor da partida, ou `null` se ainda em andamento. */
   winner: Side | null;
   timestamp: number;
 };
 
+/** Representa o estado atual da partida. */
+export type MatchPhase =
+  | "connecting"
+  | "waiting"
+  | "countdown"
+  | "playing"
+  | "finished"
+  | "resume_pending"
+  | "opponent_left"
+  | "opponent_disconnected"
+  | "error";
+
+export type AcceptanceBySide = { left: boolean; right: boolean };
+
 /**
- * Contrato de comunicação da partida entre cliente e servidor.
+ * Representa o estado atual de uma partida de Pong.
+ * Contém informações sobre a fase do jogo, o lado do jogador, o estado da contagem regressiva,
+ * o estado do rematch, o snapshot do jogo e mensagens de erro.
  */
+export type MatchState = {
+  /** Fase atual da partida (conectando, esperando, contagem regressiva, jogando, finalizado, adversário saiu ou erro). */
+  phase: MatchPhase;
+  /** Lado atual do jogador (esquerdo ou direito). */
+  playerSide: Side | null;
+  /** Indica o momento em que a contagem regressiva do jogo começou. */
+  startsAt: number | null;
+  /** Indica se o jogador aceitou o rematch. */
+  rematchAccepted: AcceptanceBySide;
+  /** Indica se cada lado aceitou retomar a partida. */
+  resumeAccepted: AcceptanceBySide;
+  /** Snapshot atual do jogo, contendo informações sobre a posição das raquetes, bola, pontuação e vencedor. */
+  snapshot: GameSnapshot;
+  /** Mensagem de erro, em caso de algum problema durante a partida. */
+  errorMessage: string | null;
+};
+
+export const EMPTY_SNAPSHOT: GameSnapshot = {
+  leftPaddlePosition: 0,
+  rightPaddlePosition: 0,
+  ball: { x: 0, z: 0 },
+  score: { left: 0, right: 0 },
+  winner: null,
+  timestamp: 0,
+};
+
+/** Cria o estado inicial de uma partida. */
+export function createInitialMatchState(): MatchState {
+  return {
+    phase: "connecting",
+    playerSide: null,
+    startsAt: null,
+    rematchAccepted: { left: false, right: false },
+    resumeAccepted: { left: false, right: false },
+    snapshot: EMPTY_SNAPSHOT,
+    errorMessage: null,
+  };
+}
+
+/** Interface para o transporte de dados da partida. */
 export interface Transport {
-  /** Inicia a conexão / sessão da partida. */
+  /** Conecta ao servidor. */
   connect(): Promise<void>;
-  /** Encerra a conexão / sessão da partida. */
+  /** Desconecta do servidor. */
   disconnect(): void;
-  /** Reinicia placar e posições para uma nova partida. */
-  restart(): void;
-  /** Envia a posição atual da paddle do jogador. */
+  /** Solicita um rematch. */
+  requestRematch(): void;
+  /** Aceita retomar uma partida pausada. */
+  requestResume(): void;
+  /** Encerra uma partida finalizada e libera os jogadores do matchmaking. */
+  requestLeave(): void;
+  /** Envia a entrada do jogador. */
   sendInput(input: PaddleInput): void;
-  /** Define o callback chamado a cada novo estado da partida. */
-  onSnapshot(listener: (snapshot: GameSnapshot) => void): void;
+  /** Registra um listener para atualizações de estado. */
+  onState(listener: (state: MatchState) => void): void;
 }

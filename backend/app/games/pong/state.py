@@ -11,8 +11,8 @@ class SimState:
     ball_z: float = 0.0
     velocity_x: float = 0.0
     velocity_z: float = 0.0
-    left_paddle_offset: float = 0.0
-    right_paddle_offset: float = 0.0
+    left_paddle_position: float = 0.0
+    right_paddle_position: float = 0.0
     left_paddle_velocity: float = 0.0
     right_paddle_velocity: float = 0.0
     last_left_paddle_input_at: float = 0.0
@@ -47,8 +47,8 @@ def is_match_finished(state: SimState) -> bool:
 
 def to_snapshot(state: SimState, timestamp: float) -> dict:
     return {
-        "leftPaddleOffset": state.left_paddle_offset,
-        "rightPaddleOffset": state.right_paddle_offset,
+        "leftPaddlePosition": state.left_paddle_position,
+        "rightPaddlePosition": state.right_paddle_position,
         "ball": {"x": state.ball_x, "z": state.ball_z},
         "score": {"left": state.score_left, "right": state.score_right},
         "winner": state.winner,

@@ -9,19 +9,26 @@ setup:
 up: setup
 	@mkdir -p $(DATA_DIR)
 	$(COMPOSE) up --build -d
+	@. ./.env; \
+	if [ -n "$$LAN_IP" ]; then \
+		echo; \
+		echo "🌐 Aplicacao disponivel em: https://$$LAN_IP:$$FRONT_PUBLIC_PORT"; \
+		echo; \
+	fi
 
 down:
 	$(COMPOSE) down
 
 logs:
-	$(COMPOSE) logs -f
+	$(COMPOSE) logs -f $(SERVICE)
 
 ps:
 	$(COMPOSE) ps
 
-clean:
-	@$(COMPOSE) down -v --rmi all 2>/dev/null || true
-	@sudo rm -rf /home/$(USER)/data/ft_transcendence
+clean: setup
+	@$(COMPOSE) down -v
+	@$(COMPOSE) run --rm --no-deps --build --user root --entrypoint sh database -c 'find /var/lib/postgresql/data -mindepth 1 -delete'
+	@$(COMPOSE) down --rmi all
 
 re: clean up
 

@@ -3,91 +3,121 @@
 set -e
 
 ENV_FILE="./.env"
+ENV_EXAMPLE="./.env.example"
 SECRETS_DIR="./secrets"
 
-if [ ! -f "${ENV_FILE}" ]; then
-    echo "Missing ${ENV_FILE}"
-    exit 1
-fi
+# Prepara o arquivo .env e exporta suas configurações.
+prepare_environment() {
+    if [ ! -f "${ENV_FILE}" ]; then
+        cp "${ENV_EXAMPLE}" "${ENV_FILE}"
+    fi
 
-# shellcheck disable=SC1090
-set -a
-source "${ENV_FILE}"
-set +a
+    # shellcheck disable=SC1090
+    set -a
+    source "${ENV_FILE}"
+    set +a
+}
 
-if [ -z "${DOMAIN_NAME}" ]; then
-    echo "DOMAIN_NAME is not set in ${ENV_FILE}"
-    exit 1
-fi
+# Retorna o IP da rota padrão ou o primeiro IP local disponível.
+detect_lan_ip() {
+    local lan_ip
 
-ensure_secret_readable() {
-    local file_path="$1"
+    lan_ip=$(ip -4 route get 1.1.1.1 2>/dev/null | grep -o 'src [0-9.]*' | cut -d' ' -f2)
 
-    if [ -f "${file_path}" ]; then
-        chmod 644 "${file_path}"
+    if [ -z "${lan_ip}" ]; then
+        lan_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    fi
+
+    printf '%s' "${lan_ip}"
+}
+
+# Salva uma configuração no arquivo .env.
+save_environment_value() {
+    local name="$1"
+    local value="$2"
+
+    if grep -q "^${name}=" "${ENV_FILE}"; then
+        sed -i "s/^${name}=.*/${name}=${value}/" "${ENV_FILE}"
+    else
+        printf '\n%s=%s\n' "${name}" "${value}" >> "${ENV_FILE}"
     fi
 }
 
-ensure_secret_file() {
-    local file_path="$1"
-    local prompt_message="$2"
-    local secret_value
+# Detecta e salva LAN_IP quando não está configurado.
+configure_lan_ip() {
+    if [ -z "${LAN_IP:-}" ]; then
+        LAN_IP=$(detect_lan_ip)
+        if [ -n "${LAN_IP}" ]; then
+            save_environment_value "LAN_IP" "${LAN_IP}"
+            export LAN_IP
+        fi
+    fi
+}
 
-    if [ -s "${file_path}" ]; then
-        ensure_secret_readable "${file_path}"
+# Gera API_KEY quando necessário e confere seu formato.
+ensure_api_key() {
+    if [ -z "${API_KEY:-}" ]; then
+        API_KEY=$(openssl rand -hex 32)
+        save_environment_value "API_KEY" "${API_KEY}"
+        export API_KEY
+    fi
+
+    if [[ "${API_KEY}" =~ ^[a-f0-9]{64}$ ]]; then
         return 0
     fi
 
+    echo "API_KEY deve conter exatamente 64 caracteres hexadecimais." >&2
+    return 1
+}
+
+# Cria as senhas que ainda não existem.
+create_application_secrets() {
     mkdir -p "${SECRETS_DIR}"
 
-    while true; do
-        read -r -s -p "${prompt_message}: " secret_value
-        printf '\n'
-
-        if [ -n "${secret_value}" ]; then
-            printf '%s' "${secret_value}" > "${file_path}"
-            chmod 644 "${file_path}"
-            return 0
+    local secret
+    local file_path
+    for secret in db_password flask_secret_key; do
+        file_path="${SECRETS_DIR}/${secret}.txt"
+        if [ ! -s "${file_path}" ]; then
+            openssl rand -hex 32 > "${file_path}"
         fi
-
-        echo "Value cannot be empty. Try again."
     done
 }
 
-ensure_generated_secret() {
-    local file_path="$1"
+# Cria o certificado interno quando necessário.
+create_backend_certificate() {
+    local certificate="${SECRETS_DIR}/backend.crt"
+    local private_key="${SECRETS_DIR}/backend.key"
 
-    if [ -s "${file_path}" ]; then
-        ensure_secret_readable "${file_path}"
-        return 0
-    fi
-
-    mkdir -p "${SECRETS_DIR}"
-    openssl rand -hex 32 | tr -d '\n' > "${file_path}"
-    chmod 644 "${file_path}"
-    echo "Generated ${file_path}"
-}
-
-ensure_hosts_entry() {
-    local hosts_line="127.0.0.1 ${DOMAIN_NAME}"
-
-    if grep -qE "(^|[[:space:]])${DOMAIN_NAME}([[:space:]]|$)" /etc/hosts; then
-        echo "Domain ${DOMAIN_NAME} already configured in /etc/hosts"
-        return 0
-    fi
-
-    echo "Adding ${DOMAIN_NAME} to /etc/hosts..."
-    if echo "${hosts_line}" | sudo tee -a /etc/hosts > /dev/null; then
-        echo "OK: ${DOMAIN_NAME} added"
-    else
-        echo "ERROR: could not edit /etc/hosts. Run manually:"
-        echo "  echo \"${hosts_line}\" | sudo tee -a /etc/hosts"
-        exit 1
+    if [ ! -s "${certificate}" ] || [ ! -s "${private_key}" ]; then
+        rm -f "${certificate}" "${private_key}"
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout "${private_key}" \
+            -out "${certificate}" \
+            -subj "/CN=backend" \
+            -addext "subjectAltName=DNS:backend" \
+            >/dev/null 2>&1
     fi
 }
 
-ensure_secret_file "${SECRETS_DIR}/db_password.txt" "Enter PostgreSQL password for app user"
-ensure_generated_secret "${SECRETS_DIR}/flask_secret_key.txt"
-ensure_hosts_entry
+# Define as permissões dos arquivos de segredo.
+set_secret_permissions() {
+    chmod 644 "${SECRETS_DIR}/db_password.txt" \
+        "${SECRETS_DIR}/flask_secret_key.txt" \
+        "${SECRETS_DIR}/backend.key" \
+        "${SECRETS_DIR}/backend.crt"
+}
 
-echo "Setup complete."
+# Executa as etapas do setup na ordem necessária.
+main() {
+    prepare_environment
+    configure_lan_ip
+    ensure_api_key
+    create_application_secrets
+    create_backend_certificate
+    set_secret_permissions
+
+    echo "Setup complete."
+}
+
+main "$@"

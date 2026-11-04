@@ -8,6 +8,7 @@ import type { Transport } from "./protocol";
 export type PongGameHandle = {
   /** Monta e inicia a renderização. */
   start(): void;
+  /** Pausa a renderização. */
   stop(): void;
   /** Desmonta a aplicação do elemento. */
   dispose(): void;

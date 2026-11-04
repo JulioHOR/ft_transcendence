@@ -12,13 +12,27 @@ def normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
-def validate_signup(email: str, nickname: str, password: str) -> str | None:
+def validate_email(email: str) -> str | None:
     if not EMAIL_RE.match(normalize_email(email)):
-        return "email inválido"
+        return "O e-mail informado não é válido."
+    return None
+
+
+def validate_nickname(nickname: str) -> str | None:
     if not NICKNAME_MIN <= len(nickname) <= NICKNAME_MAX:
-        return f"nickname deve ter entre {NICKNAME_MIN} e {NICKNAME_MAX} caracteres"
+        return f"O nickname precisa ter entre {NICKNAME_MIN} e {NICKNAME_MAX} caracteres."
     if not NICKNAME_RE.match(nickname):
-        return "nickname aceita apenas letras, números e _"
+        return "O nickname só aceita letras, números e _."
+    return None
+
+
+def validate_signup(email: str, nickname: str, password: str) -> str | None:
+    email_error = validate_email(email)
+    if email_error is not None:
+        return email_error
+    nickname_error = validate_nickname(nickname)
+    if nickname_error is not None:
+        return nickname_error
     if len(password) < PASSWORD_MIN:
-        return f"senha deve ter pelo menos {PASSWORD_MIN} caracteres"
+        return f"A senha precisa ter pelo menos {PASSWORD_MIN} caracteres."
     return None

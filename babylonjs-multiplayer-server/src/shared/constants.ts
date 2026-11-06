@@ -13,3 +13,6 @@ export const RUN_SPEED = 10;
 
 export const GRAVITY = 20;
 export const JUMP_SPEED = 7;
+
+// websocket closed
+export const CLOSE_LOGGED_IN_ELSEWHERE = 4100;

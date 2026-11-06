@@ -22,6 +22,7 @@ import {
   RUN_SPEED,
   GRAVITY,
   JUMP_SPEED,
+  CLOSE_LOGGED_IN_ELSEWHERE,
 } from "../shared/constants.js";
 
 // The glTF loader turns every model 180° around Y to convert it to Babylon's
@@ -60,9 +61,9 @@ if (useCanvas === null) {
   throw new TypeError("useCanvas was null. P.S: It shouldn't!");
 }
 
-// --- Colyseus Client Setup ---
+// BASE_URL is /game/ in the build behind nginx and / in dev.
 const client = new ColyseusSDK<typeof server>(
-  `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`,
+  `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${import.meta.env.BASE_URL}`,
 );
 
 const held = new Set<string>();
@@ -92,15 +93,15 @@ scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.1, 1);
 scene.collisionsEnabled = true;
 
 // input detection
-const inputMap: { [key: string]: boolean } = {}; 
-scene.actionManager = new BABYLON.ActionManager(scene);
+// const inputMap: { [key: string]: boolean } = {}; 
+// scene.actionManager = new BABYLON.ActionManager(scene);
 
-// tracked special inputs
-scene.actionManager.registerAction(
-    new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, (evt) => {
-        inputMap[evt.sourceEvent.key.toLowerCase()] = true;
-    })
-);
+// // tracked special inputs
+// scene.actionManager.registerAction(
+//     new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, (evt) => {
+//         inputMap[evt.sourceEvent.key.toLowerCase()] = true;
+//     })
+// );
 
 
 
@@ -188,6 +189,7 @@ function createGun(
     .rootNodes[0] as BABYLON.TransformNode;
   root.parent = model;
   root.position = GUN_GRIP.negate();
+  pivot.setEnabled(false);
   return pivot;
 }
 
@@ -229,14 +231,16 @@ async function main() {
       console.error(e);
     }
   });
-  const playerName = "Player";
-  const room = await client.joinOrCreate("my_room", {name: playerName});
+  // const playerName = "Player";
+  const room = await client.joinOrCreate("my_room", {});
   // Will amount to something like 10 seconds after Vite is down
   room.reconnection.maxRetries = 5;
 
   initVoice(room);
 
   const predict = Predict.get(room);
+
+
 
   // Interpolate other players smoothly
   predict.attachAll("players", {
@@ -272,6 +276,19 @@ async function main() {
   // 1. Declare your tracking map and callbacks first
   const playerMeshes = new Map<string, BABYLON.AbstractMesh>();
   const playerHeads = new Map<string, BABYLON.TransformNode>();
+  let selfGun: BABYLON.TransformNode | undefined;
+  let selfEquipped = false;
+
+  addEventListener("keydown", (e) => {
+    if (e.repeat) return;
+    if (document.pointerLockElement !== useCanvas) return;
+    if (e.key !== "1" || !selfGun) return;
+
+    selfEquipped = !selfEquipped;
+    selfGun.setEnabled(selfEquipped);
+    room.send("setEquipped", {equipped: selfEquipped});
+  });
+
   const playerTagAnchors = new Map<string, BABYLON.TransformNode>();
   type PlayerAnim = {
     groups: BABYLON.AnimationGroup[];
@@ -381,6 +398,7 @@ async function main() {
     // playerMesh.position.z = player.y; // Map schema Y to 3D Z
     playerMesh.position.y = 0; // model origin is at its feet
 
+    // let gunNode: BABYLON.TransformNode;
     if (isSelf) {
       // Get all child meshes under this root node and hide them for first-person view
       const childMeshes = playerMesh.getChildMeshes();
@@ -406,27 +424,31 @@ async function main() {
       const viewGun = createGun(gunContainer, "gun_self", GUN_SCALE);
       viewGun.parent = camera;
       viewGun.position.copyFrom(VIEWMODEL_OFFSET);
-	  setMeshVisiblity(viewGun, false);
+	    // setMeshVisiblity(viewGun, false);
+      selfGun = viewGun;
     } else {
       // Other players' guns hang from an invisible head that turns with their aim.
       const head = new BABYLON.TransformNode(`head_${sessionId}`, scene);
       const gun = createGun(gunContainer, `gun_${sessionId}`, HELD_GUN_SCALE);
-	  setMeshVisiblity(gun, false);
+	    // setMeshVisiblity(gun, false);
       gun.parent = head;
       gun.position.copyFrom(HELD_GUN_OFFSET);
+      gun.setEnabled(player.equipped);
+      callbacks.listen(player, "equipped", (value) => gun.setEnabled(value));
+      // gunNode = gun;
+
       playerHeads.set(sessionId, head);
-		const tagAnchor = new BABYLON.TransformNode(`tag_${sessionId}`, scene);
-		tagAnchor.parent = null;
-		createNameTag(player.name, tagAnchor);
-		playerTagAnchors.set(sessionId, tagAnchor);
-
-
+      const tagAnchor = new BABYLON.TransformNode(`tag_${sessionId}`, scene);
+      tagAnchor.parent = null;
+      createNameTag(player.name, tagAnchor);
+      playerTagAnchors.set(sessionId, tagAnchor);
 
       callPeer(sessionId).catch((err) => console.error(err));
     }
 
     playerMeshes.set(sessionId, playerMesh);
   });
+
 
   callbacks.onRemove("players", (_player, sessionId) => {
     const mesh = playerMeshes.get(sessionId);
@@ -448,8 +470,8 @@ async function main() {
     removePeer(sessionId);
   });
 
-  room.onLeave(() => {
-    statusEl.textContent = "Disconnected";
+  room.onLeave((code) => {
+    statusEl.textContent = code === CLOSE_LOGGED_IN_ELSEWHERE ? "You joined from another tab or device." : "Disconnected";
     playerMeshes.forEach((mesh) => mesh.dispose());
     playerMeshes.clear();
     playerHeads.forEach((head) => head.dispose());
@@ -506,14 +528,14 @@ async function main() {
         const rawRight = axis(["a", "arrowleft"], ["d", "arrowright"]);
         const yaw = camera.rotation.y;
 
-        scene.onBeforeRenderObservable.add(() => {
-            if (inputMap["1"]) {
-                setMeshVisiblity(gun, true);
-            }
-            if (inputMap["a"]) {
-                // Move left
-            }
-        });
+        // scene.onBeforeRenderObservable.add(() => {
+        //     if (inputMap["1"]) {
+        //         setMeshVisiblity(gun, true);
+        //     }
+        //     if (inputMap["a"]) {
+        //         // Move left
+        //     }
+        // });
         
         // const sin = Math.sin(yaw);
         // const cos = Math.cos(yaw);

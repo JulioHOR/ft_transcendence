@@ -8,9 +8,9 @@ import {
   LobbyRoom,
 } from "colyseus";
 
-/**
- * Import your Room files
- */
+import express from "express";
+import path from "node:path";
+
 import { MyRoom } from "./rooms/MyRoom.js";
 
 const server = defineServer({
@@ -40,6 +40,11 @@ const server = defineServer({
    * Read more: https://expressjs.com/en/starter/basic-routing.html
    */
   express: (app) => {
+    // fix paths for our two different envs, dev and prod.
+    if (process.env.NODE_ENV === "production") {
+      app.use(express.static(path.resolve("dist/client")));
+    }
+
     app.get("/hi", (req, res) => {
       res.send("It's time to kick ass and chew bubblegum!");
     });

@@ -1,9 +1,12 @@
-import { Room, Client, CloseCode, type StepContext } from "colyseus";
+import { Room, type Client, CloseCode, type StepContext, type AuthContext } from "colyseus";
+import { authenticate, type GameUser } from "./auth.js";
 import { MyRoomState, Player, MoveInput } from "./schema/MyRoomState.js";
 import { stepEntity } from "../shared/movement.js";
-import { TICK_RATE, ARENA_WIDTH, ARENA_HEIGHT } from "../shared/constants.js";
+import { TICK_RATE, ARENA_WIDTH, ARENA_HEIGHT, CLOSE_LOGGED_IN_ELSEWHERE } from "../shared/constants.js";
 
-export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput }> {
+type GameClient = Client<{ auth: GameUser}>;
+
+export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput; client: GameClient }> {
   maxClients = 8;
   state = new MyRoomState();
 
@@ -23,6 +26,10 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput }> {
     // movement arrives through the input buffer above — register handlers here
     // only for things that are not inputs (chat, emotes, …).
   };
+
+  static async onAuth(_token: string, _options: unknown, context: AuthContext) {
+    return authenticate(context);
+  }
 
   onCreate(options: any) {
     this.setFixedTimestep((ctx) => this.step(ctx), TICK_RATE);
@@ -49,6 +56,13 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput }> {
       }
     });
 
+    this.onMessage("setEquipped", (client, data) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player && typeof data?.equipped === "boolean") {
+        player.equipped = data.equipped;
+      }
+    });
+
     this.onMessage("signal", (client, data) => {
       const connectionToOtherPlayer = this.clients.get(data.to);
       if (connectionToOtherPlayer) {
@@ -60,15 +74,23 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput }> {
     });
   }
 
-  onJoin(client: Client, options: any) {
-    console.log(client.sessionId, "joined!");
+  onJoin(client: GameClient, options: any) {
+    const user = client.auth!;
+    console.log(client.sessionId, "joined as", user.nickname, `(#${user.id})`);
+
+    //same account, different tab
+    for (const other of this.clients) {
+      if (other !== client && other.auth?.id === user.id) {
+        other.leave(CLOSE_LOGGED_IN_ELSEWHERE);
+      }
+    }
 
     // Deterministic spawn ring, so two players never start on top of each other.
     const angle = this.joinCount++ * 2.399963;
     this.state.players.set(
       client.sessionId,
       new Player({
-		name: String(options?.name ?? "Player").slice(0, 16),
+		    name: user.nickname,
         x: ARENA_WIDTH / 2 + Math.cos(angle) * 1,
         y: ARENA_HEIGHT / 2 + Math.sin(angle) * 1,
         height: 0,
@@ -76,11 +98,12 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput }> {
         vy: 0,
         yaw: 0,
         pitch: 0,
+        equipped: false,
       }),
     );
   }
 
-  onLeave(client: Client, code: CloseCode) {
+  onLeave(client: GameClient, code: CloseCode) {
     console.log(client.sessionId, "left!", code);
     this.state.players.delete(client.sessionId);
   }
@@ -112,7 +135,8 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput }> {
    * suspended tab, a tunnel change. Holding the seat lets the SDK retry into the
    * same session, so the player keeps their entity and their place in the room.
    */
-  onDrop(client: Client, code: CloseCode) {
+  onDrop(client: GameClient, code: number) {
+    if (code === CLOSE_LOGGED_IN_ELSEWHERE) return;
     // Deliberately not awaited: the framework routes the outcome to onReconnect()
     // or onLeave() by itself. The catch is only here because the promise also
     // rejects when the room is already disposing (server shutdown), which would
@@ -120,7 +144,7 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput }> {
     this.allowReconnection(client, 30).catch(() => {});
   }
 
-  onReconnect(client: Client) {
+  onReconnect(client: GameClient) {
     console.log(client.sessionId, "reconnected!");
   }
 }

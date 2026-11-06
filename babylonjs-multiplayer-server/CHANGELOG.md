@@ -5,6 +5,89 @@ in one push. It lists the commit titles it covers, so every change can still be
 found in `git log`, and describes each change once, however many commits it
 took. Older sections, written one per commit, are kept as they were.
 
+## Gun toggle, dashboard login in the game, game in Docker
+
+**Date:** 2026-11-05 · **Author:** Fred
+
+**Commits:** `feat: gun toggle, dashboard login and docker service for the game`
+
+- **Key 1 shows and hides the AK, for everyone**
+
+  `Player` has a new `equipped` boolean. Pressing 1 (with the mouse locked,
+  holding the key counts once) shows or hides your own gun at once and sends
+  `setEquipped` with the value you want, not a toggle, so client and server
+  can't drift apart. The server checks it's a real boolean and stores it.
+  Other players' guns follow `equipped` through `callbacks.listen`, and a
+  player who joins late sees the right state. Your own gun ignores the server
+  echo, otherwise pressing 1 twice quickly could flash it back on. Guns are
+  hidden with `setEnabled` on the gun's pivot, which also takes them out of
+  raycasts, and they start disabled in `createGun`. The old `inputMap` and the
+  observer that was added every frame are gone.
+
+- **Your name comes from the dashboard login**
+
+  The client no longer sends a name. The new static `onAuth` in `MyRoom`
+  (logic in `src/rooms/auth.ts`) takes the browser's dashboard session cookie
+  and asks the backend `GET /api/me` who it belongs to. The answer
+  (`{ id, nickname }`) becomes `client.auth`, and the name tag uses the
+  nickname. No session means the join is refused. Flask stays the only one that
+  understands sessions: the game holds no secret and never reads the database.
+  The `id` is kept on the server for later features (friends, stats, invites)
+  but isn't synced to clients.
+
+- **Without Docker, you play as a guest**
+
+  When `NODE_ENV` isn't `production` and there is no cookie, or the backend
+  can't be reached, you join as `dev_1234` with a negative id, so `npm start`
+  works on its own. Production stays strict.
+
+- **Same account twice: the newest connection wins**
+
+  When an account joins a room it is already in (another tab, another PC), the
+  older connection is closed with code `4100` (`CLOSE_LOGGED_IN_ELSEWHERE` in
+  `src/shared/constants.ts`) and its page says why. Colyseus uses 4000–4099
+  itself, and 4001 is its "server shutdown". Every close code except 4000 goes
+  to `onDrop`, which holds the seat for 30 seconds, so `onDrop` lets 4100
+  through to `onLeave` straight away. Otherwise the kicked player would stand
+  in the room for half a minute.
+
+- **The game runs in docker compose, behind the dashboard's nginx at `/game/`**
+
+  - New `Dockerfile` (two stages: build with everything, then run with
+    production dependencies only, as the `node` user) and `.dockerignore`. The
+    build image needs `git`, because `npm ci` fetches `uWebSockets.js` from
+    GitHub.
+  - New `game` service in `docker-compose.yml`, with no published port. It
+    gets the backend's certificate as a secret, and `NODE_EXTRA_CA_CERTS`
+    makes Node trust it for the `/api/me` call.
+  - nginx sends `/game/` to `game:2567` (the Colyseus Vite plugin fixes the
+    port) and redirects `/game` to `/game/`, since the relative model paths
+    need the slash. When `proxy_pass` uses a variable, nginx stops stripping
+    the prefix, so a `rewrite` does it.
+  - The production build uses `base: "/game/"`, the SDK connects through
+    `import.meta.env.BASE_URL` (`/` in dev), and in production the game server
+    serves the built client itself with `express.static`, since nothing else
+    does.
+
+- **Next steps**
+
+  - Run the real flow with `make up`. Log in on the dashboard, open
+    `https://localhost/game/` and check your nickname shows. Open a second tab
+    with the same login: the first one should be kicked. Log out and reload:
+    the join should be refused. If something fails,
+    `make logs SERVICE=game` shows a `dashboard auth failed:` line with the
+    reason. This is the first time the real `https://backend` call runs; tests
+    only covered it with a fake backend.
+  - Add a link to the game in the dashboard: a plain `<a href="/game/">`, not
+    a router `<Link>`, because the game isn't part of the React app.
+  - The backend allows 120 requests a minute per IP, and every `/api/me` check
+    comes from the game container's IP. That's fine with 8 players a room. If
+    it ever matters, forward the player's IP (`context.ip`) as
+    `X-Forwarded-For` on that call. The backend's `ProxyFix` already trusts one
+    hop.
+  - Traffic between nginx and the game is plain HTTP inside the Docker
+    network, while the backend uses TLS. Confirm the team is fine with that.
+
 ## Wall climbing, voice cleanup on disconnect
 
 **Date:** 2026-10-17 · **Author:** Julio

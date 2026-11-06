@@ -1,7 +1,8 @@
 import { defineConfig } from "vite";
 import { colyseus } from "colyseus/vite";
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode, command }) => ({
+  base: command === "build" ? "/game/" : "/",
   build: { outDir: "dist/client" },
   plugins: [
     // The plugin declares a second build environment (dist/server), so every

@@ -1,4 +1,3 @@
-import * as BABYLON from "@babylonjs/core";
 import "@babylonjs/loaders";
 import {
 	startMic,
@@ -14,28 +13,12 @@ import { Predict } from "@colyseus/sdk/predict";
 import type { default as server } from "../app.config.js";
 import type { MoveInput } from "../rooms/schema/MyRoomState.js";
 import { stepEntity } from "../shared/movement.js";
-import {
-	PLAYER_SPEED,
-	RUN_SPEED,
-	GRAVITY,
-	JUMP_SPEED,
-	CLOSE_LOGGED_IN_ELSEWHERE,
-} from "../shared/constants.js";
-
-import {
-	MODEL_YAW_OFFSET,
-	CHARACTER_HEIGHT,
-	CHARACTER_RADIUS,
-	EYE_HEIGHT,
-	GUN_SCALE,
-	VIEWMODEL_OFFSET,
-} from "./config.js";
-
-import {createGun} from "./gun.js";
+import {CLOSE_LOGGED_IN_ELSEWHERE} from "../shared/constants.js";
 import {createScene} from "./sceneSetup.js";
 import {loadAssets} from "./assets.js";
 import {loadLevel} from "./level.js";
 import {RemotePlayer} from "./remotePlayer.js";
+import {LocalPlayer} from "./localPlayer.js";
 
 // --- DOM & Status Elements ---
 const statusEl = document.getElementById("status")!;
@@ -51,20 +34,6 @@ if (canvas === null) {
 const client = new ColyseusSDK<typeof server>(
 	`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${import.meta.env.BASE_URL}`,
 );
-
-const held = new Set<string>();
-addEventListener("keydown", (e) => held.add(e.key.toLowerCase()));
-addEventListener("keyup", (e) => held.delete(e.key.toLowerCase()));
-
-// Opposite keys cancel out, so the axis is always exactly -1, 0 or 1.
-function axis(negative: string[], positive: string[]): -1 | 0 | 1 {
-	const back = negative.some((k) => held.has(k));
-	const forward = positive.some((k) => held.has(k));
-	if (back === forward) {
-		return 0;
-	}
-		return back ? -1 : 1;
-}
 
 const { engine, scene, camera } = createScene(canvas);
 
@@ -119,22 +88,16 @@ async function main() {
 		statusEl.textContent = `Connected as ${room.sessionId}`;
 	}
 
-	// 1. Declare your tracking map and callbacks first
-	let selfGun: BABYLON.TransformNode | undefined;
-	let selfEquipped = false;
 	const remotePlayers = new Map<string, RemotePlayer>();
-	let localMesh: BABYLON.AbstractMesh | undefined;
-	let localEntries: BABYLON.InstantiatedEntries | undefined;
+	let local: LocalPlayer | undefined;
 
 	addEventListener("keydown", (e) => {
-		if (e.repeat) return;
-		if (document.pointerLockElement !== canvas) return;
-		if (e.key !== "1" || !selfGun) return;
+		if (e.repeat || e.key !== "1") return;
+		if (document.pointerLockElement !== canvas || !local) return;
 
-		selfEquipped = !selfEquipped;
-		selfGun.setEnabled(selfEquipped);
-		room.send("setEquipped", {equipped: selfEquipped});
+		room.send("setEquipped", { equipped: local.toggleGun() });
 	});
+
 
 
 	const callbacks = Callbacks.get(room);
@@ -142,40 +105,17 @@ async function main() {
 	const assets = await loadAssets(scene);
 
 	callbacks.onAdd("players", (player, sessionId) => {
-		if (sessionId !== room.sessionId) {
-			const remote = new RemotePlayer(scene, assets, sessionId, player);
-			callbacks.listen(player, "equipped", (value) => remote.setEquipped(value));
-			remotePlayers.set(sessionId, remote);
-
-			callPeer(sessionId).catch((err) => console.error(err));
+		if (sessionId === room.sessionId) {
+			local = new LocalPlayer(scene, camera, assets, sessionId);
 			return;
 		}
 
-		// local player: first person, so the body is invisible and only collides
-		const entries = assets.character.instantiateModelsToScene();
-		const mesh = entries.rootNodes[0] as BABYLON.AbstractMesh;
-		mesh.name = `player_${sessionId}`;
-		mesh.rotationQuaternion = null; // see RemotePlayer: the loader's 180° turn
-		mesh.rotation.y = MODEL_YAW_OFFSET;
-		mesh.position.y = 0; // model origin is at its feet
-		mesh.getChildMeshes().forEach((m) => (m.isVisible = false));
+		const remote = new RemotePlayer(scene, assets, sessionId, player);
+		callbacks.listen(player, "equipped", (value) => remote.setEquipped(value));
+		remotePlayers.set(sessionId, remote);
 
-		// collision capsule
-		mesh.ellipsoid = new BABYLON.Vector3(CHARACTER_RADIUS, CHARACTER_HEIGHT / 2, CHARACTER_RADIUS);
-		mesh.ellipsoidOffset = new BABYLON.Vector3(0, CHARACTER_HEIGHT / 2, 0);
-		camera.position.y = mesh.position.y + EYE_HEIGHT;
-
-		// local gun rides on the camera
-		const viewGun = createGun(scene, assets.gun, "gun_self", GUN_SCALE);
-		viewGun.parent = camera;
-		viewGun.position.copyFrom(VIEWMODEL_OFFSET);
-		selfGun = viewGun;
-
-		localEntries = entries;
-		localMesh = mesh;
+		callPeer(sessionId).catch((err) => console.error(err));
 	});
-
-
 
 	callbacks.onRemove("players", (_player, sessionId) => {
 		remotePlayers.get(sessionId)?.dispose();
@@ -187,122 +127,41 @@ async function main() {
 		statusEl.textContent = code === CLOSE_LOGGED_IN_ELSEWHERE ? "You joined from another tab or device." : "Disconnected";
 		remotePlayers.forEach((p) => p.dispose());
 		remotePlayers.clear();
-		localEntries?.dispose();
-		localEntries = undefined;
-		localMesh = undefined;
+		local?.dispose();
+		local = undefined;
 
 		removeAllVoiceConnections();
 	});
 
 	await loadLevel(scene);
 
-	let velocityY = 0;
 	// --- Main Game Loop (Integrated with Babylon Render Loop) ---
 	engine.runRenderLoop(() => {
-		const now = performance.now();
-
 		// Drives prediction, interpolation, and the reconciler
-		const steps = predict.tick(now);
+		predict.tick(performance.now());
+
+		if (local) {
+			room.send("updatePosition", local.update(engine.getDeltaTime() / 1000));
+		}
 
 		for (const [sessionId, player] of room.state.players) {
-		if (sessionId === room.sessionId) {
-			const mesh = localMesh;
-			if (!mesh) {
+			if (sessionId === room.sessionId) {
 				continue;
 			}
-			// 1. Calculate input movement delta based on keys & camera yaw
-			const rawForward = axis(["s", "arrowdown"], ["w", "arrowup"]);
-			const rawRight = axis(["a", "arrowleft"], ["d", "arrowright"]);
-			const yaw = camera.rotation.y;
-			
-			const deltaTime = engine.getDeltaTime() / 1000;
-
-			const speed = held.has("shift") ? RUN_SPEED : PLAYER_SPEED;
-
-			const moveX =
-			(rawForward * Math.sin(yaw) + rawRight * Math.cos(yaw)) *
-			speed *
-			deltaTime;
-			const moveZ =
-			(rawForward * Math.cos(yaw) - rawRight * Math.sin(yaw)) *
-			speed *
-			deltaTime;
-
-			const groundRay = new BABYLON.Ray(
-			mesh.position.add(new BABYLON.Vector3(0, 0.1, 0)),
-			new BABYLON.Vector3(0, -1, 0),
-			0.2,
-			);
-			const groundHit: BABYLON.Nullable<BABYLON.PickingInfo> =
-			scene.pickWithRay(groundRay, (m) => m.checkCollisions);
-
-			const bodyCenter = mesh.position.add(
-			new BABYLON.Vector3(0, CHARACTER_HEIGHT / 2, 0),
-			);
-			const facing = new BABYLON.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
-			const frontHit = scene.pickWithRay(
-			new BABYLON.Ray(bodyCenter, facing, CHARACTER_RADIUS + 0.2),
-			(m) => m.checkCollisions,
-			);
-			const backHit = scene.pickWithRay(
-			new BABYLON.Ray(bodyCenter, facing.negate(), CHARACTER_RADIUS + 0.2),
-			(m) => m.checkCollisions,
-			);
-
-			const againstWall: boolean = frontHit?.hit === true || backHit?.hit === true;
-
-			const groundY = groundHit?.pickedPoint?.y;
-			const grounded = groundY !== undefined && velocityY <= 0;
-
-			if (grounded) {
-				velocityY = 0;
-				mesh.position.y = groundY;
-			} else {
-				velocityY -= GRAVITY * deltaTime;
+			const remote = remotePlayers.get(sessionId);
+			if (!remote) {
+				continue;
 			}
+			// remote players update from server state interpolation
+			const x = predict.value(player, "x");
+			const z = predict.value(player, "y");
+			const height = predict.value(player, "height");
+			remote.update(x, z, height, player.yaw, player.pitch);
 
-			if (held.has(" ") && (grounded || againstWall)) {
-				velocityY = JUMP_SPEED;
-			}
-
-			// 2. Apply Babylon's native mesh collision sliding
-			const displacement = new BABYLON.Vector3(
-				moveX,
-				velocityY * deltaTime,
-				moveZ,
-			);
-			mesh.moveWithCollisions(displacement);
-
-			// 3. Lock camera to the collision-safe mesh position
-			camera.position.x = mesh.position.x;
-			camera.position.z = mesh.position.z;
-			camera.position.y = mesh.position.y + EYE_HEIGHT;
-
-			// 4. Send your *actual* collision-checked position to the server
-			// On the server, y is Babylon's z, and Babylon's y is our 'height'
-			room.send("updatePosition", {
-				x: mesh.position.x,
-				y: mesh.position.z,
-				height: mesh.position.y,
-				yaw: camera.rotation.y,
-				pitch: camera.rotation.x,
-			});
-			} else {
-				const remote = remotePlayers.get(sessionId);
-				if (!remote) {
-					continue;
-				}
-				// remote players update from server state interpolation
-				const x = predict.value(player, "x");
-				const z = predict.value(player, "y");
-				const height = predict.value(player, "height");
-				remote.update(x, z, height, player.yaw, player.pitch);
-
-				setPeerDistance(sessionId, Math.hypot(x - camera.position.x, z - camera.position.z));
-			}
+			setPeerDistance(sessionId, Math.hypot(x - camera.position.x, z - camera.position.z));
 		}
-    scene.render();
-  });
+		scene.render();
+	});
 }
 
 main().catch((e) => {

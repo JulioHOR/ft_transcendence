@@ -6,6 +6,7 @@ import {
   createRouter,
   createEndpoint,
   LobbyRoom,
+  matchMaker,
 } from "colyseus";
 
 import express from "express";
@@ -20,6 +21,10 @@ const server = defineServer({
   rooms: {
     my_room: defineRoom(MyRoom).enableRealtimeListing(),
     lobby: defineRoom(LobbyRoom),
+  },
+
+  beforeListen: async() => {
+	await matchMaker.createRoom("my_room", {});
   },
 
   /**

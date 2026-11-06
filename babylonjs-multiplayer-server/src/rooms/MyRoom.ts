@@ -33,6 +33,8 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput; client:
 
   onCreate(options: any) {
     this.setFixedTimestep((ctx) => this.step(ctx), TICK_RATE);
+	this.autoDispose = false; // prevents closing an empty room
+	console.log("room created", this.roomId);
 
     // Accept client-authoritative position updates from Babylon collisions
     this.onMessage("updatePosition", (client, data) => {

@@ -39,24 +39,29 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput; client:
     // Accept client-authoritative position updates from Babylon collisions
     this.onMessage("updatePosition", (client, data) => {
       const player = this.state.players.get(client.sessionId);
-      if (player) {
-        // Optional safety check: ensure the client isn't teleporting across the map instantly
-        player.x = data.x;
-        player.y = data.y; // maps to schema Y (3D Z plane)
+      if (player && data) {
+		// the client is authoritative on its position.
+		if (Number.isFinite(data.x)) {
+			player.x = data.x;
+		}
 
-        if (Number.isFinite(data.yaw)) {
-          player.yaw = data.yaw;
-        }
+		if (Number.isFinite(data.y)) {
+			player.y = data.y; // maps to schema Y (3D Z plane)
+		}	
 
-        if (Number.isFinite(data.pitch)) {
-          player.pitch = data.pitch;
-        }
+		if (Number.isFinite(data.yaw)) {
+		player.yaw = data.yaw;
+		}
 
-        if (Number.isFinite(data.height)) {
-          player.height = data.height;
-        }
-      }
-    });
+		if (Number.isFinite(data.pitch)) {
+		player.pitch = data.pitch;
+		}
+
+		if (Number.isFinite(data.height)) {
+		player.height = data.height;
+		}
+	}
+	});
 
     this.onMessage("setEquipped", (client, data) => {
       const player = this.state.players.get(client.sessionId);
@@ -65,15 +70,24 @@ export class MyRoom extends Room<{ state: MyRoomState; input: MoveInput; client:
       }
     });
 
-    this.onMessage("signal", (client, data) => {
-      const connectionToOtherPlayer = this.clients.get(data.to);
-      if (connectionToOtherPlayer) {
-        connectionToOtherPlayer.send("signal", {
-          from: client.sessionId,
-          data: data.data,
-        });
-      }
+	this.onMessage("signal", (client, data) => {
+      if (typeof data?.to !== "string") return;
+      this.clients.get(data.to)?.send("signal", {
+        from: client.sessionId,
+        data: data.data,
+      });
     });
+
+
+    // this.onMessage("signal", (client, data) => {
+    //   const connectionToOtherPlayer = this.clients.get(data.to);
+    //   if (connectionToOtherPlayer) {
+    //     connectionToOtherPlayer.send("signal", {
+    //       from: client.sessionId,
+    //       data: data.data,
+    //     });
+    //   }
+    // });
   }
 
   onJoin(client: GameClient, options: any) {

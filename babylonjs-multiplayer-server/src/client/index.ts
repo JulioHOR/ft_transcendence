@@ -38,12 +38,13 @@ import {
 
 import {createGun} from "./gun.js";
 import {createNameTag} from "./nameTag.js";
+import {createScene} from "./sceneSetup.js";
 
 // --- DOM & Status Elements ---
 const statusEl = document.getElementById("status")!;
 const canvas = document.getElementById(
   "threejs_canvas",
-) as HTMLCanvasElement;
+) as HTMLCanvasElement | null;
 
 if (canvas === null) {
   throw new TypeError("canvas was null. P.S: It shouldn't!");
@@ -63,78 +64,80 @@ function axis(negative: string[], positive: string[]): -1 | 0 | 1 {
 	const back = negative.some((k) => held.has(k));
 	const forward = positive.some((k) => held.has(k));
 	if (back === forward) {
-	return 0;
+		return 0;
 	}
-	return back ? -1 : 1;
+		return back ? -1 : 1;
 }
 
-// --- Babylon.js Main Init ---
-const engine = new BABYLON.Engine(canvas, true, {
-	preserveDrawingBuffer: true,
-	stencil: true,
-});
-const scene = new BABYLON.Scene(engine);
-scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.1, 1);
+const { engine, scene, camera } = createScene(canvas);
 
-// Enable collision engine
-scene.collisionsEnabled = true;
+// // --- Babylon.js Main Init ---
+// const engine = new BABYLON.Engine(canvas, true, {
+// 	preserveDrawingBuffer: true,
+// 	stencil: true,
+// });
+// const scene = new BABYLON.Scene(engine);
+// scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.1, 1);
 
-// Camera Setup (Universal Camera for 3D navigation)
-const camera = new BABYLON.UniversalCamera(
-	"fpsCamera",
-	new BABYLON.Vector3(0, 5, -10),
-	scene,
-);
-camera.minZ = 0.01; 
-camera.maxZ = 1000;
-camera.fov = 70 * (Math.PI / 180);
-camera.inertia = 0;
-// mouse sensitivity (lower number = more sensitive)
-camera.angularSensibility = 200;
+// // Enable collision engine
+// scene.collisionsEnabled = true;
 
-// disable camera controls on keys to avoid conflicts with Colyseus input
-camera.keysUp = [];
-camera.keysDown = [];
-camera.keysLeft = [];
-camera.keysRight = [];
+// // Camera Setup (Universal Camera for 3D navigation)
+// const camera = new BABYLON.UniversalCamera(
+// 	"fpsCamera",
+// 	new BABYLON.Vector3(0, 5, -10),
+// 	scene,
+// );
+// camera.minZ = 0.01; 
+// camera.maxZ = 1000;
+// camera.fov = 70 * (Math.PI / 180);
+// camera.inertia = 0;
+// // mouse sensitivity (lower number = more sensitive)
+// camera.angularSensibility = 200;
 
-// --- Pointer Lock Handling ---
-canvas.addEventListener("click", () => {
-	canvas.requestPointerLock();	
-});
+// // disable camera controls on keys to avoid conflicts with Colyseus input
+// camera.keysUp = [];
+// camera.keysDown = [];
+// camera.keysLeft = [];
+// camera.keysRight = [];
 
-document.addEventListener("pointerlockchange", () => {
-	const isLocked = document.pointerLockElement === canvas;
-	if (isLocked) {
-	camera.attachControl(canvas, true);
-	} else {
-	camera.detachControl();
-	}
-});
+// // --- Pointer Lock Handling ---
+// canvas.addEventListener("click", () => {
+// 	canvas.requestPointerLock();	
+// });
 
-// window Resize Handling
-window.addEventListener("resize", () => {
-	engine.resize();
-});
+// document.addEventListener("pointerlockchange", () => {
+// 	const isLocked = document.pointerLockElement === canvas;
+// 	if (isLocked) {
+// 	camera.attachControl(canvas, true);
+// 	} else {
+// 	camera.detachControl();
+// 	}
+// });
 
-// --- Light & Environment ---
-const light = new BABYLON.HemisphericLight(
-	"light",
-	new BABYLON.Vector3(0, 1, 0),
-	scene,
-);
-light.intensity = 2.0;
+// // window Resize Handling
+// window.addEventListener("resize", () => {
+// 	engine.resize();
+// });
 
-// --- Ground Floor Placeholder ---
-const floor = BABYLON.MeshBuilder.CreatePlane("floor", { size: 1000 }, scene);
-floor.rotation.x = Math.PI / 2;
+// // --- Light & Environment ---
+// const light = new BABYLON.HemisphericLight(
+// 	"light",
+// 	new BABYLON.Vector3(0, 1, 0),
+// 	scene,
+// );
+// light.intensity = 2.0;
 
-const floorMat = new BABYLON.StandardMaterial("floorMat", scene);
-floorMat.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-floorMat.backFaceCulling = false;
+// // --- Ground Floor Placeholder ---
+// const floor = BABYLON.MeshBuilder.CreatePlane("floor", { size: 1000 }, scene);
+// floor.rotation.x = Math.PI / 2;
 
-floor.material = floorMat;
-floor.checkCollisions = true;
+// const floorMat = new BABYLON.StandardMaterial("floorMat", scene);
+// floorMat.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+// floorMat.backFaceCulling = false;
+
+// floor.material = floorMat;
+// floor.checkCollisions = true;
 
 async function main() {
 	let micTurnedOffWarning: boolean = false as boolean;

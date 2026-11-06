@@ -1,5 +1,4 @@
 import * as BABYLON from "@babylonjs/core";
-import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import "@babylonjs/loaders";
 import {
 	startMic,
@@ -39,6 +38,8 @@ import {
 import {createGun} from "./gun.js";
 import {createNameTag} from "./nameTag.js";
 import {createScene} from "./sceneSetup.js";
+import {loadAssets, type Clip} from "./assets.js";
+import {loadLevel} from "./level.js";
 
 // --- DOM & Status Elements ---
 const statusEl = document.getElementById("status")!;
@@ -70,74 +71,6 @@ function axis(negative: string[], positive: string[]): -1 | 0 | 1 {
 }
 
 const { engine, scene, camera } = createScene(canvas);
-
-// // --- Babylon.js Main Init ---
-// const engine = new BABYLON.Engine(canvas, true, {
-// 	preserveDrawingBuffer: true,
-// 	stencil: true,
-// });
-// const scene = new BABYLON.Scene(engine);
-// scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.1, 1);
-
-// // Enable collision engine
-// scene.collisionsEnabled = true;
-
-// // Camera Setup (Universal Camera for 3D navigation)
-// const camera = new BABYLON.UniversalCamera(
-// 	"fpsCamera",
-// 	new BABYLON.Vector3(0, 5, -10),
-// 	scene,
-// );
-// camera.minZ = 0.01; 
-// camera.maxZ = 1000;
-// camera.fov = 70 * (Math.PI / 180);
-// camera.inertia = 0;
-// // mouse sensitivity (lower number = more sensitive)
-// camera.angularSensibility = 200;
-
-// // disable camera controls on keys to avoid conflicts with Colyseus input
-// camera.keysUp = [];
-// camera.keysDown = [];
-// camera.keysLeft = [];
-// camera.keysRight = [];
-
-// // --- Pointer Lock Handling ---
-// canvas.addEventListener("click", () => {
-// 	canvas.requestPointerLock();	
-// });
-
-// document.addEventListener("pointerlockchange", () => {
-// 	const isLocked = document.pointerLockElement === canvas;
-// 	if (isLocked) {
-// 	camera.attachControl(canvas, true);
-// 	} else {
-// 	camera.detachControl();
-// 	}
-// });
-
-// // window Resize Handling
-// window.addEventListener("resize", () => {
-// 	engine.resize();
-// });
-
-// // --- Light & Environment ---
-// const light = new BABYLON.HemisphericLight(
-// 	"light",
-// 	new BABYLON.Vector3(0, 1, 0),
-// 	scene,
-// );
-// light.intensity = 2.0;
-
-// // --- Ground Floor Placeholder ---
-// const floor = BABYLON.MeshBuilder.CreatePlane("floor", { size: 1000 }, scene);
-// floor.rotation.x = Math.PI / 2;
-
-// const floorMat = new BABYLON.StandardMaterial("floorMat", scene);
-// floorMat.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-// floorMat.backFaceCulling = false;
-
-// floor.material = floorMat;
-// floor.checkCollisions = true;
 
 async function main() {
 	let micTurnedOffWarning: boolean = false as boolean;
@@ -219,34 +152,13 @@ async function main() {
 
   	const callbacks = Callbacks.get(room);
 
-	// 2. Load character and equip container
-	const container = await LoadAssetContainerAsync(
-		"models/character.glb",
-		scene,
-	);
-  	const gunContainer = await LoadAssetContainerAsync("models/ak-47.glb", scene);
-
-	// 2.1. Load animations
-	const MOVE_CLIPS = {
-		forward: "models/walk1.glb",
-		back: "models/walk-back1.glb",
-		left: "models/left-strafe1.glb",
-		right: "models/right-strafe1.glb",
-	} as const;
-	type MoveDir = keyof typeof MOVE_CLIPS;
-	type Clip = MoveDir | "idle";
-
-	const moveSources = new Map<MoveDir, BABYLON.AnimationGroup>();
-	for (const [dir, url] of Object.entries(MOVE_CLIPS)) {
-		const c = await LoadAssetContainerAsync(url, scene);
-		moveSources.set(dir as MoveDir, c.animationGroups[0]);
-	}
+	const {character, gun: gunContainer, moveClips} = await loadAssets(scene);
 
 	// 3. Now callbacks and playerMeshes are fully in scope
 	callbacks.onAdd("players", (player, sessionId) => {
 		const isSelf = sessionId === room.sessionId;
 
-		const entries = container.instantiateModelsToScene();
+		const entries = character.instantiateModelsToScene();
 		const playerMesh = entries.rootNodes[0] as BABYLON.AbstractMesh;
 		playerMesh.name = `player_${sessionId}`;
 
@@ -264,7 +176,7 @@ async function main() {
 			clips.set("idle", idleAnim);
 		}
 		const extra: BABYLON.AnimationGroup[] = [];
-		for (const [dir, src] of moveSources) {
+		for (const [dir, src] of moveClips) {
 			const g = src.clone(
 				`${dir}_${sessionId}`,
 				(old) => nodesByName.get(old.name) ?? old,
@@ -376,27 +288,12 @@ async function main() {
 		removeAllVoiceConnections();
 	});
 
-	// level loading meshes
-	const buildingContainer = await LoadAssetContainerAsync(
-		"models/build1.glb",
-		scene,
-	);
-	const buildingEntries = buildingContainer.instantiateModelsToScene();
-	const buildingRoot = buildingEntries.rootNodes[0] as BABYLON.TransformNode;
-
-	// 2. Place it in the world
-	buildingRoot.position = new BABYLON.Vector3(0, 0.1, 0); // X (right/left), Y (up/down), Z (forward/backward)
-
-	// Enable collisions on every sub-mesh of the building
-	const buildingMeshes = buildingRoot.getChildMeshes();
-	buildingMeshes.forEach((mesh) => {
-		mesh.checkCollisions = true;
-	});
+	await loadLevel(scene);
 
 	let velocityY = 0;
 	// --- Main Game Loop (Integrated with Babylon Render Loop) ---
-  	engine.runRenderLoop(() => {
-    	const now = performance.now();
+	engine.runRenderLoop(() => {
+		const now = performance.now();
 
 		// Drives prediction, interpolation, and the reconciler
 		const steps = predict.tick(now);

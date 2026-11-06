@@ -27,19 +27,15 @@ import {
 	CHARACTER_HEIGHT,
 	CHARACTER_RADIUS,
 	EYE_HEIGHT,
-	IDLE_ANIMATION_NAME,
-	WALK_MOVING_EPSILON,
 	GUN_SCALE,
-	HELD_GUN_SCALE,
 	VIEWMODEL_OFFSET,
-	HELD_GUN_OFFSET
 } from "./config.js";
 
 import {createGun} from "./gun.js";
-import {createNameTag} from "./nameTag.js";
 import {createScene} from "./sceneSetup.js";
-import {loadAssets, type Clip} from "./assets.js";
+import {loadAssets} from "./assets.js";
 import {loadLevel} from "./level.js";
+import {RemotePlayer} from "./remotePlayer.js";
 
 // --- DOM & Status Elements ---
 const statusEl = document.getElementById("status")!;
@@ -124,10 +120,11 @@ async function main() {
 	}
 
 	// 1. Declare your tracking map and callbacks first
-	const playerMeshes = new Map<string, BABYLON.AbstractMesh>();
-	const playerHeads = new Map<string, BABYLON.TransformNode>();
 	let selfGun: BABYLON.TransformNode | undefined;
 	let selfEquipped = false;
+	const remotePlayers = new Map<string, RemotePlayer>();
+	let localMesh: BABYLON.AbstractMesh | undefined;
+	let localEntries: BABYLON.InstantiatedEntries | undefined;
 
 	addEventListener("keydown", (e) => {
 		if (e.repeat) return;
@@ -139,151 +136,60 @@ async function main() {
 		room.send("setEquipped", {equipped: selfEquipped});
 	});
 
-	const playerTagAnchors = new Map<string, BABYLON.TransformNode>();
-	type PlayerAnim = {
-		groups: BABYLON.AnimationGroup[];
-		skeletons: BABYLON.Skeleton[];
-		clips: Map<Clip, BABYLON.AnimationGroup>;
-		current: Clip;
-		lastX: number;
-		lastZ: number;
-	};
-  	const playerAnimations = new Map<string, PlayerAnim>();
 
-  	const callbacks = Callbacks.get(room);
+	const callbacks = Callbacks.get(room);
 
-	const {character, gun: gunContainer, moveClips} = await loadAssets(scene);
+	const assets = await loadAssets(scene);
 
-	// 3. Now callbacks and playerMeshes are fully in scope
 	callbacks.onAdd("players", (player, sessionId) => {
-		const isSelf = sessionId === room.sessionId;
-
-		const entries = character.instantiateModelsToScene();
-		const playerMesh = entries.rootNodes[0] as BABYLON.AbstractMesh;
-		playerMesh.name = `player_${sessionId}`;
-
-		const idleAnim = entries.animationGroups.find((a) =>
-			a.name.endsWith(IDLE_ANIMATION_NAME),
-		);
-
-		// animation retargeting
-		const nodesByName = new Map<string, BABYLON.Node>();
-		for (const n of playerMesh.getDescendants())
-			nodesByName.set(n.name.replace(/^Clone of /, ""), n);
-
-		const clips = new Map<Clip, BABYLON.AnimationGroup>();
-		if (idleAnim) {
-			clips.set("idle", idleAnim);
-		}
-		const extra: BABYLON.AnimationGroup[] = [];
-		for (const [dir, src] of moveClips) {
-			const g = src.clone(
-				`${dir}_${sessionId}`,
-				(old) => nodesByName.get(old.name) ?? old,
-		);
-			clips.set(dir, g);
-			extra.push(g);
-		}
-		for (const g of clips.values()) {
-			g.enableBlending = true;
-			g.blendingSpeed = 0.08;
-		}
-
-		idleAnim?.play(true);
-		playerAnimations.set(sessionId, {
-			groups: [...entries.animationGroups, ...extra],
-			skeletons: entries.skeletons,
-			clips,
-			current: "idle",
-			lastX: player.x,
-			lastZ: player.y,
-		});
-
-		playerMesh.rotationQuaternion = null;
-		playerMesh.rotation.y = MODEL_YAW_OFFSET;
-
-		// Set initial position immediately
-		playerMesh.position.y = 0; // model origin is at its feet
-
-		if (isSelf) { // local player
-			// get all child meshes under this root node and hide them for first-person view
-			const childMeshes = playerMesh.getChildMeshes();
-			childMeshes.forEach((m) => (m.isVisible = false));
-
-			// collision capsule
-			playerMesh.ellipsoid = new BABYLON.Vector3(
-				CHARACTER_RADIUS,
-				CHARACTER_HEIGHT / 2,
-				CHARACTER_RADIUS,
-			);
-			playerMesh.ellipsoidOffset = new BABYLON.Vector3(
-				0,
-				CHARACTER_HEIGHT / 2,
-				0,
-			);
-			camera.position.y = playerMesh.position.y + EYE_HEIGHT;
-
-			// local gun rides on the camera
-			const viewGun = createGun(scene, gunContainer, "gun_self", GUN_SCALE);
-			viewGun.parent = camera;
-			viewGun.position.copyFrom(VIEWMODEL_OFFSET);
-			selfGun = viewGun;
-		} else { // remote players
-		// other players' guns hang from an invisible head that turns with their aim.
-			const head = new BABYLON.TransformNode(`head_${sessionId}`, scene);
-			const gun = createGun(scene, gunContainer, `gun_${sessionId}`, HELD_GUN_SCALE);
-			gun.parent = head;
-			gun.position.copyFrom(HELD_GUN_OFFSET);
-			gun.setEnabled(player.equipped);
-			callbacks.listen(player, "equipped", (value) => gun.setEnabled(value));
-
-			playerHeads.set(sessionId, head);
-			const tagAnchor = new BABYLON.TransformNode(`tag_${sessionId}`, scene);
-			tagAnchor.parent = null;
-			createNameTag(scene, player.name, tagAnchor);
-			playerTagAnchors.set(sessionId, tagAnchor);
+		if (sessionId !== room.sessionId) {
+			const remote = new RemotePlayer(scene, assets, sessionId, player);
+			callbacks.listen(player, "equipped", (value) => remote.setEquipped(value));
+			remotePlayers.set(sessionId, remote);
 
 			callPeer(sessionId).catch((err) => console.error(err));
+			return;
 		}
 
-		playerMeshes.set(sessionId, playerMesh);
+		// local player: first person, so the body is invisible and only collides
+		const entries = assets.character.instantiateModelsToScene();
+		const mesh = entries.rootNodes[0] as BABYLON.AbstractMesh;
+		mesh.name = `player_${sessionId}`;
+		mesh.rotationQuaternion = null; // see RemotePlayer: the loader's 180° turn
+		mesh.rotation.y = MODEL_YAW_OFFSET;
+		mesh.position.y = 0; // model origin is at its feet
+		mesh.getChildMeshes().forEach((m) => (m.isVisible = false));
+
+		// collision capsule
+		mesh.ellipsoid = new BABYLON.Vector3(CHARACTER_RADIUS, CHARACTER_HEIGHT / 2, CHARACTER_RADIUS);
+		mesh.ellipsoidOffset = new BABYLON.Vector3(0, CHARACTER_HEIGHT / 2, 0);
+		camera.position.y = mesh.position.y + EYE_HEIGHT;
+
+		// local gun rides on the camera
+		const viewGun = createGun(scene, assets.gun, "gun_self", GUN_SCALE);
+		viewGun.parent = camera;
+		viewGun.position.copyFrom(VIEWMODEL_OFFSET);
+		selfGun = viewGun;
+
+		localEntries = entries;
+		localMesh = mesh;
 	});
 
 
-	callbacks.onRemove("players", (_player, sessionId) => {
-		const mesh = playerMeshes.get(sessionId);
-		if (mesh) {
-			mesh.dispose();
-			playerMeshes.delete(sessionId);
-		}
-		// disposing the head takes its gun with it
-		playerHeads.get(sessionId)?.dispose();
-		playerHeads.delete(sessionId);
-		
-		playerTagAnchors.get(sessionId)?.dispose(false, true);
-		playerTagAnchors.delete(sessionId);
-		
-		const anim = playerAnimations.get(sessionId);
-		anim?.groups.forEach((g) => g.dispose());
-		anim?.skeletons.forEach((s) => s.dispose());
-		playerAnimations.delete(sessionId);
 
+	callbacks.onRemove("players", (_player, sessionId) => {
+		remotePlayers.get(sessionId)?.dispose();
+		remotePlayers.delete(sessionId);
 		removePeer(sessionId);
 	});
 
 	room.onLeave((code) => {
 		statusEl.textContent = code === CLOSE_LOGGED_IN_ELSEWHERE ? "You joined from another tab or device." : "Disconnected";
-		playerMeshes.forEach((mesh) => mesh.dispose());
-		playerMeshes.clear();
-		playerHeads.forEach((head) => head.dispose());
-		playerHeads.clear();
-		playerAnimations.forEach((anim) => {
-			anim.groups.forEach((g) => g.dispose());
-			anim.skeletons.forEach((s) => s.dispose());
-		});
-		playerAnimations.clear();
-		playerTagAnchors.forEach((a) => a.dispose(false, true));
-		playerTagAnchors.clear();
+		remotePlayers.forEach((p) => p.dispose());
+		remotePlayers.clear();
+		localEntries?.dispose();
+		localEntries = undefined;
+		localMesh = undefined;
 
 		removeAllVoiceConnections();
 	});
@@ -299,12 +205,11 @@ async function main() {
 		const steps = predict.tick(now);
 
 		for (const [sessionId, player] of room.state.players) {
-		const mesh = playerMeshes.get(sessionId);
-		if (!mesh) {
-			continue;
-		}
-
 		if (sessionId === room.sessionId) {
+			const mesh = localMesh;
+			if (!mesh) {
+				continue;
+			}
 			// 1. Calculate input movement delta based on keys & camera yaw
 			const rawForward = axis(["s", "arrowdown"], ["w", "arrowup"]);
 			const rawRight = axis(["a", "arrowleft"], ["d", "arrowright"]);
@@ -383,52 +288,17 @@ async function main() {
 				pitch: camera.rotation.x,
 			});
 			} else {
-				// Remote players update normally from server state interpolation
-				const posX = predict.value(player, "x");
-				const posZ = predict.value(player, "y");
-				const posHeight = predict.value(player, "height");
-				mesh.position.x = posX;
-				mesh.position.z = posZ;
-				mesh.position.y = posHeight;
-				mesh.rotation.y = player.yaw + MODEL_YAW_OFFSET;
-
-				const anim = playerAnimations.get(sessionId);
-				if (anim) {
-					const dx = posX - anim.lastX,
-						dz = posZ - anim.lastZ;
-					anim.lastX = posX;
-					anim.lastZ = posZ;
-
-					let next: Clip = "idle";
-					if (Math.hypot(dx, dz) > WALK_MOVING_EPSILON) {
-						const fwd = dx * Math.sin(player.yaw) + dz * Math.cos(player.yaw);
-						const right = dx * Math.cos(player.yaw) - dz * Math.sin(player.yaw);
-						if (Math.abs(fwd) >= Math.abs(right))
-						next = fwd >= 0 ? "forward" : "back";
-						else next = right >= 0 ? "right" : "left";
-					}
-
-					if (next !== anim.current) {
-						anim.clips.get(anim.current)?.stop();
-						(anim.clips.get(next) ?? anim.clips.get("idle"))?.play(true);
-						anim.current = next;
-					}
+				const remote = remotePlayers.get(sessionId);
+				if (!remote) {
+					continue;
 				}
+				// remote players update from server state interpolation
+				const x = predict.value(player, "x");
+				const z = predict.value(player, "y");
+				const height = predict.value(player, "height");
+				remote.update(x, z, height, player.yaw, player.pitch);
 
-				// The head follows the character at eye level and turns like their camera
-				const head = playerHeads.get(sessionId);
-				if (head) {
-					head.position.set(posX, posHeight + EYE_HEIGHT, posZ);
-					head.rotation.set(player.pitch, player.yaw, 0);
-				}
-				const anchor = playerTagAnchors.get(sessionId);
-				if (anchor) anchor.position.set(posX, posHeight, posZ);  
-					const distance = Math.hypot(
-					posX - camera.position.x,
-					posZ - camera.position.z,
-				);
-
-				setPeerDistance(sessionId, distance);
+				setPeerDistance(sessionId, Math.hypot(x - camera.position.x, z - camera.position.z));
 			}
 		}
     scene.render();

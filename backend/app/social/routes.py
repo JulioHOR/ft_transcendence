@@ -12,6 +12,7 @@ from schemas import ErrorResponseSchema
 from . import handlers
 from . import store
 from .handlers import conversation_id
+from .avatar import validate_avatar
 from .schemas import (
     ChatBlockSchema,
     ChatHistorySchema,
@@ -262,6 +263,9 @@ def post_avatar():
         return jsonify(
             {"error": "O conteúdo do avatar não é um base64 válido."}
         ), 400
+    validation_error = validate_avatar(match.group(1), data)
+    if validation_error is not None:
+        return jsonify({"error": validation_error}), 400
     store.set_avatar(user_id, match.group(1), data)
     profile = store.get_user_profile(user_id)
     handlers.broadcast_friends()
@@ -327,7 +331,11 @@ def get_avatar(user_id: int):
     return Response(
         data,
         mimetype=content_type,
-        headers={"Cache-Control": "no-cache"},
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+        },
     )
 
 @social_bp.get("/api/chat/history")

@@ -5,15 +5,20 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { MatchState, Side } from "../protocol";
 import { SectionCard } from "../../../ui/SectionCard";
+import { AppIcon } from "../../../ui/AppIcon";
+
+type StatusScreenProps = {
+  title: string;
+  titleColor?: string;
+  children?: ReactNode;
+};
 
 /** Componente para exibir uma tela de status. */
 export function StatusScreen({
   title,
+  titleColor,
   children,
-}: {
-  title: string;
-  children?: ReactNode;
-}) {
+}: StatusScreenProps) {
   return (
     <Stack
       role="status"
@@ -26,7 +31,9 @@ export function StatusScreen({
         textAlign: "center",
       }}
     >
-      <Typography variant="h2">{title}</Typography>
+      <Typography variant="h2" color={titleColor}>
+        {title}
+      </Typography>
       {children}
     </Stack>
   );
@@ -138,13 +145,6 @@ function resultTitle(playerSide: Side | null, winner: Side | null): string {
   return playerSide !== null && winner === playerSide ? "Vitória" : "Derrota";
 }
 
-function acceptanceLabel(flags: {
-  playerAccepted: boolean;
-  opponentAccepted: boolean;
-}): string {
-  return `Você: ${flags.playerAccepted ? "ok" : "…"} · Oponente: ${flags.opponentAccepted ? "ok" : "…"}`;
-}
-
 export function LeaveMatchButton({ onLeave }: { onLeave: () => void }) {
   return (
     <Button type="button" onClick={onLeave} variant="outlined" color="inherit">
@@ -165,11 +165,16 @@ export function ResultScreen({
   onRequestRematch,
   onRequestLeave,
 }: ResultScreenProps) {
+  const won =
+    state.playerSide !== null && state.snapshot.winner === state.playerSide;
   const accepted = state.playerSide
     ? state.rematchAccepted[state.playerSide]
     : false;
   return (
-    <StatusScreen title={resultTitle(state.playerSide, state.snapshot.winner)}>
+    <StatusScreen
+      title={resultTitle(state.playerSide, state.snapshot.winner)}
+      titleColor={won ? "success.main" : "error.main"}
+    >
       <ResultDetails state={state} />
       <RematchButton accepted={accepted} onRequestRematch={onRequestRematch} />
       <LeaveMatchButton onLeave={onRequestLeave} />
@@ -193,7 +198,7 @@ function ResultDetails({ state }: { state: MatchState }) {
           </Typography>
           <ScorePlayer label="Oponente" score={opponentScore} />
         </Stack>
-        <RematchStatus flags={flags} />
+        <AcceptanceStatus flags={flags} />
       </Stack>
     </SectionCard>
   );
@@ -210,49 +215,70 @@ function ScorePlayer(props: { label: string; score: number }) {
   );
 }
 
-function RematchStatus({ flags }: { flags: AcceptanceFlags }) {
+type AcceptanceStatusProps = { flags: AcceptanceFlags; pendingLabel?: string };
+
+function AcceptanceStatus({
+  flags,
+  pendingLabel = "Você não confirmou",
+}: AcceptanceStatusProps) {
   return (
     <Stack
       direction="row"
       spacing={1}
       sx={{ flexWrap: "wrap", justifyContent: "center" }}
     >
-      <Chip
-        size="small"
-        label={flags.playerAccepted ? "Você confirmou" : "Você não confirmou"}
-        color={flags.playerAccepted ? "success" : "default"}
-        variant={flags.playerAccepted ? "filled" : "outlined"}
+      <ConfirmationChip
+        accepted={flags.playerAccepted}
+        label={flags.playerAccepted ? "Você confirmou" : pendingLabel}
       />
-      <Chip
-        size="small"
+      <ConfirmationChip
+        accepted={flags.opponentAccepted}
         label={
           flags.opponentAccepted ? "Oponente confirmou" : "Aguardando oponente"
         }
-        color={flags.opponentAccepted ? "success" : "default"}
-        variant={flags.opponentAccepted ? "filled" : "outlined"}
       />
     </Stack>
   );
 }
+
+function ConfirmationChip({
+  accepted,
+  label,
+}: {
+  accepted: boolean;
+  label: string;
+}) {
+  return (
+    <Chip
+      size="small"
+      label={label}
+      color={accepted ? "success" : "default"}
+      variant={accepted ? "filled" : "outlined"}
+    />
+  );
+}
+
+type ResumeScreenProps = {
+  state: MatchState;
+  onRequestResume: () => void;
+  onRequestLeave: () => void;
+};
 
 /** Exibe os aceites enquanto os dois jogadores confirmam a retomada. */
 export function ResumeScreen({
   state,
   onRequestResume,
   onRequestLeave,
-}: {
-  state: MatchState;
-  onRequestResume: () => void;
-  onRequestLeave: () => void;
-}) {
+}: ResumeScreenProps) {
   const side = state.playerSide;
   const flags = acceptanceFlags(side, state.resumeAccepted);
   return (
     <StatusScreen title="Partida pausada">
+      <AppIcon name="pause" color="primary" sx={{ fontSize: 48 }} />
       <Typography color="text.secondary">
         Os dois jogadores precisam confirmar para continuar.
       </Typography>
-      <Typography color="text.secondary">{acceptanceLabel(flags)}</Typography>
+      <AcceptanceStatus flags={flags} pendingLabel="Você precisa confirmar" />
       <ResumeActions
         flags={flags}
         onRequestResume={onRequestResume}

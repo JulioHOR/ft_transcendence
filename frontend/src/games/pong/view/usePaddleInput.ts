@@ -10,7 +10,7 @@ const MOVE_DOWN_CODES = new Set(["KeyS", "ArrowDown"]);
 
 type MoveDirection = "moveUp" | "moveDown";
 type PressedKeys = Record<MoveDirection, boolean>;
-type UsePaddleInputOptions = { enabled: boolean };
+type UsePaddleInputOptions = { enabled: boolean; paddlePosition: number };
 
 /**
  * Converte um código de tecla em direção de movimento,
@@ -180,14 +180,18 @@ function startInputLoop(
  */
 export function usePaddleInput(
   transport: Transport,
-  { enabled }: UsePaddleInputOptions,
+  { enabled, paddlePosition: serverPaddlePosition }: UsePaddleInputOptions,
 ) {
-  const paddlePosition = useRef(0);
+  const paddlePosition = useRef(serverPaddlePosition);
+  const wasEnabled = useRef(enabled);
   const pressed = useRef<PressedKeys>({ moveUp: false, moveDown: false });
 
   useEffect(() => {
     if (!enabled) pressed.current = { moveUp: false, moveDown: false };
-  }, [enabled]);
+    if (!enabled || !wasEnabled.current)
+      paddlePosition.current = serverPaddlePosition;
+    wasEnabled.current = enabled;
+  }, [enabled, serverPaddlePosition]);
 
   useEffect(() => {
     const refs = { paddlePosition, pressed };

@@ -1,24 +1,22 @@
+import { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import { Vector3, type Group } from "three";
 import type { GameSnapshot, Side } from "../protocol";
 import { TABLE, getPaddleX } from "../protocol";
 import { useSmoothedMeshPosition } from "./useSmoothedMeshPosition";
 
-const TABLE_SURFACE_Y = -0.5;
-const TABLE_BORDER_Y = -0.35;
-const BALL_Y = 0.3;
+export const TABLE_SURFACE_Y = -0.5;
 const PADDLE_SIZE: [number, number, number] = [0.4, 0.4, 2];
-const TABLE_LENGTH = TABLE.halfLength * 2.2;
-const TABLE_WIDTH = TABLE.halfWidth * 2.4;
-const BORDER_THICKNESS = 0.35;
-const BORDER_HEIGHT = 0.4;
-const TABLE_COLOR = "#1a6b4a";
-const BORDER_COLOR = "#e8c547";
+const PADDLE_Y = TABLE_SURFACE_Y + PADDLE_SIZE[1] / 2;
+const BALL_Y = TABLE_SURFACE_Y + TABLE.ballRadius;
+const TABLE_LENGTH = TABLE.halfLength * 2;
+const TABLE_WIDTH = TABLE.halfWidth * 2;
+const TABLE_COLOR = "#087f8c";
 
 const PADDLE_VIEW: { side: Side; color: string }[] = [
   { side: "left", color: "#4af" },
   { side: "right", color: "#f4a" },
 ];
-
-type Vec3 = [number, number, number];
 
 /**
  * Retorna a posição da paddle no eixo Z (largura) a partir do snapshot.
@@ -35,58 +33,20 @@ function getSnapshotPaddlePosition(snapshot: GameSnapshot, side: Side): number {
 /** Superfície da mesa no plano XZ. */
 function TableSurface() {
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, TABLE_SURFACE_Y, 0]}>
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, TABLE_SURFACE_Y, 0]}
+      receiveShadow
+    >
       <planeGeometry args={[TABLE_LENGTH, TABLE_WIDTH]} />
-      <meshStandardMaterial color={TABLE_COLOR} />
+      <meshStandardMaterial
+        color={TABLE_COLOR}
+        emissive="#064b55"
+        emissiveIntensity={0.2}
+        metalness={0.08}
+        roughness={0.72}
+      />
     </mesh>
-  );
-}
-
-/** Trilho individual da borda da mesa. */
-function BorderRail({ position, size }: { position: Vec3; size: Vec3 }) {
-  return (
-    <mesh position={position}>
-      <boxGeometry args={size} />
-      <meshStandardMaterial color={BORDER_COLOR} />
-    </mesh>
-  );
-}
-
-/**
- * Monta as posições e tamanhos das bordas da mesa.
- */
-function getBorderRails(): { position: Vec3; size: Vec3 }[] {
-  const halfLength = TABLE_LENGTH / 2;
-  const halfWidth = TABLE_WIDTH / 2;
-  const railZ = halfWidth + BORDER_THICKNESS / 2;
-  const railX = halfLength + BORDER_THICKNESS / 2;
-  const longRail: Vec3 = [
-    TABLE_LENGTH + BORDER_THICKNESS * 2,
-    BORDER_HEIGHT,
-    BORDER_THICKNESS,
-  ];
-  const shortRail: Vec3 = [BORDER_THICKNESS, BORDER_HEIGHT, TABLE_WIDTH];
-
-  return [
-    { position: [0, TABLE_BORDER_Y, railZ], size: longRail },
-    { position: [0, TABLE_BORDER_Y, -railZ], size: longRail },
-    { position: [railX, TABLE_BORDER_Y, 0], size: shortRail },
-    { position: [-railX, TABLE_BORDER_Y, 0], size: shortRail },
-  ];
-}
-
-/** Conjunto das quatro bordas da mesa. */
-function TableBorder() {
-  return (
-    <>
-      {getBorderRails().map((rail) => (
-        <BorderRail
-          key={`${rail.position[0]}:${rail.position[2]}`}
-          position={rail.position}
-          size={rail.size}
-        />
-      ))}
-    </>
   );
 }
 
@@ -106,11 +66,19 @@ function Paddle({
   position: number;
   color: string;
 }) {
-  const mesh = useSmoothedMeshPosition([getPaddleX(side), 0, position]);
+  const sideDirection = side === "left" ? -1 : 1;
+  const paddleX = getPaddleX(side) + sideDirection * PADDLE_SIZE[0] / 2;
+  const mesh = useSmoothedMeshPosition([paddleX, PADDLE_Y, position]);
   return (
-    <mesh ref={mesh}>
+    <mesh ref={mesh} castShadow>
       <boxGeometry args={PADDLE_SIZE} />
-      <meshStandardMaterial color={color} />
+      <meshStandardMaterial
+        color={color}
+        emissive={color}
+        emissiveIntensity={0.18}
+        metalness={0.12}
+        roughness={0.38}
+      />
     </mesh>
   );
 }
@@ -121,12 +89,63 @@ function Paddle({
  * @param x - Posição no eixo X (comprimento)
  * @param z - Posição no eixo Z (largura)
  */
+function useBallRoll(ball: React.RefObject<Group | null>, x: number, z: number) {
+  const previousPosition = useRef({ x, z });
+  const rollAxis = useRef(new Vector3());
+
+  useFrame(() => {
+    const distanceX = x - previousPosition.current.x;
+    const distanceZ = z - previousPosition.current.z;
+    const distance = Math.hypot(distanceX, distanceZ);
+
+    if (distance > 0 && distance < TABLE.ballRadius * 2) {
+      rollAxis.current.set(distanceZ, 0, -distanceX).normalize();
+      ball.current?.rotateOnWorldAxis(
+        rollAxis.current,
+        distance / TABLE.ballRadius,
+      );
+    }
+
+    previousPosition.current = { x, z };
+  });
+}
+
 function Ball({ x, z }: { x: number; z: number }) {
+  const ball = useRef<Group>(null);
+  useBallRoll(ball, x, z);
   return (
-    <mesh position={[x, BALL_Y, z]}>
-      <sphereGeometry args={[TABLE.ballRadius, 16, 16]} />
-      <meshStandardMaterial color="#fff" />
-    </mesh>
+    <group ref={ball} position={[x, BALL_Y, z]}>
+      <mesh castShadow>
+        <sphereGeometry args={[TABLE.ballRadius, 24, 24]} />
+        <meshStandardMaterial color="#fff" roughness={0.45} />
+      </mesh>
+      <mesh>
+        <torusGeometry args={[TABLE.ballRadius * 0.92, 0.025, 8, 48]} />
+        <meshStandardMaterial color="#17354a" roughness={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Fundo e iluminação da mesa. */
+function PongLighting() {
+  return (
+    <>
+      <color attach="background" args={["#081b2b"]} />
+      <ambientLight intensity={0.8} />
+      <directionalLight
+        position={[5, 8, 5]}
+        intensity={0.65}
+        castShadow
+        shadow-radius={6}
+        shadow-mapSize-width={512}
+        shadow-mapSize-height={512}
+        shadow-camera-left={-13}
+        shadow-camera-right={13}
+        shadow-camera-top={8}
+        shadow-camera-bottom={-8}
+      />
+    </>
   );
 }
 
@@ -138,10 +157,8 @@ function Ball({ x, z }: { x: number; z: number }) {
 export function PongScene({ snapshot }: { snapshot: GameSnapshot }) {
   return (
     <>
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[5, 8, 5]} intensity={1.1} />
+      <PongLighting />
       <TableSurface />
-      <TableBorder />
       {PADDLE_VIEW.map(({ side, color }) => (
         <Paddle
           key={side}

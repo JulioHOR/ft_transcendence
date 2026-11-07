@@ -11,6 +11,7 @@ import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import { acceptFriend, addFriend } from "../api/friends";
 import {
+  AVATAR_ACCEPTED_TYPES,
   deleteAvatar,
   getProfile,
   getProfileById,
@@ -19,6 +20,7 @@ import {
   uploadAvatar,
 } from "../api/profile";
 import { friendlyError } from "../api/http";
+import { EMAIL_PATTERN } from "../api/validation";
 import type { Profile, User } from "../api/types";
 import { useAuth } from "../app/auth-session";
 import { useFriends } from "../app/friends-session";
@@ -34,7 +36,6 @@ import { PongStatistics } from "../games/pong/PongStatistics";
 const NICKNAME_MIN_LENGTH = 3;
 const NICKNAME_MAX_LENGTH = 20;
 const NICKNAME_PATTERN = "[A-Za-z0-9_]+";
-const MAX_AVATAR_FILE_SIZE = 599_900;
 
 /** Restrições do apelido aplicadas pelo navegador. */
 function nicknameInputConstraints() {
@@ -49,7 +50,7 @@ function nicknameInputConstraints() {
 function profileFieldSlots(field: "email" | "nickname") {
   return field === "nickname"
     ? { htmlInput: nicknameInputConstraints() }
-    : undefined;
+    : { htmlInput: { pattern: EMAIL_PATTERN } };
 }
 
 type ProfileFieldFormProps = {
@@ -75,7 +76,10 @@ async function submitProfileField(
   callbacks.setError(null);
   callbacks.setPending(true);
   try {
-    const user = await updateProfile({ ...props.profile, [props.field]: value });
+    const user = await updateProfile({
+      ...props.profile,
+      [props.field]: value,
+    });
     props.onSaved(user, `${props.label} atualizado.`);
     callbacks.setValue(user[props.field]);
     callbacks.setEditing(false);
@@ -103,7 +107,6 @@ function ProfileFieldForm(props: ProfileFieldFormProps) {
       editing={editing}
       pending={pending}
       callbacks={callbacks}
-      onSave={save}
       onCancel={() => cancelProfileFieldEdit(props.value, callbacks)}
       onSubmit={(event) => {
         event.preventDefault();
@@ -119,7 +122,6 @@ type ProfileFieldFormLayoutProps = ProfileFieldFormProps & {
   editing: boolean;
   pending: boolean;
   callbacks: ProfileFieldCallbacks;
-  onSave: () => void;
   onCancel: () => void;
   onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
 };
@@ -178,12 +180,13 @@ function CancelProfileFieldButton(props: ProfileFieldFormLayoutProps) {
 function SaveProfileFieldButton(props: ProfileFieldFormLayoutProps) {
   return (
     <ActionButton
+      key={props.editing ? "save" : "edit"}
       appearance={props.editing ? "primary" : "secondary"}
-      type="button"
+      type={props.editing ? "submit" : "button"}
       disabled={props.pending}
       onClick={
         props.editing
-          ? props.onSave
+          ? undefined
           : () => enableProfileFieldEdit(props.callbacks)
       }
       startIcon={
@@ -288,7 +291,7 @@ function AvatarFileInput(props: { onFile: (file: File | undefined) => void }) {
   return (
     <input
       type="file"
-      accept="image/*"
+      accept={AVATAR_ACCEPTED_TYPES.join(",")}
       hidden
       onChange={(event) => {
         props.onFile(event.target.files?.[0]);
@@ -394,14 +397,6 @@ function saveAvatarFile(
   setPending: (value: boolean) => void,
 ): void {
   if (file == null) return;
-  if (!file.type.startsWith("image/")) {
-    setError("Escolha um arquivo de imagem.");
-    return;
-  }
-  if (file.size > MAX_AVATAR_FILE_SIZE) {
-    setError("A imagem deve ter menos de 600 KB.");
-    return;
-  }
   void saveAvatarChange(
     async () => uploadAvatar(await readImageAsDataUrl(file)),
     onSaved,

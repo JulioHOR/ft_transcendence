@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { PerspectiveCamera } from "three";
-import { PongScene } from "./PongScene";
+import { PongScene, TABLE_SURFACE_Y } from "./PongScene";
 import { usePaddleInput } from "./usePaddleInput";
 import {
   CountdownScreen,
@@ -12,7 +14,7 @@ import {
   ResumeScreen,
   StatusScreen,
 } from "./MatchScreens";
-import type { GameSnapshot, MatchState, Transport } from "../protocol";
+import type { GameSnapshot, MatchState, Side, Transport } from "../protocol";
 import { createInitialMatchState, TABLE } from "../protocol";
 import { logUnexpectedError } from "../../../api/http";
 
@@ -20,6 +22,15 @@ import { logUnexpectedError } from "../../../api/http";
 const VIEW_HALF_X = TABLE.halfLength * 1.2;
 /** Metade da altura da visualização da mesa. */
 const VIEW_HALF_Z = TABLE.halfWidth * 1.35;
+const OVERLAY_LAYOUT = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 1,
+  alignItems: "center",
+  justifyContent: "space-between",
+  p: 1,
+  pointerEvents: "none",
+} as const;
 
 /** Hook para gerenciar o estado da partida. */
 function useMatchState(transport: Transport): MatchState {
@@ -72,8 +83,8 @@ function frameTableCamera(
     vFov,
     hFov,
   );
-  camera.position.set(0, distance * 0.72, distance * 0.72);
-  camera.lookAt(0, 0, 0);
+  camera.position.set(0, TABLE_SURFACE_Y + distance * 0.72, distance * 0.72);
+  camera.lookAt(0, TABLE_SURFACE_Y, 0);
   camera.near = 0.1;
   camera.far = distance * 5;
   camera.updateProjectionMatrix();
@@ -99,14 +110,27 @@ function FitTableCamera() {
 }
 
 /** Componente para exibir a cena do jogo com a pontuação. */
-function PongStage({ snapshot }: { snapshot: GameSnapshot }) {
+type PongStageProps = {
+  snapshot: GameSnapshot;
+  playerSide: MatchState["playerSide"];
+};
+
+function PongStage({ snapshot, playerSide }: PongStageProps) {
   return (
     <Box
       sx={{ position: "relative", height: "100%", width: "100%", minHeight: 0 }}
     >
-      <ScoreOverlay score={snapshot.score} />
+      <Stack sx={OVERLAY_LAYOUT}>
+        <ScoreOverlay score={snapshot.score} playerSide={playerSide} />
+        <Typography
+          variant="caption"
+          sx={{ bgcolor: "background.paper", px: 1 }}
+        >
+          W/S ou ↑/↓ para mover a raquete
+        </Typography>
+      </Stack>
       <Box sx={{ position: "absolute", inset: 0 }}>
-        <Canvas camera={{ fov: 45, near: 0.1, far: 200 }}>
+        <Canvas camera={{ fov: 45, near: 0.1, far: 200 }} shadows>
           <FitTableCamera />
           <PongScene snapshot={snapshot} />
         </Canvas>
@@ -115,28 +139,54 @@ function PongStage({ snapshot }: { snapshot: GameSnapshot }) {
   );
 }
 
-function ScoreOverlay({ score }: { score: GameSnapshot["score"] }) {
+type ScoreOverlayProps = {
+  score: GameSnapshot["score"];
+  playerSide: MatchState["playerSide"];
+};
+
+function ScoreOverlay({ score, playerSide }: ScoreOverlayProps) {
   return (
-    <Typography
-      component="div"
+    <Paper
+      elevation={0}
       aria-live="polite"
       sx={{
-        position: "absolute",
-        left: 0,
-        right: 0,
-        top: 1.5,
-        zIndex: 1,
-        textAlign: "center",
-        pointerEvents: "none",
-        fontFamily: "monospace",
-        fontSize: { xs: "1.25rem", sm: "1.5rem" },
-        fontWeight: 600,
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        px: 2,
+        py: 1,
         fontVariantNumeric: "tabular-nums",
-        color: "#edf4ef",
+        bgcolor: "grey.900",
+        color: "grey.100",
       }}
     >
-      {score.left} — {score.right}
-    </Typography>
+      <ScoreSide side="left" playerSide={playerSide} score={score.left} />
+      <Typography color="inherit">—</Typography>
+      <ScoreSide side="right" playerSide={playerSide} score={score.right} />
+    </Paper>
+  );
+}
+
+type ScoreSideProps = {
+  side: Side;
+  playerSide: Side | null;
+  score: number;
+};
+
+function ScoreSide({ side, playerSide, score }: ScoreSideProps) {
+  return (
+    <Stack
+      direction="row"
+      spacing={0.75}
+      sx={{ alignItems: "center", color: side === "left" ? "#4af" : "#f4a" }}
+    >
+      <Typography variant="caption">
+        {side === playerSide ? "Você" : "Oponente"}
+      </Typography>
+      <Typography variant="h1" component="span">
+        {score}
+      </Typography>
+    </Stack>
   );
 }
 
@@ -202,7 +252,9 @@ function BasicPhaseView({ state }: { state: MatchState }): ReactNode {
         />
       );
     case "playing":
-      return <PongStage snapshot={state.snapshot} />;
+      return (
+        <PongStage snapshot={state.snapshot} playerSide={state.playerSide} />
+      );
     case "opponent_left":
       return <StatusScreen title="Partida encerrada" />;
     default:
@@ -217,8 +269,16 @@ function BasicPhaseView({ state }: { state: MatchState }): ReactNode {
  */
 export function PongApp({ transport }: { transport: Transport }) {
   const state = useMatchState(transport);
+  const paddlePosition =
+    state.playerSide === "right"
+      ? state.snapshot.rightPaddlePosition
+      : state.snapshot.leftPaddlePosition;
   usePaddleInput(transport, {
-    enabled: state.phase === "playing" && state.snapshot.winner === null,
+    enabled:
+      state.phase === "playing" &&
+      state.snapshot.winner === null &&
+      state.snapshot.timestamp > 0,
+    paddlePosition,
   });
 
   return (

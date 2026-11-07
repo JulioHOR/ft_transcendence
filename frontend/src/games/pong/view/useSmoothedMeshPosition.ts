@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { MathUtils, type Mesh } from "three";
 
-const MOVEMENT_SMOOTHING = 18;
+const MOVEMENT_SMOOTHING = 25;
 
 type Position3D = [number, number, number];
 

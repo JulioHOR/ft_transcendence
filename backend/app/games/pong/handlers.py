@@ -1,3 +1,4 @@
+import math
 from collections.abc import Callable
 
 from flask import request, session
@@ -31,6 +32,11 @@ def _parse_input(data) -> float:
     position = data.get("position")
     if isinstance(position, bool) or not isinstance(position, (int, float)):
         raise MalformedInput()
+    try:
+        if not math.isfinite(position):
+            raise MalformedInput()
+    except OverflowError:
+        raise MalformedInput() from None
     return position
 
 

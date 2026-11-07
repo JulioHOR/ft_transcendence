@@ -23,6 +23,8 @@ import { ErrorText } from "../../ui/ErrorText";
 import { AppIcon, type AppIconName } from "../../ui/AppIcon";
 import { SectionCard } from "../../ui/SectionCard";
 
+const TABLE_PAGE_SIZE = 7;
+
 /** Exibe o desempenho e o histórico de Pong no perfil. */
 export function PongStatistics({ userId }: { userId: number }) {
   const { statistics, error } = usePongStatistics(userId);
@@ -70,8 +72,8 @@ function StatisticsContent({ statistics }: { statistics: PongStatisticsData }) {
       <StatisticsSummary statistics={statistics} />
       <LevelProgress statistics={statistics} />
       <AchievementList achievements={statistics.achievements} />
-      <MatchHistory history={statistics.history} />
       <Leaderboard entries={statistics.leaderboard} />
+      <MatchHistory history={statistics.history} />
     </Stack>
   );
 }
@@ -255,20 +257,27 @@ type AchievementCardContentProps = AchievementCardProps & {
 
 /** Lista as partidas recentes com adversário, resultado e placar. */
 function MatchHistory({ history }: { history: PongStatisticsData["history"] }) {
+  const [expanded, setExpanded] = useState(false);
   return (
     <Stack spacing={1}>
-      <Typography variant="h3">Partidas recentes</Typography>
+      <ExpandableTableHeading
+        title="Partidas recentes"
+        expanded={expanded}
+        canExpand={history.length > TABLE_PAGE_SIZE}
+        onToggle={() => setExpanded(!expanded)}
+      />
       {history.length === 0 ? (
         <EmptyState>Partidas concluídas aparecerão aqui.</EmptyState>
       ) : (
-        <MatchHistoryList history={history} />
+        <MatchHistoryTable
+          history={expanded ? history : history.slice(0, TABLE_PAGE_SIZE)}
+        />
       )}
     </Stack>
   );
 }
 
-/** Exibe as partidas recentes em uma tabela. */
-function MatchHistoryList({
+function MatchHistoryTable({
   history,
 }: {
   history: PongStatisticsData["history"];
@@ -327,24 +336,37 @@ function Leaderboard({
 }: {
   entries: PongStatisticsData["leaderboard"];
 }) {
+  const [expanded, setExpanded] = useState(false);
   return (
     <Stack spacing={1}>
-      <Typography variant="h3">Classificação</Typography>
-      <Typography variant="body2" color="text.secondary">
-        Ordenada por vitórias; empates são decididos por menos derrotas e data
-        de cadastro.
-      </Typography>
+      <ExpandableTableHeading
+        title="Classificação"
+        expanded={expanded}
+        canExpand={entries.length > TABLE_PAGE_SIZE}
+        onToggle={() => setExpanded(!expanded)}
+      />
+      <LeaderboardDescription />
       {entries.length === 0 ? (
         <EmptyState>Sem partidas concluídas.</EmptyState>
       ) : (
-        <LeaderboardList entries={entries} />
+        <LeaderboardTable
+          entries={expanded ? entries : entries.slice(0, TABLE_PAGE_SIZE)}
+        />
       )}
     </Stack>
   );
 }
 
-/** Exibe os jogadores e resultados em uma tabela. */
-function LeaderboardList({
+function LeaderboardDescription() {
+  return (
+    <Typography variant="body2" color="text.secondary">
+      Ordenada por vitórias; empates são decididos por menos derrotas e data de
+      cadastro.
+    </Typography>
+  );
+}
+
+function LeaderboardTable({
   entries,
 }: {
   entries: PongStatisticsData["leaderboard"];
@@ -363,6 +385,29 @@ function LeaderboardList({
         <LeaderboardRows entries={entries} />
       </Table>
     </TableContainer>
+  );
+}
+
+function ExpandableTableHeading({
+  title,
+  expanded,
+  canExpand,
+  onToggle,
+}: {
+  title: string;
+  expanded: boolean;
+  canExpand: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+      <Typography variant="h3">{title}</Typography>
+      {canExpand ? (
+        <Link component="button" type="button" onClick={onToggle}>
+          {expanded ? "Carregar menos" : "Carregar mais"}
+        </Link>
+      ) : null}
+    </Stack>
   );
 }
 

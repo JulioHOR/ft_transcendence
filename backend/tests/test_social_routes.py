@@ -1,17 +1,25 @@
 import base64
 import datetime
 import os
+from io import BytesIO
 
 import psycopg2
 import pytest
 from auth.routes import SESSION_COOKIE_OPTIONS
 from flask import Flask
+from PIL import Image
 
 import social.handlers as handlers
 import social.store as store_pkg
 from social.routes import social_bp
 
-GRAPH_PNG = bytes.fromhex("89504e470d0a1a0a")
+def image_bytes(image_format="PNG", size=(2, 2)):
+    output = BytesIO()
+    Image.new("RGB", size, "red").save(output, format=image_format)
+    return output.getvalue()
+
+
+GRAPH_PNG = image_bytes()
 AVATAR_TS = datetime.datetime.now(datetime.timezone.utc)
 
 def avatar_url(user_id, ts):
@@ -207,7 +215,7 @@ def test_avatar_sem_sessao_401(client):
 
 def test_avatar_ok_grava_e_devolve_url_versionada(client, store):
     login(client, 1)
-    payload = {"avatarDataUrl": "data:image/png;base64,iVBORw0KGgo="}
+    payload = {"avatarDataUrl": "data:image/png;base64," + base64.b64encode(GRAPH_PNG).decode()}
     response = client.post("/api/profile/avatar", json=payload)
     assert response.status_code == 200
     body = response.get_json()
@@ -217,7 +225,36 @@ def test_avatar_ok_grava_e_devolve_url_versionada(client, store):
         "avatarUrl": avatar_url(1, AVATAR_TS),
     }
     assert store.avatars[1][0] == "image/png"
-    assert store.avatars[1][1] == base64.b64decode("iVBORw0KGgo=")
+    assert store.avatars[1][1] == GRAPH_PNG
+
+
+@pytest.mark.parametrize("mime,content", [
+    ("image/png", b"not an image"),
+    ("image/png", GRAPH_PNG[:32]),
+    ("image/png", image_bytes("JPEG")),
+    ("image/svg+xml", b'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>'),
+    ("image/png", b'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>'),
+    ("image/png", image_bytes(size=(4097, 1))),
+])
+def test_avatar_invalido_nao_e_gravado(client, store, mime, content):
+    login(client, 1)
+    store.avatars[1] = ("image/png", GRAPH_PNG, AVATAR_TS)
+    response = client.post("/api/profile/avatar", json={
+        "avatarDataUrl": f"data:{mime};base64," + base64.b64encode(content).decode()
+    })
+    assert response.status_code == 400
+    assert store.avatars[1] == ("image/png", GRAPH_PNG, AVATAR_TS)
+
+
+@pytest.mark.parametrize("mime,image_format", [("image/jpeg", "JPEG"), ("image/webp", "WEBP")])
+def test_avatar_aceita_formatos_permitidos(client, store, mime, image_format):
+    login(client, 1)
+    content = image_bytes(image_format)
+    response = client.post("/api/profile/avatar", json={
+        "avatarDataUrl": f"data:{mime};base64," + base64.b64encode(content).decode()
+    })
+    assert response.status_code == 200
+    assert store.avatars[1][:2] == (mime, content)
 
 def test_avatar_data_url_invalido_400(client):
     login(client, 1)
@@ -264,6 +301,8 @@ def test_baixa_avatar_com_bytes_e_headers(client, store):
     assert response.status_code == 200
     assert response.mimetype == "image/jpeg"
     assert response.headers["Cache-Control"] == "no-cache"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["Content-Security-Policy"] == "default-src 'none'; sandbox"
 
 def test_baixa_avatar_inexistente_404(client):
     response = client.get("/api/profile/avatar/9")

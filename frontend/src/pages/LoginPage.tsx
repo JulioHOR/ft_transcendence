@@ -6,6 +6,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 
 import { login, signup } from "../api/auth";
+import { EMAIL_PATTERN } from "../api/validation";
 import { friendlyError } from "../api/http";
 import { useAuth } from "../app/auth-session";
 import type { User } from "../api/types";
@@ -96,6 +97,7 @@ function EmailField(form: LoginFormModel) {
       label="Email"
       type="email"
       autoComplete="email"
+      pattern={EMAIL_PATTERN}
       placeholder="email"
       required
       value={form.email}

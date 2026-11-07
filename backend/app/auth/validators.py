@@ -13,7 +13,7 @@ def normalize_email(email: str) -> str:
 
 
 def validate_email(email: str) -> str | None:
-    if not EMAIL_RE.match(normalize_email(email)):
+    if not EMAIL_RE.fullmatch(normalize_email(email)):
         return "O e-mail informado não é válido."
     return None
 
@@ -21,7 +21,7 @@ def validate_email(email: str) -> str | None:
 def validate_nickname(nickname: str) -> str | None:
     if not NICKNAME_MIN <= len(nickname) <= NICKNAME_MAX:
         return f"O nickname precisa ter entre {NICKNAME_MIN} e {NICKNAME_MAX} caracteres."
-    if not NICKNAME_RE.match(nickname):
+    if not NICKNAME_RE.fullmatch(nickname):
         return "O nickname só aceita letras, números e _."
     return None
 

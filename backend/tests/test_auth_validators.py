@@ -20,7 +20,7 @@ def test_nickname_fora_da_faixa(nickname):
         "O nickname precisa ter entre 3 e 20 caracteres."
     )
 
-@pytest.mark.parametrize("nickname", ["alice-b", "alice.b", "alice@x", "alice!", "alice b", "alicé"])
+@pytest.mark.parametrize("nickname", ["alice-b", "alice.b", "alice@x", "alice!", "alice b", "alicé", "alice\n", "ali\rce"])
 def test_nickname_caractere_invalido(nickname):
     assert validate_signup(**{**GOOD, "nickname": nickname}) == (
         "O nickname só aceita letras, números e _."

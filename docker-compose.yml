@@ -76,3 +76,17 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+  3D-Environment:
+    build:
+      context: ./3D-Environment
+      dockerfile: Dockerfile
+    ports:
+      # host port (outside, real connection) : inside container port
+      - 5173:5173
+    networks:
+      - ft_transcendence
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped

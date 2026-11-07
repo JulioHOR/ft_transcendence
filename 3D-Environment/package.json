@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "babylonjs-multiplayer-server",
+  "name": "3D-Environment",
   "version": "0.1.0",
   "description": "A Colyseus multiplayer server",
   "type": "module",

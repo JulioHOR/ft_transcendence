@@ -5,6 +5,43 @@ in one push. It lists the commit titles it covers, so every change can still be
 found in `git log`, and describes each change once, however many commits it
 took. Older sections, written one per commit, are kept as they were.
 
+## Name tags, weapon toggle (in progress), Docker image (started)
+
+**Date:** 2026-10-28 to 2026-11-04 · **Author:** Fred, with one commit from
+Julio
+
+**Commits:** `name tag` · `input for equip toggle in progress` ·
+`wip: Creating docker image for Babylon game`
+
+- **Name tags over other players**
+
+  Each player now has a `name` in the room state. The client sends it in
+  `joinOrCreate`, and the server keeps at most 16 characters, falling back to
+  `"Player"`. Other players show it on a small plane above their head that
+  always faces the camera. For now the client always sends `"Player"`, so
+  every tag reads the same.
+
+- **Full-window canvas**
+
+  The canvas fills the page, and the title, the help text and the
+  Playground/Monitor links in `index.html` are commented out.
+
+- **Weapon toggle (in progress)**
+
+  Guns, your own and the ones other players hold, start hidden, and pressing
+  `1` is meant to show them. As committed, this does not work yet: the check
+  is added as a new render observer inside the render loop, so one more
+  piles up every frame, and it refers to a `gun` that does not exist there.
+  `tsc --noEmit` fails on that line (`Cannot find name 'gun'`). Vite does
+  not type-check, so the game still starts. Keys are recorded as pressed but
+  never released. The field of view went from 90° to 70°, and the commit
+  also adds `Idle.glb` and `character.glb` under `animations/`.
+
+- **Docker image (started)**
+
+  A first `Dockerfile` in this folder. It is only a placeholder for now: it
+  does not copy the project or start the game yet.
+
 ## Wall climbing, voice cleanup on disconnect
 
 **Date:** 2026-10-17 · **Author:** Julio

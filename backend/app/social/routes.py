@@ -11,6 +11,7 @@ from schemas import ErrorResponseSchema
 
 from . import handlers
 from . import store
+from .avatar import validate_avatar
 from .handlers import conversation_id
 from .schemas import (
     ChatBlockSchema,
@@ -304,6 +305,9 @@ def post_avatar():
     content_type, data = _decode_avatar_data_url(_json_body().get("avatarDataUrl"))
     if content_type is None:
         return jsonify({"error": data}), 400
+    validation_error = validate_avatar(content_type, data)
+    if validation_error is not None:
+        return jsonify({"error": validation_error}), 400
     store.set_avatar(user_id, content_type, data)
     profile = store.get_user_profile(user_id)
     handlers.broadcast_friends()
@@ -381,6 +385,7 @@ def get_avatar(user_id: int):
             "Cache-Control": "no-cache",
             "X-Content-Type-Options": "nosniff",
             "Content-Disposition": "inline",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
         },
     )
 

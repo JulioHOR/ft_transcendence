@@ -19,6 +19,10 @@ MATCH_ALREADY_STARTED = "Espere a partida começar."
 NOT_IN_MATCH = "Você não está em uma partida."
 
 
+class MalformedInput(Exception):
+    pass
+
+
 def _sid() -> str:
     return getattr(request, "sid", "")
 
@@ -34,15 +38,33 @@ def _parse_position(data) -> float | None:
     position = data.get("position")
     if isinstance(position, bool) or not isinstance(position, (int, float)):
         return None
-    if not math.isfinite(position):
+    try:
+        if not math.isfinite(position):
+            return None
+    except OverflowError:
         return None
     return position
 
 
+def _parse_input(data) -> float:
+    position = _parse_position(data)
+    if position is None:
+        raise MalformedInput()
+    return position
+
+
+def _player_ids(matchmaker, match) -> dict[str, int]:
+    """Retorna os IDs dos jogadores associados aos lados da partida."""
+    return {side: user_id for user_id, _sid, side in matchmaker.players(match)}
+
+
 def emit_status_to_players(socketio, matchmaker, match, state: str, **extra) -> None:
+    players = _player_ids(matchmaker, match)
     for _user_id, sid, side in matchmaker.players(match):
         socketio.emit(
-            "game:status", {"state": state, "side": side, **extra}, to=sid
+            "game:status",
+            {"state": state, "side": side, "players": players, **extra},
+            to=sid,
         )
 
 
@@ -195,6 +217,21 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
         if user_id is None:
             return None
         match.apply_input(user_id, clamp(position, -INPUT_LIMIT, INPUT_LIMIT), now_ms())
+
+    @socketio.on("game:serve")
+    def on_game_serve(_data=None):
+        """Libera a bola somente para o jogador que deve sacar."""
+        sid = _sid()
+        match = match_of_player(sid, NOT_IN_MATCH)
+        if match is None:
+            return None
+
+        user_id = player_id(sid)
+        if user_id is None:
+            return None
+        if not match.serve(user_id):
+            return {"status": "waiting"}
+        return {"status": "served"}
 
     @socketio.on("game:rematch")
     def on_game_rematch(_data=None):

@@ -5,6 +5,7 @@ from .paddles import decay_paddle_velocities
 from .scoring import resolve_goals
 from .state import SimState, is_match_finished
 
+
 def step_simulation(state: SimState, delta_seconds: float) -> None:
     if is_match_finished(state):
         return

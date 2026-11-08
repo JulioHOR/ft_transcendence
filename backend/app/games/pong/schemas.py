@@ -2,8 +2,6 @@ from marshmallow import Schema, fields
 
 
 class PongAchievementSchema(Schema):
-    """Progresso de uma conquista do Pong."""
-
     name = fields.String()
     description = fields.String()
     progress = fields.Integer()
@@ -11,8 +9,6 @@ class PongAchievementSchema(Schema):
 
 
 class PongMatchHistorySchema(Schema):
-    """Partida concluída exibida no perfil."""
-
     opponentId = fields.Integer()
     opponentNickname = fields.String()
     playedAt = fields.DateTime()
@@ -21,8 +17,6 @@ class PongMatchHistorySchema(Schema):
 
 
 class PongLeaderboardEntrySchema(Schema):
-    """Jogador listado na classificação do Pong."""
-
     userId = fields.Integer()
     nickname = fields.String()
     wins = fields.Integer()
@@ -31,8 +25,6 @@ class PongLeaderboardEntrySchema(Schema):
 
 
 class PongStatisticsSchema(Schema):
-    """Estatísticas, progresso, histórico e classificação do Pong."""
-
     matchesPlayed = fields.Integer()
     wins = fields.Integer()
     losses = fields.Integer()

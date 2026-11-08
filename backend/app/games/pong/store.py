@@ -1,4 +1,5 @@
 import time
+from typing import Any
 
 import psycopg2
 from psycopg2.pool import PoolError
@@ -7,15 +8,18 @@ from db import db_cursor
 from .constants import POINTS_TO_WIN
 
 NET_WINS_PER_LEVEL = 3
+PERFECT_WINS_FOR_ACHIEVEMENT = 3
+HISTORY_LIMIT = 20
+LEADERBOARD_LIMIT = 10
 
 
 _PLAYER_RESULTS = """
 WITH player_results AS (
     SELECT left_user_id AS user_id, winner_user_id = left_user_id AS won
-    FROM pong_matches
+    FROM pong_match
     UNION ALL
     SELECT right_user_id AS user_id, winner_user_id = right_user_id AS won
-    FROM pong_matches
+    FROM pong_match
 ), player_totals AS (
     SELECT
         user_id,
@@ -36,10 +40,10 @@ WITH player_results AS (
 """
 
 
-_SAVE_DELAYS_SECONDS = (0.2, 0.5)
+_SAVE_RETRY_DELAYS_SECONDS = (0.2, 0.5)
 
 _SAVE_SQL = (
-    "INSERT INTO pong_matches "
+    "INSERT INTO pong_match "
     "(id, left_user_id, right_user_id, winner_user_id, left_score, right_score) "
     "VALUES (%s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING;"
 )
@@ -53,7 +57,6 @@ def save_match(
     left_score: int,
     right_score: int,
 ) -> None:
-    """Persiste o resultado final uma única vez."""
     params = (
         match_id,
         left_user_id,
@@ -62,93 +65,115 @@ def save_match(
         left_score,
         right_score,
     )
-    for attempt, delay in enumerate((*_SAVE_DELAYS_SECONDS, 0.0)):
+    for attempt in range(len(_SAVE_RETRY_DELAYS_SECONDS) + 1):
         try:
             with db_cursor() as cur:
                 cur.execute(_SAVE_SQL, params)
             return
         except (psycopg2.OperationalError, PoolError):
-            if attempt == len(_SAVE_DELAYS_SECONDS):
+            if attempt == len(_SAVE_RETRY_DELAYS_SECONDS):
                 raise
-            time.sleep(delay)
+            time.sleep(_SAVE_RETRY_DELAYS_SECONDS[attempt])
 
 
 def user_exists(user_id: int) -> bool:
-    """Verifica se o usuário existe."""
-    with db_cursor() as cur:
-        cur.execute("SELECT EXISTS (SELECT 1 FROM users WHERE id = %s);", (user_id,))
-        return cur.fetchone()[0]
-
-
-def get_statistics(user_id: int) -> dict:
-    """Retorna estatísticas, posição e conquistas calculadas pelo histórico."""
     with db_cursor() as cur:
         cur.execute(
-            _PLAYER_RESULTS
-            + "SELECT matches_played, wins, losses, ranking "
-            "FROM ranked_players WHERE user_id = %s;",
-            (user_id,),
+            "SELECT EXISTS (SELECT 1 FROM account WHERE id = %s);", (user_id,)
         )
         row = cur.fetchone()
-        cur.execute(
-            "SELECT COUNT(*) FROM pong_matches "
-            "WHERE winner_user_id = %s AND ("
-            "(left_user_id = %s AND left_score = %s AND right_score = 0) OR "
-            "(right_user_id = %s AND right_score = %s AND left_score = 0));",
-            (user_id, user_id, POINTS_TO_WIN, user_id, POINTS_TO_WIN),
-        )
-        perfect_wins = cur.fetchone()[0]
-    matches_played, wins, losses, ranking = row or (0, 0, 0, None)
-    net_wins = wins - losses
+    return bool(row and row[0])
+
+
+def _fetch_player_totals(cur, user_id: int) -> tuple[int, int, int, int | None]:
+    cur.execute(
+        _PLAYER_RESULTS
+        + "SELECT matches_played, wins, losses, ranking "
+        "FROM ranked_players WHERE user_id = %s;",
+        (user_id,),
+    )
+    row = cur.fetchone()
+    return row or (0, 0, 0, None)
+
+
+def _count_perfect_wins(cur, user_id: int) -> int:
+    cur.execute(
+        "SELECT COUNT(*) FROM pong_match "
+        "WHERE winner_user_id = %s AND ("
+        "(left_user_id = %s AND left_score = %s AND right_score = 0) OR "
+        "(right_user_id = %s AND right_score = %s AND left_score = 0));",
+        (user_id, user_id, POINTS_TO_WIN, user_id, POINTS_TO_WIN),
+    )
+    row = cur.fetchone()
+    return 0 if row is None else row[0]
+
+
+def _levels_for_net_wins(net_wins: int) -> dict[str, int]:
     level_progress = max(0, net_wins)
+    return {
+        "level": level_progress // NET_WINS_PER_LEVEL + 1,
+        "netWinsInCurrentLevel": level_progress % NET_WINS_PER_LEVEL,
+        "winsForNextLevel": NET_WINS_PER_LEVEL,
+    }
+
+
+def _achievements(wins: int, perfect_wins: int) -> list[dict[str, Any]]:
+    return [
+        {
+            "name": "Primeira vitória",
+            "description": "Vença sua primeira partida.",
+            "progress": min(wins, 1),
+            "target": 1,
+        },
+        {
+            "name": "Competidor",
+            "description": "Vença cinco partidas.",
+            "progress": min(wins, 5),
+            "target": 5,
+        },
+        {
+            "name": "Professional",
+            "description": "Vença três partidas por 3 a 0.",
+            "progress": min(perfect_wins, PERFECT_WINS_FOR_ACHIEVEMENT),
+            "target": PERFECT_WINS_FOR_ACHIEVEMENT,
+        },
+    ]
+
+
+def get_statistics(user_id: int) -> dict[str, Any]:
+    with db_cursor() as cur:
+        matches_played, wins, losses, ranking = _fetch_player_totals(cur, user_id)
+        perfect_wins = _count_perfect_wins(cur, user_id)
+    net_wins = wins - losses
     return {
         "matchesPlayed": matches_played,
         "wins": wins,
         "losses": losses,
         "ranking": ranking,
-        "level": level_progress // NET_WINS_PER_LEVEL + 1,
+        **_levels_for_net_wins(net_wins),
         "netWins": net_wins,
-        "netWinsInCurrentLevel": level_progress % NET_WINS_PER_LEVEL,
-        "winsForNextLevel": NET_WINS_PER_LEVEL,
-        "achievements": [
-            {
-                "name": "Primeira vitória",
-                "description": "Vença sua primeira partida.",
-                "progress": min(wins, 1),
-                "target": 1,
-            },
-            {
-                "name": "Competidor",
-                "description": "Vença cinco partidas.",
-                "progress": min(wins, 5),
-                "target": 5,
-            },
-            {
-                "name": "Professional",
-                "description": "Vença três partidas por 3 a 0.",
-                "progress": min(perfect_wins, 3),
-                "target": 3,
-            },
-        ],
+        "achievements": _achievements(wins, perfect_wins),
     }
 
 
-def get_match_history(user_id: int) -> list[dict]:
-    """Retorna as partidas concluídas mais recentes do usuário."""
+def get_match_history(user_id: int) -> list[dict[str, Any]]:
     with db_cursor() as cur:
         cur.execute(
-            "SELECT opponent.id, opponent.nickname, match.played_at, "
+            "SELECT "
+            "opponent.id, "
+            "opponent.nickname, "
+            "match.created_at, "
             "CASE WHEN match.left_user_id = %s "
             "THEN match.left_score ELSE match.right_score END, "
             "CASE WHEN match.left_user_id = %s "
             "THEN match.right_score ELSE match.left_score END "
-            "FROM pong_matches AS match "
-            "JOIN users AS opponent ON opponent.id = CASE "
+            "FROM pong_match AS match "
+            "JOIN account AS opponent ON opponent.id = CASE "
             "WHEN match.left_user_id = %s THEN match.right_user_id "
             "ELSE match.left_user_id END "
             "WHERE match.left_user_id = %s OR match.right_user_id = %s "
-            "ORDER BY match.played_at DESC LIMIT 20;",
-            (user_id, user_id, user_id, user_id, user_id),
+            "ORDER BY match.created_at DESC LIMIT %s;",
+            (user_id, user_id, user_id, user_id, user_id, HISTORY_LIMIT),
         )
         rows = cur.fetchall()
     return [
@@ -163,14 +188,13 @@ def get_match_history(user_id: int) -> list[dict]:
     ]
 
 
-def get_leaderboard(limit: int = 10) -> list[dict]:
-    """Retorna os jogadores ordenados por vitórias e derrotas."""
+def get_leaderboard(limit: int = LEADERBOARD_LIMIT) -> list[dict[str, Any]]:
     with db_cursor() as cur:
         cur.execute(
             _PLAYER_RESULTS
-            + "SELECT users.id, users.nickname, ranked_players.wins, "
+            + "SELECT account.id, account.nickname, ranked_players.wins, "
             "ranked_players.losses, ranked_players.ranking "
-            "FROM ranked_players JOIN users ON users.id = ranked_players.user_id "
+            "FROM ranked_players JOIN account ON account.id = ranked_players.user_id "
             "ORDER BY ranked_players.ranking LIMIT %s;",
             (limit,),
         )

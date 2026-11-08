@@ -33,11 +33,13 @@ SESSION_COOKIE_OPTIONS = {
 }
 
 INVALID_CREDENTIALS = "E-mail ou senha não conferem."
+IDENTITY_ALREADY_TAKEN = "E-mail ou nickname já está em uso."
+INITIAL_SESSION_VERSION = 0
 
 _DUMMY_PASSWORD_HASH = generate_password_hash(os.urandom(16).hex())
 
 
-def login_rate_key():
+def login_rate_key() -> str:
     body = request.get_json(silent=True)
     email = body.get("email") if isinstance(body, dict) else None
     if isinstance(email, str) and email:
@@ -111,7 +113,7 @@ LOGIN_REQUEST_BODY = {
 }
 
 
-def _text_fields(body: dict, *names: str) -> tuple[str, ...] | None:
+def _require_text_fields(body: dict, *names: str) -> tuple[str, ...] | None:
     values = []
     for name in names:
         value = body.get(name)
@@ -121,13 +123,18 @@ def _text_fields(body: dict, *names: str) -> tuple[str, ...] | None:
     return tuple(values)
 
 
+def _open_session(user_id: int | None, session_version: int) -> None:
+    session["user_id"] = user_id
+    session["session_version"] = session_version
+
+
 def current_session_user_id() -> int | None:
     user_id = session.get("user_id")
     if user_id is None:
         return None
     with db_cursor() as cur:
         cur.execute(
-            "SELECT session_version FROM users WHERE id = %s;",
+            "SELECT session_version FROM account WHERE id = %s;",
             (user_id,),
         )
         row = cur.fetchone()
@@ -142,26 +149,49 @@ def _json_body() -> dict:
     return body if isinstance(body, dict) else {}
 
 
-def _conflict(cur, email: str, nickname: str) -> str | None:
+def _find_signup_conflict(cur, email: str, nickname: str) -> str | None:
     cur.execute(
-        "SELECT email, nickname FROM users WHERE email = %s OR nickname = %s;",
+        "SELECT email, nickname FROM account WHERE email = %s OR nickname = %s;",
         (email, nickname),
     )
     rows = cur.fetchall()
     if any(row[0] == email or row[1] == nickname for row in rows):
-        return "E-mail ou nickname já está em uso."
+        return IDENTITY_ALREADY_TAKEN
     return None
 
 
 def _insert_user(cur, email: str, nickname: str, password_hash: str) -> int:
     cur.execute(
-        "INSERT INTO users (email, nickname, password_hash) VALUES (%s, %s, %s) RETURNING id;",
+        "INSERT INTO account (email, nickname, password_hash) "
+        "VALUES (%s, %s, %s) RETURNING id;",
         (email, nickname, password_hash),
     )
     row = cur.fetchone()
     if row is None:
         raise RuntimeError("O INSERT RETURNING não devolveu linha.")
     return row[0]
+
+
+def _fetch_login_record(
+    cur, email: str
+) -> tuple[int | None, str, str, str, int]:
+    cur.execute(
+        "SELECT id, email, nickname, password_hash, session_version "
+        "FROM account WHERE email = %s;",
+        (email,),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return (None, "", "", _DUMMY_PASSWORD_HASH, INITIAL_SESSION_VERSION)
+    return row
+
+
+def _fetch_user_summary(cur, user_id: int) -> tuple[str, str] | None:
+    cur.execute(
+        "SELECT email, nickname FROM account WHERE id = %s;",
+        (user_id,),
+    )
+    return cur.fetchone()
 
 
 @auth_bp.post("/api/auth/signup")
@@ -187,7 +217,7 @@ def _insert_user(cur, email: str, nickname: str, password_hash: str) -> int:
 )
 @limiter.limit("3 per hour")
 def signup():
-    fields = _text_fields(_json_body(), "email", "nickname", "password")
+    fields = _require_text_fields(_json_body(), "email", "nickname", "password")
     if fields is None:
         return jsonify({"error": "Os campos email, nickname e password precisam ser textos."}), 400
     email, nickname, password = fields
@@ -197,14 +227,13 @@ def signup():
     email = normalize_email(email)
     try:
         with db_cursor() as cur:
-            conflict = _conflict(cur, email, nickname)
+            conflict = _find_signup_conflict(cur, email, nickname)
             if conflict:
                 return jsonify({"error": conflict}), 409
             user_id = _insert_user(cur, email, nickname, generate_password_hash(password))
     except psycopg2.IntegrityError:
-        return jsonify({"error": "E-mail ou nickname já está em uso."}), 409
-    session["user_id"] = user_id
-    session["session_version"] = 0
+        return jsonify({"error": IDENTITY_ALREADY_TAKEN}), 409
+    _open_session(user_id, INITIAL_SESSION_VERSION)
     return {"id": user_id, "email": email, "nickname": nickname}, 201
 
 
@@ -226,33 +255,19 @@ def signup():
 )
 @limiter.limit("5 per minute", key_func=login_rate_key)
 def login():
-    fields = _text_fields(_json_body(), "email", "password")
+    fields = _require_text_fields(_json_body(), "email", "password")
     if fields is None:
         return jsonify({"error": INVALID_CREDENTIALS}), 401
     email, password = fields
     if validate_email(email) is not None:
         return jsonify({"error": INVALID_CREDENTIALS}), 401
     with db_cursor() as cur:
-        cur.execute(
-            "SELECT id, email, nickname, password_hash, session_version "
-            "FROM users WHERE email = %s;",
-            (normalize_email(email),),
+        user_id, email, nickname, password_hash, session_version = _fetch_login_record(
+            cur, normalize_email(email)
         )
-        row = cur.fetchone()
-    if row is None:
-        user_id, email, nickname, password_hash, session_version = (
-            None,
-            "",
-            "",
-            _DUMMY_PASSWORD_HASH,
-            0,
-        )
-    else:
-        user_id, email, nickname, password_hash, session_version = row
     if not check_password_hash(password_hash, password):
         return jsonify({"error": INVALID_CREDENTIALS}), 401
-    session["user_id"] = user_id
-    session["session_version"] = session_version
+    _open_session(user_id, session_version)
     return {"id": user_id, "email": email, "nickname": nickname}, 200
 
 
@@ -268,7 +283,8 @@ def logout():
     if user_id is not None:
         with db_cursor() as cur:
             cur.execute(
-                "UPDATE users SET session_version = session_version + 1 WHERE id = %s;",
+                "UPDATE account SET session_version = session_version + 1 "
+                "WHERE id = %s;",
                 (user_id,),
             )
     session.clear()
@@ -290,12 +306,9 @@ def me():
     if user_id is None:
         return "", 204
     with db_cursor() as cur:
-        cur.execute(
-            "SELECT email, nickname FROM users WHERE id = %s;",
-            (user_id,),
-        )
-        row = cur.fetchone()
-    if row is None:
+        summary = _fetch_user_summary(cur, user_id)
+    if summary is None:
         session.clear()
         return "", 204
-    return {"id": user_id, "email": row[0], "nickname": row[1]}, 200
+    email, nickname = summary
+    return {"id": user_id, "email": email, "nickname": nickname}, 200

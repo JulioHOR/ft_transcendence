@@ -34,6 +34,9 @@ class GameInvitation:
     accepted: bool = False
     created_at_ms: float = 0.0
 
+    def includes(self, user_id: int) -> bool:
+        return user_id in (self.sender_user_id, self.recipient_user_id)
+
 
 INVITATION_TTL_MS = 600_000
 
@@ -50,6 +53,38 @@ class Matchmaker:
 
     def _now_ms(self) -> float:
         return time.time() * 1000
+
+    def _is_busy_locked(self, user_id: int) -> bool:
+        return (
+            user_id in self._sid_by_user_id
+            or user_id in self._queue
+            or user_id in self._match_by_user_id
+        )
+
+    def _is_queued_or_matched_locked(self, user_id: int) -> bool:
+        return user_id in self._queue or user_id in self._match_by_user_id
+
+    def _release_user_locked(self, user_id: int) -> None:
+        sid = self._sid_by_user_id.pop(user_id, None)
+        if sid is not None:
+            self._user_id_by_sid.pop(sid, None)
+        self._match_by_user_id.pop(user_id, None)
+        for waiting_users in self._invited_users.values():
+            waiting_users.discard(user_id)
+        if user_id in self._queue:
+            self._queue.remove(user_id)
+
+    def _pop_invitation_locked(self, invitation_id: str) -> dict | None:
+        invitation = self._game_invitations.pop(invitation_id, None)
+        waiting_users = sorted(self._invited_users.pop(invitation_id, set()))
+        if invitation is None:
+            return None
+        return {
+            "inviteId": invitation_id,
+            "senderId": invitation.sender_user_id,
+            "recipientId": invitation.recipient_user_id,
+            "waitingUserIds": waiting_users,
+        }
 
     def _sweep_expired_invitations_locked(self) -> None:
         expired = [
@@ -69,8 +104,10 @@ class Matchmaker:
             participants = {sender_user_id, recipient_user_id}
             if (
                 len(participants) != 2
-                or participants.intersection(self._queue)
-                or participants.intersection(self._match_by_user_id)
+                or any(
+                    self._is_queued_or_matched_locked(participant)
+                    for participant in participants
+                )
                 or any(
                     {invitation.sender_user_id, invitation.recipient_user_id}
                     == participants
@@ -99,8 +136,7 @@ class Matchmaker:
             if accepted:
                 participants = (invitation.sender_user_id, invitation.recipient_user_id)
                 if any(
-                    participant in self._queue
-                    or participant in self._match_by_user_id
+                    self._is_queued_or_matched_locked(participant)
                     for participant in participants
                 ) or any(
                     other_id != invitation_id
@@ -124,38 +160,21 @@ class Matchmaker:
     def cancel_game_invitation(self, invitation_id: str, user_id: int) -> dict | None:
         with self._lock:
             invitation = self._game_invitations.get(invitation_id)
-            if invitation is None or user_id not in (
-                invitation.sender_user_id,
-                invitation.recipient_user_id,
-            ):
+            if invitation is None or not invitation.includes(user_id):
                 return None
-            waiting_users = sorted(self._invited_users.pop(invitation_id, set()))
-            self._game_invitations.pop(invitation_id, None)
-            return {
-                "inviteId": invitation_id,
-                "senderId": invitation.sender_user_id,
-                "recipientId": invitation.recipient_user_id,
-                "waitingUserIds": waiting_users,
-            }
+            return self._pop_invitation_locked(invitation_id)
 
     def cancel_invitations_for_user(self, user_id: int) -> list[dict]:
         with self._lock:
-            payloads = []
-            for invitation_id, invitation in list(self._game_invitations.items()):
-                if user_id not in (
-                    invitation.sender_user_id,
-                    invitation.recipient_user_id,
-                ):
-                    continue
-                waiting_users = sorted(self._invited_users.pop(invitation_id, set()))
-                self._game_invitations.pop(invitation_id, None)
-                payloads.append({
-                    "inviteId": invitation_id,
-                    "senderId": invitation.sender_user_id,
-                    "recipientId": invitation.recipient_user_id,
-                    "waitingUserIds": waiting_users,
-                })
-            return payloads
+            return [
+                payload
+                for payload in (
+                    self._pop_invitation_locked(invitation_id)
+                    for invitation_id, invitation in list(self._game_invitations.items())
+                    if invitation.includes(user_id)
+                )
+                if payload is not None
+            ]
 
     def game_invitations_for_user(self, user_id: int) -> list[dict]:
         with self._lock:
@@ -168,8 +187,7 @@ class Matchmaker:
                     "status": "accepted" if invitation.accepted else "pending",
                 }
                 for invitation_id, invitation in self._game_invitations.items()
-                if user_id
-                in (invitation.sender_user_id, invitation.recipient_user_id)
+                if invitation.includes(user_id)
             ]
 
     def game_invitation(self, invitation_id: str) -> dict | None:
@@ -191,9 +209,7 @@ class Matchmaker:
                 (
                     invitation_id
                     for invitation_id, invitation in self._game_invitations.items()
-                    if invitation.accepted
-                    and user_id
-                    in (invitation.sender_user_id, invitation.recipient_user_id)
+                    if invitation.accepted and invitation.includes(user_id)
                 ),
                 None,
             )
@@ -211,11 +227,7 @@ class Matchmaker:
             }
             if user_id not in participants:
                 raise InvalidGameInvitationError(invitation_id)
-            if (
-                user_id in self._sid_by_user_id
-                or user_id in self._queue
-                or user_id in self._match_by_user_id
-            ):
+            if self._is_busy_locked(user_id):
                 raise AlreadyPlayingError(user_id)
 
             self._user_id_by_sid[sid] = user_id
@@ -243,11 +255,7 @@ class Matchmaker:
 
     def join(self, sid: str, user_id: int) -> Match | None:
         with self._lock:
-            if (
-                user_id in self._sid_by_user_id
-                or user_id in self._queue
-                or user_id in self._match_by_user_id
-            ):
+            if self._is_busy_locked(user_id):
                 raise AlreadyPlayingError(sid)
 
             self._queue.append(user_id)
@@ -272,14 +280,7 @@ class Matchmaker:
         with self._lock:
             user_id = self._user_id_by_sid.pop(sid, None)
             if user_id is not None:
-                self._sid_by_user_id.pop(user_id, None)
-                self._match_by_user_id.pop(user_id, None)
-                for waiting_users in self._invited_users.values():
-                    waiting_users.discard(user_id)
-                try:
-                    self._queue.remove(user_id)
-                except ValueError:
-                    pass
+                self._release_user_locked(user_id)
 
     def get_match(self, sid: str) -> Match | None:
         user_id = self._user_id_by_sid.get(sid)
@@ -309,19 +310,15 @@ class Matchmaker:
             if self._user_id_by_sid.get(disconnected_sid) != user_id:
                 return False
             for participant_id in {user_id, *match.sides.keys()}:
-                participant_sid = self._sid_by_user_id.pop(participant_id, None)
-                if participant_sid is not None:
-                    self._user_id_by_sid.pop(participant_sid, None)
-                self._match_by_user_id.pop(participant_id, None)
-                for waiting_users in self._invited_users.values():
-                    waiting_users.discard(participant_id)
-                try:
-                    self._queue.remove(participant_id)
-                except ValueError:
-                    pass
+                self._release_user_locked(participant_id)
             return True
 
-    def reconnect_user(self, user_id: int, new_sid: str, old_sid_is_live: Callable[[str], bool] | None = None) -> Match | None:
+    def reconnect_user(
+        self,
+        user_id: int,
+        new_sid: str,
+        old_sid_is_live: Callable[[str], bool] | None = None,
+    ) -> Match | None:
         with self._lock:
             match = self._match_by_user_id.get(user_id)
             old_sid = self._sid_by_user_id.get(user_id)

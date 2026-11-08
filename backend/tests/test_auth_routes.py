@@ -29,8 +29,6 @@ class FakeCursor:
 
 class FakeUsers:
 
-    # race=True faz o SELECT de conflito mentir, expondo a guarda de IntegrityError.
-
     def __init__(self):
         self.rows = []
         self.next_id = 1
@@ -70,7 +68,7 @@ class FakeUsers:
         if "SELECT session_version" in sql:
             (user_id,) = params
             return [(self._version(user_id),)]
-        if "UPDATE users" in sql:
+        if "UPDATE account" in sql:
             (user_id,) = params
             self.versions[user_id] = self._version(user_id) + 1
             return []

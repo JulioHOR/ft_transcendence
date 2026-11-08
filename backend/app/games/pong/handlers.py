@@ -13,42 +13,47 @@ from .constants import TABLE
 from .shared import clamp, now_ms
 
 INPUT_LIMIT = TABLE["halfWidth"] - TABLE["paddleHalfDepth"]
+DISCONNECT_GRACE_SECONDS = 30
+
+MATCH_ALREADY_STARTED = "Espere a partida começar."
+NOT_IN_MATCH = "Você não está em uma partida."
 
 
 def _sid() -> str:
     return getattr(request, "sid", "")
 
-def _user_id() -> int | None:
+
+def _session_user_id() -> int | None:
     user_id = session.get("user_id")
     return user_id if isinstance(user_id, int) else None
 
 
-class MalformedInput(Exception):
-    pass
-
-
-def _parse_input(data) -> float:
+def _parse_position(data) -> float | None:
     if not isinstance(data, dict):
-        raise MalformedInput()
+        return None
     position = data.get("position")
     if isinstance(position, bool) or not isinstance(position, (int, float)):
-        raise MalformedInput()
+        return None
     if not math.isfinite(position):
-        raise MalformedInput()
+        return None
     return position
 
 
-def emit_countdown(socketio, matchmaker, match) -> None:
+def emit_status_to_players(socketio, matchmaker, match, state: str, **extra) -> None:
     for _user_id, sid, side in matchmaker.players(match):
         socketio.emit(
-            "game:status",
-            {"state": "countdown", "side": side, "startsAt": match.starts_at_ms},
-            to=sid,
+            "game:status", {"state": state, "side": side, **extra}, to=sid
         )
 
 
+def emit_countdown(socketio, matchmaker, match) -> None:
+    emit_status_to_players(
+        socketio, matchmaker, match, "countdown", startsAt=match.starts_at_ms
+    )
+
+
 def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], None]:
-    def emit_error(sid, reason: str, message: str) -> None:
+    def emit_error(sid: str, reason: str, message: str) -> None:
         if sid:
             socketio.emit("game:error", {"reason": reason, "message": message}, to=sid)
 
@@ -64,40 +69,72 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
             matchmaker.leave(player_sid)
         match.destroy()
 
-    def player_id(sid):
+    def player_id(sid: str) -> int | None:
         user_id = matchmaker.get_user_id_for_sid(sid)
         if user_id is None:
             emit_error(sid, "unauthorized", "Entre na sua conta para jogar.")
         return user_id
 
-    def opponent_sid(match, sid):
+    def opponent_sid(match, sid: str) -> str | None:
         return next(
             (player_sid for _user_id, player_sid, _side in matchmaker.players(match)
              if player_sid != sid),
             None,
         )
 
+    def match_of_player(sid: str, missing_message: str):
+        match = matchmaker.get_match(sid)
+        if match is None:
+            emit_error(sid, "not_in_match", missing_message)
+        return match
+
+    def notify_opponent_left(other_sid: str | None) -> None:
+        if other_sid:
+            socketio.emit("game:status", {"state": "opponent_left"}, to=other_sid)
+
+    def restore_match_notice(sid: str, match) -> None:
+        socketio.server.enter_room(sid, match.id)
+        state = {"paused": "resume_pending", "finished": "finished"}.get(
+            match.phase, "playing"
+        )
+        emit_status_to_players(socketio, matchmaker, match, state)
+
+    def notify_invitation_started(invitation_id: str, invitation: dict) -> None:
+        started_event = {
+            "inviteId": invitation_id,
+            "senderId": invitation["senderId"],
+            "recipientId": invitation["recipientId"],
+            "status": "started",
+        }
+        for key, user_id in (
+            ("senderNickname", started_event["senderId"]),
+            ("recipientNickname", started_event["recipientId"]),
+        ):
+            profile = social_store.get_user_profile(user_id)
+            if profile is not None:
+                started_event[key] = profile[0]
+        for participant_id in (
+            invitation["senderId"],
+            invitation["recipientId"],
+        ):
+            socketio.emit(
+                "chat:game:invite:update",
+                started_event,
+                room=f"user:{participant_id}",
+            )
+
     @socketio.on("queue:join")
     def on_queue_join(data=None):
         invitation = None
         try:
-            user_id = _user_id()
+            user_id = _session_user_id()
             if user_id is None:
                 emit_error(_sid(), "unauthorized", "Entre na sua conta para jogar.")
                 return None
             sid = _sid()
             match = matchmaker.reconnect_user(user_id, sid, socket_is_alive)
             if match is not None:
-                socketio.server.enter_room(sid, match.id)
-                state = {"paused": "resume_pending", "finished": "finished"}.get(
-                    match.phase, "playing"
-                )
-                for _player_id, player_sid, side in matchmaker.players(match):
-                    socketio.emit(
-                        "game:status",
-                        {"state": state, "side": side},
-                        to=player_sid,
-                    )
+                restore_match_notice(sid, match)
                 return {"status": "reconnected"}
 
             invitation_id = data.get("inviteId") if isinstance(data, dict) else None
@@ -131,30 +168,7 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
         for _player_id, sid, _side in matchmaker.players(match):
             socketio.server.enter_room(sid, match.id)
         if invitation_id is not None and invitation is not None:
-            started_event = {
-                "inviteId": invitation_id,
-                "senderId": invitation["senderId"],
-                "recipientId": invitation["recipientId"],
-                "status": "started",
-            }
-            sender_profile = social_store.get_user_profile(started_event["senderId"])
-            if sender_profile is not None:
-                started_event["senderNickname"] = sender_profile[0]
-            recipient_profile = social_store.get_user_profile(
-                started_event["recipientId"]
-            )
-            if recipient_profile is not None:
-                started_event["recipientNickname"] = recipient_profile[0]
-            socketio.emit(
-                "chat:game:invite:update",
-                started_event,
-                room=f"user:{invitation['senderId']}",
-            )
-            socketio.emit(
-                "chat:game:invite:update",
-                started_event,
-                room=f"user:{invitation['recipientId']}",
-            )
+            notify_invitation_started(invitation_id, invitation)
         emit_countdown(socketio, matchmaker, match)
         return {"status": "matched"}
 
@@ -168,15 +182,13 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
 
     @socketio.on("paddle:input")
     def on_paddle_input(data):
-        try:
-            position = _parse_input(data)
-        except MalformedInput:
+        position = _parse_position(data)
+        if position is None:
             emit_error(_sid(), "malformed", "O movimento precisa ser um número.")
             return None
 
-        match = matchmaker.get_match(_sid())
+        match = match_of_player(_sid(), MATCH_ALREADY_STARTED)
         if match is None:
-            emit_error(_sid(), "not_in_match", "Espere a partida começar.")
             return None
 
         user_id = player_id(_sid())
@@ -187,9 +199,8 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
     @socketio.on("game:rematch")
     def on_game_rematch(_data=None):
         sid = _sid()
-        match = matchmaker.get_match(sid)
+        match = match_of_player(sid, NOT_IN_MATCH)
         if match is None:
-            emit_error(sid, "not_in_match", "Você não está em uma partida.")
             return None
 
         user_id = player_id(sid)
@@ -213,9 +224,8 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
     @socketio.on("game:resume")
     def on_game_resume(_data=None):
         sid = _sid()
-        match = matchmaker.get_match(sid)
+        match = match_of_player(sid, NOT_IN_MATCH)
         if match is None:
-            emit_error(sid, "not_in_match", "Você não está em uma partida.")
             return None
 
         user_id = player_id(sid)
@@ -233,33 +243,25 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
             )
             return {"status": "pending"}
 
-        for _player_id, player_sid, side in matchmaker.players(match):
-            socketio.emit(
-                "game:status",
-                {"state": "playing", "side": side},
-                to=player_sid,
-            )
+        emit_status_to_players(socketio, matchmaker, match, "playing")
         return {"status": "resumed"}
 
     @socketio.on("game:leave")
     def on_game_leave(_data=None):
         sid = _sid()
-        match = matchmaker.get_match(sid)
+        match = match_of_player(sid, NOT_IN_MATCH)
         if match is None:
-            emit_error(sid, "not_in_match", "Você não está em uma partida.")
             return None
         if match.phase not in ("paused", "finished") or not match.try_close():
             emit_error(sid, "invalid", "A partida ainda não pode ser encerrada.")
             return None
 
-        other_sid = opponent_sid(match, sid)
-        if other_sid:
-            socketio.emit("game:status", {"state": "opponent_left"}, to=other_sid)
+        notify_opponent_left(opponent_sid(match, sid))
         release_match(match)
         return {"status": "left"}
 
-    def expire_disconnected_match(user_id, disconnected_sid, match):
-        socketio.sleep(30)
+    def expire_disconnected_match(user_id: int | None, disconnected_sid: str, match) -> None:
+        socketio.sleep(DISCONNECT_GRACE_SECONDS)
 
         other_sid = opponent_sid(match, disconnected_sid)
         if user_id is not None and not matchmaker.claim_stale_match(
@@ -267,13 +269,7 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
         ):
             return
 
-        if other_sid:
-            socketio.emit(
-                "game:status",
-                {"state": "opponent_left"},
-                to=other_sid,
-            )
-
+        notify_opponent_left(other_sid)
         release_match(match)
 
     def handle_disconnect(sid: str) -> None:

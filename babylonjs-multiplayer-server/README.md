@@ -1,4 +1,10 @@
-# Welcome to Colyseus!
+# Welcome Virtual Office Environment
+
+What it is: the 3D multiplayer arena served at `/game/`, started by the root `make up`.
+Run it: `make up` from the repo root, or `npm install && npm run dev` in this folder (guest login works outside production).
+Structure: the files that matter (`src/app.config.ts`, `src/rooms/`, `src/client/` with one line for each module).
+Design decisions: the client is authoritative for position (Babylon resolves collisions, the server only stores finite numbers), and the login comes from the dashboard session cookie through `/api/me`.
+Scripts: `dev`, `build`, `test`.
 
 ## Clean install
 
@@ -44,7 +50,6 @@ Then open http://localhost:2567 for the playground, or /monitor for the monitor.
 - `src/rooms/schema/MyRoomState.ts`: the state synchronized to every client in the room
 - `test/MyRoom.test.ts`: boots the real server and connects a real client
 - `loadtest/example.ts`: scriptable client for `npm run loadtest`
-- `ecosystem.config.cjs`: pm2 configuration, used when deploying to Colyseus Cloud
 
 ## Scripts
 

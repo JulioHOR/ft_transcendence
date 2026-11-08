@@ -4,7 +4,7 @@ import { useChat } from "../app/chat-session";
 import { useFriends } from "../app/friends-session";
 import { useLatestRef } from "../app/useLatestRef";
 import type { Friend } from "../api/friends";
-import { MAX_CHAT_MESSAGE_LENGTH } from "../api/chat";
+import { MAX_CHAT_MESSAGE_LENGTH } from "../api/validation";
 import {
   GLOBAL_CHAT_TAB_ID,
   isAcceptedFriend,

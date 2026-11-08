@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import { PongApp } from "../games/pong/view/PongApp";
 import { WebSocketTransport } from "../transports/pong/WebSocketTransport";
+import type { PongBoardProps, PongLayoutProps } from "./pageProps";
 
 /**
  * Página do Pong.
@@ -19,7 +20,8 @@ export function PongPage() {
   return <PongLayout transport={transport} />;
 }
 
-function PongLayout({ transport }: { transport: WebSocketTransport }) {
+/** Organiza a área ocupada pelo jogo. */
+function PongLayout({ transport }: PongLayoutProps) {
   return (
     <Box
       component="section"
@@ -35,10 +37,11 @@ function PongLayout({ transport }: { transport: WebSocketTransport }) {
   );
 }
 
-function PongBoard({ transport }: { transport: WebSocketTransport }) {
+/** Renderiza o quadro que contém o Pong. */
+function PongBoard({ transport }: PongBoardProps) {
   return (
     <Box
-      sx={{ minHeight: 0, flex: 1, bgcolor: "#080d0b" }}
+      sx={{ minHeight: 0, flex: 1, bgcolor: "background.default" }}
       aria-label="Área do jogo"
     >
       <PongApp transport={transport} />

@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import {
@@ -6,9 +6,20 @@ import {
   type Toast,
   type ToastContextValue,
 } from "./toaster-context";
+import type { ToasterProviderProps, ToastViewProps } from "./props";
 
-/** Disponibiliza notificações temporárias no topo da aplicação. */
-export function ToasterProvider({ children }: { children: ReactNode }) {
+/** Posiciona o toast no rodapé, ocupando a largura útil da tela. */
+const toastSnackbarSx = {
+  bottom: { xs: 72, sm: 80 },
+  left: { xs: 16, sm: 24 },
+  right: { xs: 16, sm: 24 },
+  width: "auto",
+  maxWidth: "none",
+  transform: "none",
+} as const;
+
+/** Disponibiliza notificações temporárias no rodapé da aplicação. */
+export function ToasterProvider({ children }: ToasterProviderProps) {
   const [toast, setToast] = useState<Toast | null>(null);
   const showToast = useCallback<ToastContextValue>(
     (message, severity, onDismiss) => {
@@ -17,6 +28,7 @@ export function ToasterProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  /** Fecha a notificação atual e executa seu callback. */
   function dismissToast(): void {
     setToast(null);
     toast?.onDismiss?.();
@@ -30,14 +42,15 @@ export function ToasterProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function ToastView(props: { toast: Toast | null; onDismiss: () => void }) {
+/** Renderiza a notificação atual ou mantém o Snackbar fechado. */
+function ToastView(props: ToastViewProps) {
   return (
     <Snackbar
       open={props.toast !== null}
       autoHideDuration={6000}
-      anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
       onClose={props.onDismiss}
-      sx={{ width: "calc(100% - 32px)", maxWidth: "none" }}
+      sx={toastSnackbarSx}
     >
       {props.toast ? (
         <Alert

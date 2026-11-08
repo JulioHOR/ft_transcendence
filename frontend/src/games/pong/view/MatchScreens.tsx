@@ -1,17 +1,28 @@
-import { useEffect, useState, type ReactNode } from "react";
-import Button from "@mui/material/Button";
+import { useEffect, useState } from "react";
 import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import type { MatchState, Side } from "../protocol";
+import type { AcceptanceBySide, Side } from "../protocol";
+import { ActionButton } from "../../../ui/ActionButton";
 import { SectionCard } from "../../../ui/SectionCard";
+import { PONG_MODAL_BACKDROP_SX, RESUME_CARD_SX } from "../constants";
 import { AppIcon } from "../../../ui/AppIcon";
-
-type StatusScreenProps = {
-  title: string;
-  titleColor?: string;
-  children?: ReactNode;
-};
+import type {
+  AcceptanceFlags,
+  AcceptanceStatusProps,
+  ConfirmationChipProps,
+  CountdownNumberProps,
+  CountdownScreenProps,
+  LeaveMatchButtonProps,
+  RematchButtonProps,
+  ResultActionsProps,
+  ResultDetailsProps,
+  ResultScreenProps,
+  ResumeActionsProps,
+  ResumeScreenProps,
+  ScorePlayerProps,
+  StatusScreenProps,
+} from "./props";
 
 /** Componente para exibir uma tela de status. */
 export function StatusScreen({
@@ -55,6 +66,7 @@ function useCountdownSeconds(startsAt: number | null): number {
   return seconds;
 }
 
+/** Converte o lado da partida em uma descrição exibida ao jogador. */
 function sideLabel(side: Side | null): string {
   if (side === "left") return "esquerda";
   if (side === "right") return "direita";
@@ -65,10 +77,7 @@ function sideLabel(side: Side | null): string {
 export function CountdownScreen({
   playerSide,
   startsAt,
-}: {
-  playerSide: Side | null;
-  startsAt: number | null;
-}) {
+}: CountdownScreenProps) {
   const seconds = useCountdownSeconds(startsAt);
   return (
     <StatusScreen title="Partida encontrada">
@@ -80,7 +89,8 @@ export function CountdownScreen({
   );
 }
 
-function CountdownNumber({ seconds }: { seconds: number }) {
+/** Exibe o número atual da contagem regressiva. */
+function CountdownNumber({ seconds }: CountdownNumberProps) {
   return (
     <Typography
       component="div"
@@ -98,39 +108,29 @@ function CountdownNumber({ seconds }: { seconds: number }) {
 }
 
 /** Componente para exibir o botão de rematch. */
-function RematchButton({
-  accepted,
-  onRequestRematch,
-}: {
-  accepted: boolean;
-  onRequestRematch: () => void;
-}) {
+function RematchButton({ accepted, onRequestRematch }: RematchButtonProps) {
   return (
-    <Button
+    <ActionButton
+      appearance="primary"
       type="button"
       onClick={onRequestRematch}
       disabled={accepted}
-      variant="contained"
-      color="primary"
+      sx={{ flex: 1 }}
     >
       {accepted ? "Aguardando…" : "Jogar de novo"}
-    </Button>
+    </ActionButton>
   );
 }
 
+/** Retorna o lado oposto ao jogador informado. */
 function opponentSide(playerSide: Side): Side {
   return playerSide === "left" ? "right" : "left";
 }
 
 /** Retorna os status de aceitação do rematch para o jogador e o oponente. */
-type AcceptanceFlags = {
-  playerAccepted: boolean;
-  opponentAccepted: boolean;
-};
-
 function acceptanceFlags(
   playerSide: Side | null,
-  rematchAccepted: { left: boolean; right: boolean },
+  rematchAccepted: AcceptanceBySide,
 ): AcceptanceFlags {
   if (playerSide === null) {
     return { playerAccepted: false, opponentAccepted: false };
@@ -141,23 +141,27 @@ function acceptanceFlags(
   };
 }
 
+/** Calcula o título do resultado para o jogador atual. */
 function resultTitle(playerSide: Side | null, winner: Side | null): string {
   return playerSide !== null && winner === playerSide ? "Vitória" : "Derrota";
 }
 
-export function LeaveMatchButton({ onLeave }: { onLeave: () => void }) {
+/** Exibe a ação para encerrar a partida atual. */
+export function LeaveMatchButton({
+  onLeave,
+  equalWidth = false,
+}: LeaveMatchButtonProps) {
   return (
-    <Button type="button" onClick={onLeave} variant="outlined" color="inherit">
+    <ActionButton
+      appearance="secondary"
+      type="button"
+      onClick={onLeave}
+      sx={equalWidth ? { flex: 1 } : undefined}
+    >
       Encerrar partida
-    </Button>
+    </ActionButton>
   );
 }
-
-type ResultScreenProps = {
-  state: MatchState;
-  onRequestRematch: () => void;
-  onRequestLeave: () => void;
-};
 
 /** Componente para exibir a tela de resultado da partida. */
 export function ResultScreen({
@@ -165,46 +169,72 @@ export function ResultScreen({
   onRequestRematch,
   onRequestLeave,
 }: ResultScreenProps) {
-  const won =
-    state.playerSide !== null && state.snapshot.winner === state.playerSide;
-  const accepted = state.playerSide
-    ? state.rematchAccepted[state.playerSide]
-    : false;
+  const won = state.playerSide !== null && state.snapshot.winner === state.playerSide;
+  const accepted = state.playerSide !== null && state.rematchAccepted[state.playerSide];
   return (
     <StatusScreen
       title={resultTitle(state.playerSide, state.snapshot.winner)}
       titleColor={won ? "success.main" : "error.main"}
     >
+      <AppIcon name={won ? "achievement" : "competitor"} color={won ? "success" : "error"} sx={{ fontSize: 48 }} />
       <ResultDetails state={state} />
-      <RematchButton accepted={accepted} onRequestRematch={onRequestRematch} />
-      <LeaveMatchButton onLeave={onRequestLeave} />
+      <ResultActions
+        accepted={accepted}
+        onRequestRematch={onRequestRematch}
+        onRequestLeave={onRequestLeave}
+      />
     </StatusScreen>
   );
 }
 
-function ResultDetails({ state }: { state: MatchState }) {
+/** Organiza as ações principais do resultado em uma única linha responsiva. */
+function ResultActions({
+  accepted,
+  onRequestRematch,
+  onRequestLeave,
+}: ResultActionsProps) {
+  return (
+    <Stack
+      direction={{ xs: "column", sm: "row" }}
+      spacing={1}
+      sx={{ width: "100%", maxWidth: 420 }}
+    >
+      <RematchButton
+        accepted={accepted}
+        onRequestRematch={onRequestRematch}
+      />
+      <LeaveMatchButton onLeave={onRequestLeave} equalWidth />
+    </Stack>
+  );
+}
+
+/** Exibe placares e confirmações do resultado. */
+function ResultDetails({ state }: ResultDetailsProps) {
   const side = state.playerSide;
   const { score } = state.snapshot;
   const playerScore = side === "right" ? score.right : score.left;
   const opponentScore = side === "right" ? score.left : score.right;
   const flags = acceptanceFlags(side, state.rematchAccepted);
   return (
-    <SectionCard sx={{ width: "100%", maxWidth: 480 }}>
-      <Stack spacing={2} sx={{ alignItems: "center" }}>
-        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
-          <ScorePlayer label="Você" score={playerScore} />
-          <Typography variant="h2" color="text.secondary">
-            —
-          </Typography>
-          <ScorePlayer label="Oponente" score={opponentScore} />
-        </Stack>
-        <AcceptanceStatus flags={flags} />
+    <Stack spacing={2} sx={{ width: "100%", maxWidth: 420 }}>
+      <Stack
+        direction="row"
+        spacing={{ xs: 1.5, sm: 3 }}
+        sx={{ alignItems: "center", justifyContent: "center" }}
+      >
+        <ScorePlayer label="Você" score={playerScore} />
+        <Typography variant="h2" color="text.secondary">
+          vs
+        </Typography>
+        <ScorePlayer label="Oponente" score={opponentScore} />
       </Stack>
-    </SectionCard>
+      <AcceptanceStatus flags={flags} />
+    </Stack>
   );
 }
 
-function ScorePlayer(props: { label: string; score: number }) {
+/** Exibe uma pontuação com seu rótulo. */
+function ScorePlayer(props: ScorePlayerProps) {
   return (
     <Stack spacing={0.5} sx={{ alignItems: "center" }}>
       <Typography variant="h1" sx={{ fontVariantNumeric: "tabular-nums" }}>
@@ -215,8 +245,7 @@ function ScorePlayer(props: { label: string; score: number }) {
   );
 }
 
-type AcceptanceStatusProps = { flags: AcceptanceFlags; pendingLabel?: string };
-
+/** Exibe o estado de confirmação dos dois jogadores. */
 function AcceptanceStatus({
   flags,
   pendingLabel = "Você não confirmou",
@@ -241,13 +270,8 @@ function AcceptanceStatus({
   );
 }
 
-function ConfirmationChip({
-  accepted,
-  label,
-}: {
-  accepted: boolean;
-  label: string;
-}) {
+/** Exibe uma confirmação individual em formato de chip. */
+function ConfirmationChip({ accepted, label }: ConfirmationChipProps) {
   return (
     <Chip
       size="small"
@@ -258,24 +282,37 @@ function ConfirmationChip({
   );
 }
 
-type ResumeScreenProps = {
-  state: MatchState;
-  onRequestResume: () => void;
-  onRequestLeave: () => void;
-};
-
-/** Exibe os aceites enquanto os dois jogadores confirmam a retomada. */
-export function ResumeScreen({
+/** Mantém a mesa visível e apresenta a pausa como modal sobre o jogo. */
+export function ResumeModal({
   state,
   onRequestResume,
   onRequestLeave,
 }: ResumeScreenProps) {
-  const side = state.playerSide;
-  const flags = acceptanceFlags(side, state.resumeAccepted);
   return (
-    <StatusScreen title="Partida pausada">
+    <Stack role="dialog" aria-modal="true" sx={PONG_MODAL_BACKDROP_SX}>
+      <SectionCard elevation={8} sx={RESUME_CARD_SX}>
+        <ResumeContent
+          state={state}
+          onRequestResume={onRequestResume}
+          onRequestLeave={onRequestLeave}
+        />
+      </SectionCard>
+    </Stack>
+  );
+}
+
+/** Renderiza o conteúdo do modal de pausa. */
+function ResumeContent({
+  state,
+  onRequestResume,
+  onRequestLeave,
+}: ResumeScreenProps) {
+  const flags = acceptanceFlags(state.playerSide, state.resumeAccepted);
+  return (
+    <Stack spacing={2} sx={{ alignItems: "center", textAlign: "center" }}>
+      <Typography variant="h3">Partida pausada</Typography>
       <AppIcon name="pause" color="primary" sx={{ fontSize: 48 }} />
-      <Typography color="text.secondary">
+      <Typography color="grey.300">
         Os dois jogadores precisam confirmar para continuar.
       </Typography>
       <AcceptanceStatus flags={flags} pendingLabel="Você precisa confirmar" />
@@ -284,30 +321,26 @@ export function ResumeScreen({
         onRequestResume={onRequestResume}
         onRequestLeave={onRequestLeave}
       />
-    </StatusScreen>
+    </Stack>
   );
 }
 
+/** Renderiza as ações disponíveis no modal de pausa. */
 function ResumeActions({
   flags,
   onRequestResume,
   onRequestLeave,
-}: {
-  flags: AcceptanceFlags;
-  onRequestResume: () => void;
-  onRequestLeave: () => void;
-}) {
+}: ResumeActionsProps) {
   return (
     <>
-      <Button
+      <ActionButton
+        appearance="primary"
         type="button"
         onClick={onRequestResume}
         disabled={flags.playerAccepted}
-        variant="contained"
-        color="primary"
       >
         {flags.playerAccepted ? "Aguardando oponente…" : "Continuar partida"}
-      </Button>
+      </ActionButton>
       <LeaveMatchButton onLeave={onRequestLeave} />
     </>
   );

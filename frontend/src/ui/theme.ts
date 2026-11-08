@@ -11,7 +11,7 @@ function paletteForMode(mode: PaletteMode) {
     secondary: { main: dark ? "#f1b86b" : "#9c5f0c" },
     background: dark
       ? { default: "#101614", paper: "#19221f" }
-      : { default: "#f3f7f4", paper: "#ffffff" },
+      : { default: "#edf1f0", paper: "#f8faf9" },
     text: dark
       ? { primary: "#edf4ef", secondary: "#a7b5ad" }
       : { primary: "#18251f", secondary: "#53665b" },

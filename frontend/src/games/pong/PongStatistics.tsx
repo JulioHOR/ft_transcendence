@@ -22,11 +22,28 @@ import { EmptyState } from "../../ui/EmptyState";
 import { ErrorText } from "../../ui/ErrorText";
 import { AppIcon, type AppIconName } from "../../ui/AppIcon";
 import { SectionCard } from "../../ui/SectionCard";
-
-const TABLE_PAGE_SIZE = 7;
+import { PONG_STATS_PAGE_SIZE } from "./constants";
+import type {
+  AchievementCardContentProps,
+  AchievementCardProps,
+  AchievementListProps,
+  ExpandableTableHeadingProps,
+  LeaderboardProps,
+  LeaderboardRowsProps,
+  LeaderboardTableProps,
+  LevelProgressDetailsProps,
+  LevelProgressProps,
+  MatchHistoryProps,
+  MatchHistoryRowsProps,
+  MatchHistoryTableProps,
+  PongStatisticsProps,
+  StatisticsContentProps,
+  StatisticsSummaryProps,
+  SummaryItemProps,
+} from "./statisticsProps";
 
 /** Exibe o desempenho e o histórico de Pong no perfil. */
-export function PongStatistics({ userId }: { userId: number }) {
+export function PongStatistics({ userId }: PongStatisticsProps) {
   const { statistics, error } = usePongStatistics(userId);
 
   return (
@@ -66,7 +83,7 @@ function usePongStatistics(userId: number) {
 }
 
 /** Organiza resultados, nível, conquistas e partidas recentes. */
-function StatisticsContent({ statistics }: { statistics: PongStatisticsData }) {
+function StatisticsContent({ statistics }: StatisticsContentProps) {
   return (
     <Stack spacing={3}>
       <StatisticsSummary statistics={statistics} />
@@ -79,14 +96,14 @@ function StatisticsContent({ statistics }: { statistics: PongStatisticsData }) {
 }
 
 /** Resume partidas, vitórias, derrotas e posição no ranking. */
-function StatisticsSummary({ statistics }: { statistics: PongStatisticsData }) {
+function StatisticsSummary({ statistics }: StatisticsSummaryProps) {
   const values = [
     { label: "Partidas", value: statistics.matchesPlayed },
     { label: "Vitórias", value: statistics.wins },
     { label: "Derrotas", value: statistics.losses },
     {
       label: "Posição",
-      value: statistics.ranking ? `#${statistics.ranking}` : "—",
+      value: statistics.ranking ? `#${statistics.ranking}` : "Sem ranking",
     },
   ];
 
@@ -106,13 +123,7 @@ function StatisticsSummary({ statistics }: { statistics: PongStatisticsData }) {
 }
 
 /** Exibe um indicador do resumo de partidas. */
-function SummaryItem({
-  label,
-  value,
-}: {
-  label: string;
-  value: number | string;
-}) {
+function SummaryItem({ label, value }: SummaryItemProps) {
   return (
     <Card variant="outlined">
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
@@ -128,7 +139,7 @@ function SummaryItem({
 }
 
 /** Exibe o nível e o avanço até o próximo nível. */
-function LevelProgress({ statistics }: { statistics: PongStatisticsData }) {
+function LevelProgress({ statistics }: LevelProgressProps) {
   const progress =
     (statistics.netWinsInCurrentLevel / statistics.winsForNextLevel) * 100;
   return (
@@ -148,11 +159,7 @@ function LevelProgress({ statistics }: { statistics: PongStatisticsData }) {
 }
 
 /** Resume o nível atual e o avanço até o próximo. */
-function LevelProgressDetails({
-  statistics,
-}: {
-  statistics: PongStatisticsData;
-}) {
+function LevelProgressDetails({ statistics }: LevelProgressDetailsProps) {
   return (
     <Stack direction="row" sx={levelProgressRowSx}>
       <Typography variant="h2">Nível {statistics.level}</Typography>
@@ -175,11 +182,7 @@ const levelProgressRowSx = {
 };
 
 /** Exibe as conquistas em uma grade de distintivos. */
-function AchievementList({
-  achievements,
-}: {
-  achievements: PongStatisticsData["achievements"];
-}) {
+function AchievementList({ achievements }: AchievementListProps) {
   return (
     <Stack spacing={1}>
       <Typography variant="h3">Conquistas</Typography>
@@ -247,41 +250,32 @@ const achievementIcons: Record<string, AppIconName> = {
   Professional: "professional",
 };
 
-type AchievementCardProps = {
-  achievement: PongStatisticsData["achievements"][number];
-};
-
-type AchievementCardContentProps = AchievementCardProps & {
-  completed: boolean;
-};
-
 /** Lista as partidas recentes com adversário, resultado e placar. */
-function MatchHistory({ history }: { history: PongStatisticsData["history"] }) {
+function MatchHistory({ history }: MatchHistoryProps) {
   const [expanded, setExpanded] = useState(false);
   return (
     <Stack spacing={1}>
       <ExpandableTableHeading
         title="Partidas recentes"
         expanded={expanded}
-        canExpand={history.length > TABLE_PAGE_SIZE}
+        canExpand={history.length > PONG_STATS_PAGE_SIZE}
         onToggle={() => setExpanded(!expanded)}
       />
       {history.length === 0 ? (
         <EmptyState>Partidas concluídas aparecerão aqui.</EmptyState>
       ) : (
         <MatchHistoryTable
-          history={expanded ? history : history.slice(0, TABLE_PAGE_SIZE)}
+          history={
+            expanded ? history : history.slice(0, PONG_STATS_PAGE_SIZE)
+          }
         />
       )}
     </Stack>
   );
 }
 
-function MatchHistoryTable({
-  history,
-}: {
-  history: PongStatisticsData["history"];
-}) {
+/** Renderiza a tabela de partidas concluídas. */
+function MatchHistoryTable({ history }: MatchHistoryTableProps) {
   return (
     <TableContainer>
       <Table size="small" sx={tableSx}>
@@ -299,11 +293,7 @@ function MatchHistoryTable({
 }
 
 /** Exibe os resultados das partidas nas linhas da tabela. */
-function MatchHistoryRows({
-  history,
-}: {
-  history: PongStatisticsData["history"];
-}) {
+function MatchHistoryRows({ history }: MatchHistoryRowsProps) {
   return (
     <TableBody>
       {history.map((match) => (
@@ -331,18 +321,14 @@ const tableSx = {
 };
 
 /** Exibe a classificação geral e as regras de desempate. */
-function Leaderboard({
-  entries,
-}: {
-  entries: PongStatisticsData["leaderboard"];
-}) {
+function Leaderboard({ entries }: LeaderboardProps) {
   const [expanded, setExpanded] = useState(false);
   return (
     <Stack spacing={1}>
       <ExpandableTableHeading
         title="Classificação"
         expanded={expanded}
-        canExpand={entries.length > TABLE_PAGE_SIZE}
+        canExpand={entries.length > PONG_STATS_PAGE_SIZE}
         onToggle={() => setExpanded(!expanded)}
       />
       <LeaderboardDescription />
@@ -350,13 +336,16 @@ function Leaderboard({
         <EmptyState>Sem partidas concluídas.</EmptyState>
       ) : (
         <LeaderboardTable
-          entries={expanded ? entries : entries.slice(0, TABLE_PAGE_SIZE)}
+          entries={
+            expanded ? entries : entries.slice(0, PONG_STATS_PAGE_SIZE)
+          }
         />
       )}
     </Stack>
   );
 }
 
+/** Explica os critérios usados na classificação. */
 function LeaderboardDescription() {
   return (
     <Typography variant="body2" color="text.secondary">
@@ -366,11 +355,8 @@ function LeaderboardDescription() {
   );
 }
 
-function LeaderboardTable({
-  entries,
-}: {
-  entries: PongStatisticsData["leaderboard"];
-}) {
+/** Renderiza a tabela de classificação. */
+function LeaderboardTable({ entries }: LeaderboardTableProps) {
   return (
     <TableContainer>
       <Table size="small" sx={tableSx}>
@@ -388,19 +374,19 @@ function LeaderboardTable({
   );
 }
 
+/** Exibe o título e o controle de expansão de uma tabela. */
 function ExpandableTableHeading({
   title,
   expanded,
   canExpand,
   onToggle,
-}: {
-  title: string;
-  expanded: boolean;
-  canExpand: boolean;
-  onToggle: () => void;
-}) {
+}: ExpandableTableHeadingProps) {
   return (
-    <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+    <Stack
+      direction="row"
+      spacing={1.5}
+      sx={{ alignItems: "center", flexWrap: "wrap" }}
+    >
       <Typography variant="h3">{title}</Typography>
       {canExpand ? (
         <Link component="button" type="button" onClick={onToggle}>
@@ -412,11 +398,7 @@ function ExpandableTableHeading({
 }
 
 /** Exibe posição e resultados dos jogadores nas linhas da tabela. */
-function LeaderboardRows({
-  entries,
-}: {
-  entries: PongStatisticsData["leaderboard"];
-}) {
+function LeaderboardRows({ entries }: LeaderboardRowsProps) {
   return (
     <TableBody>
       {entries.map((entry) => (

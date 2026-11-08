@@ -17,20 +17,14 @@ import { useChat } from "./chat-session";
 import { useColorMode } from "../ui/color-mode-context";
 import { UnreadBadge } from "../ui/UnreadBadge";
 import { useFriends } from "./friends-session";
-
-/** Propriedades de um link da navegação. */
-type NavItemProps = {
-  /** Caminho associado ao link. */
-  to: string;
-  /** Texto mostrado no link. */
-  label: string;
-  /** Caminho atual, usado para marcar o link ativo. */
-  pathname: string;
-  /** Total não lido, usado apenas no link de conversas. */
-  unread?: number;
-  /** Solicitações pendentes, usadas apenas no link de amigos. */
-  pendingFriends?: number;
-};
+import type {
+  MobileNavigationProps,
+  MobilePageOptionsProps,
+  NavigationProps,
+  NavItemProps,
+  NavItemUnreadProps,
+  NavItemsProps,
+} from "./props";
 
 /** Link da navegação com estado ativo e badge opcional. */
 function NavItem(props: NavItemProps) {
@@ -144,41 +138,13 @@ function availableNavItems(signedIn: boolean) {
     : [navItems[0]];
 }
 
-/** Estado necessário para exibir a navegação principal. */
-type NavigationProps = {
-  /** Total de mensagens não lidas. */
-  unread: number;
-  pendingFriends: number;
-  /** Caminho atual da aplicação. */
-  pathname: string;
-  /** Tema atual e ação de alternância. */
-  mode: "dark" | "light";
-  toggleMode: () => void;
-  signedIn: boolean;
-  signOut: () => void;
-};
-
-type MobileNavigationProps = Pick<
-  NavigationProps,
-  | "pathname"
-  | "unread"
-  | "pendingFriends"
-  | "mode"
-  | "toggleMode"
-  | "signedIn"
-  | "signOut"
->;
-
 /** Renderiza os links da navegação e o contador de conversas não lidas. */
 function NavItems({
   unread,
   pendingFriends,
   pathname,
   signedIn,
-}: Pick<
-  NavigationProps,
-  "unread" | "pendingFriends" | "pathname" | "signedIn"
->) {
+}: NavItemsProps) {
   return (
     <Box sx={navItemsSx}>
       {availableNavItems(signedIn).map((item) => (
@@ -253,12 +219,7 @@ function selectMobilePage(
 }
 
 /** Opções de navegação e tema do seletor para telas pequenas. */
-function mobilePageOptions(
-  props: Pick<
-    NavigationProps,
-    "unread" | "pendingFriends" | "mode" | "signedIn"
-  >,
-) {
+function mobilePageOptions(props: MobilePageOptionsProps) {
   return [
     ...availableNavItems(props.signedIn).map((item) => (
       <MenuItem key={item.to} value={item.to}>
@@ -279,10 +240,7 @@ function mobilePageOptions(
 }
 
 /** Quantidade não lida exibida no menu. */
-function navItemUnread(
-  path: string,
-  props: Pick<NavigationProps, "unread" | "pendingFriends">,
-): number {
+function navItemUnread(path: string, props: NavItemUnreadProps): number {
   if (path === "/chat") return props.unread;
   if (path === "/friends") return props.pendingFriends;
   return 0;

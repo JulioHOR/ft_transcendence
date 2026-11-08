@@ -2,13 +2,13 @@ import { me } from "./auth";
 import { apiFetch } from "./api";
 import { defaultAvatarUrl, profileAvatarUrl, profileUrl } from "./endpoints";
 import { errorMessage } from "./http";
+import {
+  AVATAR_ACCEPTED_TYPES,
+  AVATAR_TOO_LARGE,
+  MAX_AVATAR_DIMENSION,
+  MAX_AVATAR_FILE_SIZE,
+} from "./validation";
 import type { Profile, User } from "./types";
-
-/** Mensagem quando o avatar excede o tamanho permitido. */
-const AVATAR_TOO_LARGE = "imagem muito grande (máx. 600KB)";
-export const AVATAR_ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
-const MAX_AVATAR_FILE_SIZE = 599_900;
-const MAX_AVATAR_DIMENSION = 4096;
 
 /** URL de exibição do avatar (fallback para o default). */
 export function resolveAvatarUrl(avatarUrl: string | null | undefined): string {
@@ -122,6 +122,7 @@ export async function readImageAsDataUrl(file: File): Promise<string> {
   return readFileAsDataUrl(file);
 }
 
+/** Valida formato, tamanho e dimensões do arquivo de avatar. */
 async function validateImageFile(file: File): Promise<void> {
   if (!AVATAR_ACCEPTED_TYPES.includes(file.type)) {
     throw new Error("Escolha uma imagem PNG, JPEG ou WebP.");
@@ -141,6 +142,7 @@ async function validateImageFile(file: File): Promise<void> {
   }
 }
 
+/** Lê o arquivo selecionado como data URL. */
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

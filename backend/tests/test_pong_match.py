@@ -61,6 +61,19 @@ def test_apply_input_lado_proprio_e_recusa_sid_estranho():
     finally:
         match.destroy()
 
+def test_serve_exige_o_jogador_da_raquete_com_a_bola():
+    match, _ = make_match(countdown_seconds=0)
+    try:
+        time.sleep(0.05)
+        match.sim.serve_side = "left"
+        assert not match.serve(2)
+        assert match.serve(1)
+        assert match.sim.serve_side is None
+        assert match.sim.velocity_x > 0
+        assert not match.serve(1)
+    finally:
+        match.destroy()
+
 
 def test_input_recusado_em_countdown_e_apos_fim():
     match, _ = make_match(countdown_seconds=5)

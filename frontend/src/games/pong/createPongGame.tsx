@@ -1,6 +1,6 @@
 import { createRoot, type Root } from "react-dom/client";
 import { PongApp } from "./view/PongApp";
-import type { Transport } from "./protocol";
+import type { CreatePongGameOptions } from "./props";
 
 /**
  * Controle de montagem do Pong em um elemento DOM.
@@ -20,10 +20,7 @@ export type PongGameHandle = {
  * @param options.root - Elemento onde o jogo será montado
  * @param options.transport - Canal de comunicação da partida
  */
-export function createPongGame(options: {
-  root: HTMLElement;
-  transport: Transport;
-}): PongGameHandle {
+export function createPongGame(options: CreatePongGameOptions): PongGameHandle {
   const { root, transport } = options;
   let reactRoot: Root | null = null;
 

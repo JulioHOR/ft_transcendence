@@ -1,4 +1,4 @@
-import { useEffect, useState, type SubmitEvent } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -11,7 +11,6 @@ import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import { acceptFriend, addFriend } from "../api/friends";
 import {
-  AVATAR_ACCEPTED_TYPES,
   deleteAvatar,
   getProfile,
   getProfileById,
@@ -20,7 +19,13 @@ import {
   uploadAvatar,
 } from "../api/profile";
 import { friendlyError } from "../api/http";
-import { EMAIL_PATTERN } from "../api/validation";
+import {
+  AVATAR_ACCEPTED_TYPES,
+  EMAIL_PATTERN,
+  NICKNAME_MAX_LENGTH,
+  NICKNAME_MIN_LENGTH,
+  NICKNAME_PATTERN,
+} from "../api/validation";
 import type { Profile, User } from "../api/types";
 import { useAuth } from "../app/auth-session";
 import { useFriends } from "../app/friends-session";
@@ -32,10 +37,27 @@ import { PageContainer } from "../ui/PageContainer";
 import { SectionCard } from "../ui/SectionCard";
 import { useToaster } from "../ui/toaster-context";
 import { PongStatistics } from "../games/pong/PongStatistics";
-
-const NICKNAME_MIN_LENGTH = 3;
-const NICKNAME_MAX_LENGTH = 20;
-const NICKNAME_PATTERN = "[A-Za-z0-9_]+";
+import type {
+  AvatarEditorActionsProps,
+  AvatarEditorContentProps,
+  AvatarEditorProps,
+  AvatarFileButtonProps,
+  AvatarFileInputProps,
+  AvatarRemoveButtonProps,
+  EditableAvatarProps,
+  OtherProfileContentProps,
+  OtherProfileContentStateProps,
+  OtherProfileFriendActionProps,
+  OtherProfileFriendButtonProps,
+  OtherProfilePageProps,
+  OwnProfileBodyProps,
+  OwnProfileContentProps,
+  OwnProfileLoadedProps,
+  ProfileFieldCallbacks,
+  ProfileFieldFormLayoutProps,
+  ProfileFieldFormProps,
+  ProfileFieldsProps,
+} from "./profileProps";
 
 /** Restrições do apelido aplicadas pelo navegador. */
 function nicknameInputConstraints() {
@@ -53,21 +75,7 @@ function profileFieldSlots(field: "email" | "nickname") {
     : { htmlInput: { pattern: EMAIL_PATTERN } };
 }
 
-type ProfileFieldFormProps = {
-  field: "email" | "nickname";
-  label: string;
-  value: string;
-  profile: Pick<User, "email" | "nickname">;
-  onSaved: (user: User, message?: string) => void;
-};
-
-type ProfileFieldCallbacks = {
-  setValue: (value: string) => void;
-  setError: (value: string | null) => void;
-  setEditing: (value: boolean) => void;
-  setPending: (value: boolean) => void;
-};
-
+/** Salva o valor atualizado de um campo do perfil. */
 async function submitProfileField(
   props: ProfileFieldFormProps,
   value: string,
@@ -92,6 +100,7 @@ async function submitProfileField(
   }
 }
 
+/** Mantém o estado local de edição de um campo do perfil. */
 function ProfileFieldForm(props: ProfileFieldFormProps) {
   const [value, setValue] = useState(props.value);
   const [error, setError] = useState<string | null>(null);
@@ -116,16 +125,7 @@ function ProfileFieldForm(props: ProfileFieldFormProps) {
   );
 }
 
-type ProfileFieldFormLayoutProps = ProfileFieldFormProps & {
-  value: string;
-  error: string | null;
-  editing: boolean;
-  pending: boolean;
-  callbacks: ProfileFieldCallbacks;
-  onCancel: () => void;
-  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
-};
-
+/** Renderiza o formulário e a mensagem de erro do campo. */
 function ProfileFieldFormLayout(props: ProfileFieldFormLayoutProps) {
   return (
     <Stack component="form" spacing={1} onSubmit={props.onSubmit}>
@@ -135,6 +135,7 @@ function ProfileFieldFormLayout(props: ProfileFieldFormLayoutProps) {
   );
 }
 
+/** Renderiza o campo e suas ações. */
 function ProfileFieldRow(props: ProfileFieldFormLayoutProps) {
   return (
     <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
@@ -154,6 +155,7 @@ function ProfileFieldRow(props: ProfileFieldFormLayoutProps) {
   );
 }
 
+/** Seleciona as ações disponíveis para o campo. */
 function ProfileFieldAction(props: ProfileFieldFormLayoutProps) {
   return (
     <Stack direction="row" spacing={1}>
@@ -163,6 +165,7 @@ function ProfileFieldAction(props: ProfileFieldFormLayoutProps) {
   );
 }
 
+/** Exibe a ação de cancelar uma edição. */
 function CancelProfileFieldButton(props: ProfileFieldFormLayoutProps) {
   return (
     <IconButton
@@ -177,6 +180,7 @@ function CancelProfileFieldButton(props: ProfileFieldFormLayoutProps) {
   );
 }
 
+/** Exibe a ação de editar ou salvar um campo. */
 function SaveProfileFieldButton(props: ProfileFieldFormLayoutProps) {
   return (
     <ActionButton
@@ -201,11 +205,13 @@ function SaveProfileFieldButton(props: ProfileFieldFormLayoutProps) {
   );
 }
 
+/** Ativa a edição e limpa o erro atual. */
 function enableProfileFieldEdit(callbacks: ProfileFieldCallbacks): void {
   callbacks.setError(null);
   callbacks.setEditing(true);
 }
 
+/** Restaura o valor original e encerra a edição. */
 function cancelProfileFieldEdit(
   originalValue: string,
   callbacks: ProfileFieldCallbacks,
@@ -241,6 +247,7 @@ async function saveAvatarChange(
   }
 }
 
+/** Aguarda o carregamento do avatar para atualizar a visualização. */
 async function loadAvatar(avatarUrl: string | null | undefined): Promise<void> {
   if (!avatarUrl) return;
   const image = new Image();
@@ -248,10 +255,8 @@ async function loadAvatar(avatarUrl: string | null | undefined): Promise<void> {
   await image.decode().catch(() => undefined);
 }
 
-function AvatarFileButton(props: {
-  pending: boolean;
-  onFile: (file: File | undefined) => void;
-}) {
+/** Exibe o botão que abre a seleção de arquivo. */
+function AvatarFileButton(props: AvatarFileButtonProps) {
   return (
     <IconButton
       component="label"
@@ -274,7 +279,8 @@ function AvatarFileButton(props: {
   );
 }
 
-function AvatarRemoveButton(props: { pending: boolean; onRemove: () => void }) {
+/** Exibe o botão de remoção da foto atual. */
+function AvatarRemoveButton(props: AvatarRemoveButtonProps) {
   return (
     <ActionButton
       appearance="quiet"
@@ -287,7 +293,8 @@ function AvatarRemoveButton(props: { pending: boolean; onRemove: () => void }) {
   );
 }
 
-function AvatarFileInput(props: { onFile: (file: File | undefined) => void }) {
+/** Mantém o input de arquivo escondido do editor. */
+function AvatarFileInput(props: AvatarFileInputProps) {
   return (
     <input
       type="file"
@@ -301,12 +308,8 @@ function AvatarFileInput(props: { onFile: (file: File | undefined) => void }) {
   );
 }
 
-function EditableAvatar(props: {
-  avatarUrl: string | null | undefined;
-  nickname: string;
-  pending: boolean;
-  onFile: (file: File | undefined) => void;
-}) {
+/** Exibe o avatar e o controle de troca. */
+function EditableAvatar(props: EditableAvatarProps) {
   return (
     <Box sx={{ position: "relative", width: 96, height: 96 }}>
       <Avatar avatarUrl={props.avatarUrl} alt={props.nickname} size="xl" />
@@ -316,6 +319,7 @@ function EditableAvatar(props: {
   );
 }
 
+/** Indica visualmente o envio da nova foto. */
 function AvatarUploadProgress() {
   return (
     <Box
@@ -334,14 +338,7 @@ function AvatarUploadProgress() {
 }
 
 /** Upload / troca de avatar do próprio perfil. */
-function AvatarEditorContent(props: {
-  avatarUrl: string | null | undefined;
-  nickname: string;
-  error: string | null;
-  pending: boolean;
-  onFile: (file: File | undefined) => void;
-  onRemove: () => void;
-}) {
+function AvatarEditorContent(props: AvatarEditorContentProps) {
   return (
     <Stack spacing={1.5} sx={{ height: "100%", justifyContent: "center" }}>
       <AvatarEditorActions {...props} />
@@ -350,13 +347,8 @@ function AvatarEditorContent(props: {
   );
 }
 
-function AvatarEditorActions(props: {
-  avatarUrl: string | null | undefined;
-  nickname: string;
-  pending: boolean;
-  onFile: (file: File | undefined) => void;
-  onRemove: () => void;
-}) {
+/** Agrupa o avatar editável e a remoção da foto. */
+function AvatarEditorActions(props: AvatarEditorActionsProps) {
   return (
     <Stack spacing={1} sx={{ alignItems: "center" }}>
       <EditableAvatar {...props} />
@@ -368,11 +360,7 @@ function AvatarEditorActions(props: {
 }
 
 /** Controla o envio e exibe o editor de avatar do perfil. */
-function AvatarEditor(props: {
-  avatarUrl: string | null | undefined;
-  nickname: string;
-  onSaved: (profile: Profile) => void;
-}) {
+function AvatarEditor(props: AvatarEditorProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const onFile = (file: File | undefined) =>
@@ -390,6 +378,7 @@ function AvatarEditor(props: {
   );
 }
 
+/** Converte o arquivo selecionado e salva o novo avatar. */
 function saveAvatarFile(
   file: File | undefined,
   onSaved: (profile: Profile) => void,
@@ -406,7 +395,7 @@ function saveAvatarFile(
 }
 
 /** Corpo editável do próprio perfil. */
-function OwnProfileBody(props: { user: User; onSaved: (user: User) => void }) {
+function OwnProfileBody(props: OwnProfileBodyProps) {
   return (
     <Stack
       direction={{ xs: "column", sm: "row" }}
@@ -429,11 +418,7 @@ function OwnProfileBody(props: { user: User; onSaved: (user: User) => void }) {
   );
 }
 
-type ProfileFieldsProps = {
-  user: User;
-  onSaved: (user: User, message?: string) => void;
-};
-
+/** Renderiza os campos editáveis do usuário. */
 function ProfileFields(props: ProfileFieldsProps) {
   const fields = [
     { field: "email", label: "E-mail", value: props.user.email },
@@ -485,11 +470,7 @@ function useOwnProfileLoad(): {
 }
 
 /** Conteúdo após carregar o próprio perfil. */
-function OwnProfileLoaded(props: {
-  user: User | null;
-  error: string | null;
-  onSaved: (user: User, message?: string) => void;
-}) {
+function OwnProfileLoaded(props: OwnProfileLoadedProps) {
   if (!props.error && !props.user) {
     return <Typography color="text.secondary">Carregando…</Typography>;
   }
@@ -505,11 +486,7 @@ function OwnProfileLoaded(props: {
 }
 
 /** Página do próprio perfil. */
-function OwnProfileContent(props: {
-  user: User | null;
-  error: string | null;
-  onSaved: (user: User, message?: string) => void;
-}) {
+function OwnProfileContent(props: OwnProfileContentProps) {
   return (
     <Stack spacing={2}>
       <ErrorText error={props.error} />
@@ -527,6 +504,7 @@ function OwnProfilePage() {
   const { setUser: setSessionUser } = useAuth();
   const { user, setUser, error } = useOwnProfileLoad();
   const showToast = useToaster();
+  /** Atualiza a sessão após salvar alterações no perfil. */
   function onSaved(next: User, message?: string): void {
     setUser(next);
     setSessionUser(next);
@@ -540,7 +518,7 @@ function OwnProfilePage() {
 }
 
 /** Conteúdo carregado do perfil de outro usuário. */
-function OtherProfileContent(props: { profile: Profile }) {
+function OtherProfileContent(props: OtherProfileContentProps) {
   return (
     <Stack spacing={2}>
       <SectionCard>
@@ -559,7 +537,8 @@ function OtherProfileContent(props: { profile: Profile }) {
   );
 }
 
-function OtherProfileFriendAction({ profile }: { profile: Profile }) {
+/** Seleciona a ação de amizade do perfil público. */
+function OtherProfileFriendAction({ profile }: OtherProfileFriendActionProps) {
   const { friends } = useFriends();
   const friend = friends.find((item) => item.id === profile.id);
   if (friend?.relation === "friend") return <Chip label="Amigo" />;
@@ -570,10 +549,8 @@ function OtherProfileFriendAction({ profile }: { profile: Profile }) {
   return <OtherProfileFriendButton profile={profile} incoming={incoming} />;
 }
 
-function OtherProfileFriendButton(props: {
-  profile: Profile;
-  incoming: boolean;
-}) {
+/** Executa a ação de amizade pendente. */
+function OtherProfileFriendButton(props: OtherProfileFriendButtonProps) {
   const showToast = useToaster();
   const [pending, setPending] = useState(false);
   return (
@@ -591,8 +568,9 @@ function OtherProfileFriendButton(props: {
   );
 }
 
+/** Atualiza a relação de amizade pelo perfil público. */
 async function updateProfileFriendship(
-  props: { profile: Profile; incoming: boolean },
+  props: OtherProfileFriendButtonProps,
   showToast: ReturnType<typeof useToaster>,
   setPending: (pending: boolean) => void,
 ): Promise<void> {
@@ -642,10 +620,7 @@ function useOtherProfile(userId: number) {
 function OtherProfileContentState({
   profile,
   error,
-}: {
-  profile: Profile | null;
-  error: string | null;
-}) {
+}: OtherProfileContentStateProps) {
   return (
     <Stack spacing={2}>
       <ErrorText error={error} />
@@ -658,7 +633,7 @@ function OtherProfileContentState({
 }
 
 /** Página de perfil público para um usuário diferente do autenticado. */
-function OtherProfilePage({ userId }: { userId: number }) {
+function OtherProfilePage({ userId }: OtherProfilePageProps) {
   const { profile, error } = useOtherProfile(userId);
   return (
     <PageContainer>

@@ -4,11 +4,9 @@ export const profileAvatarUrl = "/api/profile/avatar";
 
 export const defaultAvatarUrl = "/default-avatar.svg";
 
-export const chatSocketPath = "/socket.io/";
+export const socketPath = "/socket.io/";
 
 export const chatHistoryUrl = "/api/chat/history";
-
-export const friendsSocketPath = "/socket.io/";
 
 export const friendsUrl = "/api/friends";
 

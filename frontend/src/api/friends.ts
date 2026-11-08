@@ -1,6 +1,6 @@
 import { io, type Socket } from "socket.io-client";
 import { apiFetch } from "./api";
-import { friendsSocketPath, friendsUrl } from "./endpoints";
+import { friendsUrl, socketPath } from "./endpoints";
 import { errorMessage } from "./http";
 
 /** Amigo exibido na lista de presença. */
@@ -37,7 +37,7 @@ function waitForConnection(socket: Socket): Promise<void> {
 /** Conecta ao Socket.IO de friends/presença. */
 async function connectFriends(state: FriendsSocketState): Promise<void> {
   state.socket = io({
-    path: friendsSocketPath,
+    path: socketPath,
     withCredentials: true,
   });
 
@@ -90,6 +90,7 @@ export async function removeFriend(friendId: number): Promise<void> {
   }
 }
 
+/** Aceita um convite de amizade. */
 export async function acceptFriend(friendId: number): Promise<Friend> {
   const response = await apiFetch(`${friendsUrl}/${friendId}/accept`, {
     method: "POST",
@@ -100,6 +101,7 @@ export async function acceptFriend(friendId: number): Promise<Friend> {
   return response.json() as Promise<Friend>;
 }
 
+/** Recusa um convite de amizade. */
 export async function rejectFriend(friendId: number): Promise<void> {
   const response = await apiFetch(`${friendsUrl}/${friendId}/reject`, {
     method: "POST",

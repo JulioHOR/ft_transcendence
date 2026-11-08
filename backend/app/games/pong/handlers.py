@@ -40,11 +40,22 @@ def _parse_input(data) -> float:
     return position
 
 
+def _player_ids(match) -> dict[str, int]:
+    """Retorna os IDs dos jogadores associados aos lados da partida."""
+    return {side: user_id for user_id, side in match.sides.items()}
+
+
 def emit_countdown(socketio, matchmaker, match) -> None:
+    players = _player_ids(match)
     for _user_id, sid, side in matchmaker.players(match):
         socketio.emit(
             "game:status",
-            {"state": "countdown", "side": side, "startsAt": match.starts_at_ms},
+            {
+                "state": "countdown",
+                "side": side,
+                "startsAt": match.starts_at_ms,
+                "players": players,
+            },
             to=sid,
         )
 
@@ -90,7 +101,11 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
                 for _player_id, player_sid, side in matchmaker.players(match):
                     socketio.emit(
                         "game:status",
-                        {"state": state, "side": side},
+                        {
+                            "state": state,
+                            "side": side,
+                            "players": _player_ids(match),
+                        },
                         to=player_sid,
                     )
                 return {"status": "reconnected"}
@@ -174,6 +189,21 @@ def register_pong_handlers(socketio, matchmaker: Matchmaker) -> Callable[[str], 
         if user_id is None:
             return None
         match.apply_input(user_id, clamp(position, -INPUT_LIMIT, INPUT_LIMIT), now_ms())
+
+    @socketio.on("game:serve")
+    def on_game_serve(_data=None):
+        """Libera a bola somente para o jogador que deve sacar."""
+        sid = _sid()
+        match = matchmaker.get_match(sid)
+        if match is None:
+            emit_error(sid, "not_in_match", "Você não está em uma partida.")
+            return None
+        user_id = player_id(sid)
+        if user_id is None:
+            return None
+        if not match.serve(user_id):
+            return {"status": "waiting"}
+        return {"status": "served"}
 
     @socketio.on("game:rematch")
     def on_game_rematch(_data=None):

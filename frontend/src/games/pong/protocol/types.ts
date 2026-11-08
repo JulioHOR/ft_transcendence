@@ -1,4 +1,8 @@
+/** Lado da mesa ocupado por um jogador. */
 export type Side = "left" | "right";
+
+/** IDs dos jogadores associados aos lados da mesa. */
+export type PlayerIds = Record<Side, number | null>;
 
 /** Representa a entrada do jogador para controlar a raquete. */
 export type PaddleInput = {
@@ -16,6 +20,7 @@ export type GameSnapshot = {
   ball: { x: number; z: number };
   score: { left: number; right: number };
   winner: Side | null;
+  serveSide: Side | null;
   timestamp: number;
 };
 
@@ -31,6 +36,7 @@ export type MatchPhase =
   | "opponent_disconnected"
   | "error";
 
+/** Indica a confirmação de cada lado da partida. */
 export type AcceptanceBySide = { left: boolean; right: boolean };
 
 /**
@@ -43,6 +49,8 @@ export type MatchState = {
   phase: MatchPhase;
   /** Lado atual do jogador (esquerdo ou direito). */
   playerSide: Side | null;
+  /** IDs dos jogadores em cada lado da mesa. */
+  playerIds: PlayerIds;
   /** Indica o momento em que a contagem regressiva do jogo começou. */
   startsAt: number | null;
   /** Indica se o jogador aceitou o rematch. */
@@ -61,6 +69,7 @@ export const EMPTY_SNAPSHOT: GameSnapshot = {
   ball: { x: 0, z: 0 },
   score: { left: 0, right: 0 },
   winner: null,
+  serveSide: null,
   timestamp: 0,
 };
 
@@ -69,6 +78,7 @@ export function createInitialMatchState(): MatchState {
   return {
     phase: "connecting",
     playerSide: null,
+    playerIds: { left: null, right: null },
     startsAt: null,
     rematchAccepted: { left: false, right: false },
     resumeAccepted: { left: false, right: false },
@@ -91,6 +101,8 @@ export interface Transport {
   requestLeave(): void;
   /** Envia a entrada do jogador. */
   sendInput(input: PaddleInput): void;
+  /** Solicita o saque quando a bola está presa à raquete. */
+  requestServe(): void;
   /** Registra um listener para atualizações de estado. */
   onState(listener: (state: MatchState) => void): void;
 }

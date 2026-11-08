@@ -1,10 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 import { apiFetch } from "./api";
-import { chatHistoryUrl, chatSocketPath } from "./endpoints";
+import { chatHistoryUrl, socketPath } from "./endpoints";
 import { errorMessage } from "./http";
-
-/** Limite de caracteres permitido por mensagem de chat. */
-export const MAX_CHAT_MESSAGE_LENGTH = 1000;
 
 /** Mensagem do chat global ou de uma conversa privada. */
 export type ChatMessage = {
@@ -230,7 +227,7 @@ async function connectTransport(
   handlers: ChatHandlers,
   setSocket: (socket: Socket) => void,
 ): Promise<void> {
-  const socket = io({ path: chatSocketPath, withCredentials: true });
+  const socket = io({ path: socketPath, withCredentials: true });
   setSocket(socket);
   attachSocketListeners(socket, handlers);
   await waitForConnection(socket);
@@ -280,6 +277,7 @@ export async function unblockChatUser(userId: number): Promise<void> {
   await updateChatBlock(userId, "DELETE");
 }
 
+/** Aplica ou remove o bloqueio de mensagens de um usuário. */
 async function updateChatBlock(userId: number, method: "POST" | "DELETE") {
   const response = await apiFetch(`/api/chat/blocks/${userId}`, {
     method,

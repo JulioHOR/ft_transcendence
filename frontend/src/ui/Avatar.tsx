@@ -2,9 +2,9 @@ import { Link as RouterLink } from "react-router-dom";
 import MuiAvatar from "@mui/material/Avatar";
 import MuiLink from "@mui/material/Link";
 import { resolveAvatarUrl } from "../api/profile";
+import type { AvatarProps, AvatarSize, LinkedAvatarProps } from "./props";
 
-/** Tamanhos suportados do avatar. */
-export type AvatarSize = "sm" | "md" | "lg" | "xl";
+export type { AvatarSize } from "./props";
 
 /** Dimensões em pixels para cada tamanho de avatar suportado. */
 const sizePx: Record<AvatarSize, number> = {
@@ -15,18 +15,18 @@ const sizePx: Record<AvatarSize, number> = {
 };
 
 /** Avatar circular; com userId vira link para o perfil. */
-export function Avatar(props: {
-  avatarUrl: string | null | undefined;
-  alt: string;
-  size?: AvatarSize;
-  userId?: number;
-}) {
+export function Avatar(props: AvatarProps) {
   const size = sizePx[props.size ?? "md"];
   const image = (
     <MuiAvatar
       src={resolveAvatarUrl(props.avatarUrl)}
       alt={props.alt}
-      sx={{ width: size, height: size, border: 1, borderColor: "divider" }}
+      sx={{
+        width: size,
+        height: size,
+        border: 1,
+        borderColor: props.borderColor ?? "divider",
+      }}
     />
   );
   if (props.userId == null) return image;
@@ -37,15 +37,8 @@ export function Avatar(props: {
   );
 }
 
-function LinkedAvatar({
-  userId,
-  label,
-  children,
-}: {
-  userId: number;
-  label: string;
-  children: React.ReactNode;
-}) {
+/** Envolve o avatar em um link para o perfil. */
+function LinkedAvatar({ userId, label, children }: LinkedAvatarProps) {
   return (
     <MuiLink
       component={RouterLink}

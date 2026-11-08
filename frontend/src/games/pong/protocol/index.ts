@@ -5,6 +5,7 @@ export type {
   Transport,
   MatchPhase,
   MatchState,
+  PlayerIds,
   AcceptanceBySide,
 } from "./types";
 export { EMPTY_SNAPSHOT, createInitialMatchState } from "./types";

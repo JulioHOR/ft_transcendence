@@ -16,7 +16,7 @@ export const TABLE = {
   /** Posição da face da paddle no eixo X (comprimento). */
   paddleX: 9,
   /** Metade da altura da paddle. */
-  paddleHalfDepth: 1,
+  paddleHalfDepth: 0.8,
   /** Raio da bola. */
   ballRadius: 0.35,
 } as const;

@@ -4,6 +4,7 @@ import Typography from "@mui/material/Typography";
 import { Link as RouterLink } from "react-router-dom";
 import { PageContainer } from "../ui/PageContainer";
 import { SectionCard } from "../ui/SectionCard";
+import type { LegalPageProps } from "./pageProps";
 
 type LegalDocument = {
   title: string;
@@ -63,7 +64,7 @@ const legalDocuments: Record<"privacy" | "terms", LegalDocument> = {
 };
 
 /** Exibe a política de privacidade ou os termos de serviço. */
-export function LegalPage({ document }: { document: "privacy" | "terms" }) {
+export function LegalPage({ document }: LegalPageProps) {
   const content = legalDocuments[document];
   return (
     <PageContainer>

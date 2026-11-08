@@ -9,6 +9,7 @@ from games.pong.collisions import (
 )
 from games.pong.constants import (
     BASE_PADDLE_SPEED,
+    INITIAL_VELOCITY_X,
     PADDLE_VELOCITY_DECAY,
     TABLE,
 )
@@ -21,6 +22,7 @@ from games.pong.paddles import (
 )
 from games.pong.scoring import resolve_goals
 from games.pong.state import create_initial_sim_state, stop_ball, to_snapshot
+from games.pong.step import step_simulation
 
 def test_rebote_na_borda_clampa_e_inverte():
     state = create_initial_sim_state()
@@ -70,7 +72,8 @@ def test_hit_ratio_transfere_velocidade_da_paddle():
 
     resolve_paddle_collisions(state)
 
-    expected_vz = -0.5 * 4.5 + 10.0 * 0.55
+    hit_ratio = (state.ball_z - state.right_paddle_position) / TABLE["paddleHalfDepth"]
+    expected_vz = hit_ratio * 4.5 + 10.0 * 0.55
     assert math.isclose(state.velocity_z, expected_vz)
 
 def test_sem_hit_fora_da_hit_zone():
@@ -93,7 +96,7 @@ def test_gol_esquerda_ponto_para_direita_e_saque():
 
     assert state.score_right == 2
     assert state.ball_x == 0
-    assert state.velocity_x == 6
+    assert state.velocity_x == INITIAL_VELOCITY_X
 
 def test_quinto_ponto_declara_vencedor():
     state = create_initial_sim_state()
@@ -167,8 +170,23 @@ def test_to_snapshot_shape_do_protocolo():
         "ball": {"x": 0.0, "z": 0.0},
         "score": {"left": 2, "right": 3},
         "winner": None,
+        "serveSide": None,
         "timestamp": 1234.5,
     }
+
+def test_gol_prende_bola_na_raquete_que_recebeu():
+    state = create_initial_sim_state()
+    state.ball_x = -10.2
+    state.score_right = 1
+
+    resolve_goals(state)
+
+    assert state.serve_side == "left"
+    assert state.ball_x == -TABLE["paddleX"] + TABLE["ballRadius"]
+    state.left_paddle_position = 2.0
+    step_simulation(state, 0.1)
+    assert state.ball_z == 2.0
+    assert state.velocity_x == 0 and state.velocity_z == 0
 
 def test_stop_ball_zera_tudo():
     state = create_initial_sim_state()

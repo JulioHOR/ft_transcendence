@@ -1,10 +1,5 @@
-import Button, { type ButtonProps } from "@mui/material/Button";
-
-/** Aparência opcional do botão padronizado. */
-type ActionButtonProps = ButtonProps & {
-  /** Variante visual usada pelo tema da aplicação. */
-  appearance?: "primary" | "secondary" | "quiet";
-};
+import Button from "@mui/material/Button";
+import type { ActionButtonProps } from "./props";
 
 /** Botão Material UI com as variantes visuais usadas no aplicativo. */
 export function ActionButton({

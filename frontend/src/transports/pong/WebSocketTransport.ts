@@ -3,6 +3,7 @@ import type {
   GameSnapshot,
   MatchState,
   PaddleInput,
+  PlayerIds,
   Side,
   Transport,
 } from "../../games/pong/protocol";
@@ -23,6 +24,8 @@ type ServerStatus = {
   startsAt?: number;
   /** Indica se o jogador aceitou o rematch. */
   accepted?: { left: boolean; right: boolean };
+  /** IDs dos dois jogadores. */
+  players?: PlayerIds;
 };
 
 /**
@@ -33,10 +36,12 @@ type ServerStatus = {
 function countdownState(
   status: ServerStatus,
   currentSide: Side | null,
+  currentPlayerIds: PlayerIds,
 ): Partial<MatchState> {
   return {
     phase: "countdown",
     playerSide: status.side ?? currentSide,
+    playerIds: status.players ?? currentPlayerIds,
     startsAt: status.startsAt ?? null,
     rematchAccepted: { left: false, right: false },
     snapshot: EMPTY_SNAPSHOT,
@@ -80,11 +85,15 @@ export class WebSocketTransport implements Transport {
     const playerSide = status.side ?? this.state.playerSide;
     switch (status.state) {
       case "countdown":
-        this.setState(countdownState(status, playerSide));
+        this.setState(countdownState(status, playerSide, this.state.playerIds));
         break;
       case "playing":
       case "finished":
-        this.setState({ phase: status.state, playerSide });
+        this.setState({
+          phase: status.state,
+          playerSide,
+          playerIds: status.players ?? this.state.playerIds,
+        });
         break;
       case "resume_pending":
       case "rematch_pending":
@@ -151,7 +160,9 @@ export class WebSocketTransport implements Transport {
         this.invitationId == null ? {} : { inviteId: this.invitationId },
         (ack: { status: string } | null) => {
           if (ack == null && this.state.phase !== "error") {
-            this.onError("Não foi possível entrar na partida. Tente novamente.");
+            this.onError(
+              "Não foi possível entrar na partida. Tente novamente.",
+            );
           }
           resolve(ack ?? { status: "error" });
         },
@@ -228,6 +239,11 @@ export class WebSocketTransport implements Transport {
   /** Envia a entrada da paddle ao servidor. */
   sendInput(input: PaddleInput): void {
     this.socket?.emit("paddle:input", input);
+  }
+
+  /** Solicita o saque da bola após um ponto. */
+  requestServe(): void {
+    this.socket?.emit("game:serve");
   }
 
   /** Registra o listener de atualizações de estado da partida. */

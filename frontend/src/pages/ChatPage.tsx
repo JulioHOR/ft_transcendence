@@ -1,4 +1,4 @@
-import { type ReactNode, type SubmitEvent } from "react";
+import { type SubmitEvent } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -12,7 +12,8 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import InputAdornment from "@mui/material/InputAdornment";
 import { alpha } from "@mui/material/styles";
-import { MAX_CHAT_MESSAGE_LENGTH, type ChatMessage } from "../api/chat";
+import { type ChatMessage } from "../api/chat";
+import { MAX_CHAT_MESSAGE_LENGTH } from "../api/validation";
 import type { Friend } from "../api/friends";
 import { liveAvatarUrl } from "../api/profile";
 import { useAuth } from "../app/auth-session";
@@ -31,14 +32,31 @@ import { PageContainer } from "../ui/PageContainer";
 import { UnreadBadge } from "../ui/UnreadBadge";
 import { AppIcon } from "../ui/AppIcon";
 import { EmptyState } from "../ui/EmptyState";
-
-/** Identifica o estado de leitura da última mensagem própria. */
-type MessageReceiptInfo = {
-  /** Mensagem própria à qual o recibo se refere. */
-  messageId: string;
-  /** Estado de entrega ou leitura exibido na interface. */
-  kind: "entregue" | "visualizado";
-};
+import type {
+  ChatBlockButtonProps,
+  ChatComposerProps,
+  ChatContentProps,
+  ChatSessionProps,
+  ChatTabProps,
+  GameInvitationActionsProps,
+  GameInvitationAlertProps,
+  GameInvitationNoticeProps,
+  GameInvitationNoticesProps,
+  GameInviteButtonProps,
+  MessageContentProps,
+  MessageItemProps,
+  MessageLengthCounterProps,
+  MessageListFrameProps,
+  MessageListItemsProps,
+  MessageListPanelProps,
+  MessageListProps,
+  MessageReceiptInfo,
+  MessageReceiptProps,
+  MessageRowsProps,
+  PrivateChatActionsProps,
+  PrivateMessageAccessNoticeProps,
+  TypingFooterProps,
+} from "./chatProps";
 
 /** Texto e aparência usados para cada estado do recibo. */
 const messageReceiptDisplay: Record<
@@ -85,7 +103,7 @@ function messageAvatarUrl(
 }
 
 /** Ícone de recibo: ✓ entregue, ✓✓ visualizado. */
-function MessageReceipt(props: { kind: "entregue" | "visualizado" }) {
+function MessageReceipt(props: MessageReceiptProps) {
   const display = messageReceiptDisplay[props.kind];
   return (
     <Box
@@ -105,10 +123,7 @@ function MessageReceipt(props: { kind: "entregue" | "visualizado" }) {
 }
 
 /** Texto e recibo de uma mensagem, com link para o perfil do autor. */
-function MessageContent(props: {
-  message: ChatMessage;
-  receipt: "entregue" | "visualizado" | null;
-}) {
+function MessageContent(props: MessageContentProps) {
   return (
     <Typography
       variant="body2"
@@ -129,11 +144,8 @@ function MessageContent(props: {
   );
 }
 
-function MessageItem(props: {
-  message: ChatMessage;
-  avatarUrl: string | null;
-  receipt: "entregue" | "visualizado" | null;
-}) {
+/** Exibe avatar, conteúdo e recibo de uma mensagem. */
+function MessageItem(props: MessageItemProps) {
   return (
     <ListItem
       component="li"
@@ -152,13 +164,7 @@ function MessageItem(props: {
 }
 
 /** Itens da lista de mensagens. */
-function MessageListItems(props: {
-  messages: ChatMessage[];
-  currentUserId: number | undefined;
-  selfAvatarUrl: string | null | undefined;
-  friends: Friend[];
-  receipt: MessageReceiptInfo | null;
-}) {
+function MessageListItems(props: MessageListItemsProps) {
   return props.messages.map((message) => (
     <MessageItem
       key={message.id}
@@ -179,7 +185,7 @@ function MessageListItems(props: {
 }
 
 /** Rodapé do quadro: alguém está digitando. */
-function TypingFooter({ nickname }: { nickname: string | null }) {
+function TypingFooter({ nickname }: TypingFooterProps) {
   if (nickname == null) return null;
   return (
     <Box
@@ -221,20 +227,6 @@ function EmptyChatMessages() {
   );
 }
 
-/** Propriedades compartilhadas pela lista e sua área rolável. */
-type MessageRowsProps = {
-  /** Mensagens da conversa ativa. */
-  messages: ChatMessage[];
-  /** Estado e ações compartilhados pelo chat. */
-  session: ChatSession;
-  /** Avatar do usuário autenticado, se disponível. */
-  selfAvatarUrl: string | null | undefined;
-  /** Amigos usados para resolver avatares dos autores. */
-  friends: Friend[];
-  /** Recibo da última mensagem própria, se houver. */
-  receipt: MessageReceiptInfo | null;
-};
-
 /** Exibe as mensagens ou o estado vazio da conversa. */
 function MessageRows(props: MessageRowsProps) {
   if (props.messages.length === 0) return <EmptyChatMessages />;
@@ -262,10 +254,7 @@ function MessageScroll(props: MessageRowsProps) {
 }
 
 /** Estrutura visual da lista e do indicador de digitação. */
-function MessageListFrame(props: {
-  children: ReactNode;
-  nickname: string | null;
-}) {
+function MessageListFrame(props: MessageListFrameProps) {
   return (
     <Paper
       variant="outlined"
@@ -285,13 +274,7 @@ function MessageListFrame(props: {
 }
 
 /** Calcula o recibo e monta o quadro da conversa ativa. */
-function MessageListPanel(props: {
-  session: ChatSession;
-  messages: ChatMessage[];
-  selfAvatarUrl: string | null | undefined;
-  friends: Friend[];
-  isPrivate: boolean;
-}) {
+function MessageListPanel(props: MessageListPanelProps) {
   const receipt = privateTabReceipt(
     props.session,
     props.messages,
@@ -307,30 +290,12 @@ function MessageListPanel(props: {
 }
 
 /** Seleciona as mensagens da aba ativa e prepara o quadro. */
-function MessageList(props: {
-  session: ChatSession;
-  selfAvatarUrl: string | null | undefined;
-  friends: Friend[];
-  isPrivate: boolean;
-}) {
+function MessageList(props: MessageListProps) {
   const messages = activeTabMessages(props.session);
   return <MessageListPanel {...props} messages={messages} />;
 }
 
 /** Propriedades visuais e ações compartilhadas pelas abas do chat. */
-type ChatTabProps = {
-  /** Conteúdo exibido na aba, incluindo badge opcional. */
-  label: ReactNode;
-  /** Nome acessível da aba. */
-  ariaLabel: string;
-  /** Indica se a aba está selecionada. */
-  active: boolean;
-  /** Seleciona a conversa associada. */
-  onSelect: () => void;
-  /** Fecha a aba quando a ação estiver disponível. */
-  onClose?: () => void;
-};
-
 /** Estilo compartilhado das abas geral e privadas. */
 const chatTabSx = {
   height: 40,
@@ -363,7 +328,7 @@ function ChatTab(props: ChatTabProps) {
 }
 
 /** Renderiza as abas privadas abertas na sessão de chat. */
-function PrivateTabs({ session }: { session: ChatSession }) {
+function PrivateTabs({ session }: ChatSessionProps) {
   return (
     <>
       {session.privateChatTabs.map((tab) => {
@@ -386,7 +351,7 @@ function PrivateTabs({ session }: { session: ChatSession }) {
 }
 
 /** Barra de abas: conversa geral e conversas privadas abertas. */
-function ChatTabBar({ session }: { session: ChatSession }) {
+function ChatTabBar({ session }: ChatSessionProps) {
   return (
     <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
       <ChatTab
@@ -401,7 +366,7 @@ function ChatTabBar({ session }: { session: ChatSession }) {
 }
 
 /** Campo de texto do composer. */
-function ChatDraftInput({ session }: { session: ChatSession }) {
+function ChatDraftInput({ session }: ChatSessionProps) {
   return (
     <AppTextField
       id="chat-draft"
@@ -424,7 +389,8 @@ function ChatDraftInput({ session }: { session: ChatSession }) {
   );
 }
 
-function MessageLengthCounter({ value }: { value: number }) {
+/** Exibe o limite e o tamanho atual da mensagem. */
+function MessageLengthCounter({ value }: MessageLengthCounterProps) {
   return (
     <InputAdornment position="end">
       <Typography variant="caption" color="text.secondary">
@@ -435,7 +401,8 @@ function MessageLengthCounter({ value }: { value: number }) {
 }
 
 /** Formulário de envio na aba ativa. */
-function ChatComposer({ session }: { session: ChatSession }) {
+function ChatComposer({ session }: ChatComposerProps) {
+  /** Envia o rascunho atual sem recarregar a página. */
   function onSubmit(event: SubmitEvent<HTMLFormElement>): void {
     event.preventDefault();
     session.submitDraft();
@@ -467,7 +434,9 @@ function activeTabMessages(session: ChatSession): ChatMessage[] {
 }
 
 /** Aviso quando a amizade encerrou e o envio está bloqueado. */
-function PrivateMessageAccessNotice({ session }: { session: ChatSession }) {
+function PrivateMessageAccessNotice({
+  session,
+}: PrivateMessageAccessNoticeProps) {
   if (
     session.activeTabId === GLOBAL_CHAT_TAB_ID ||
     session.canSendOnActiveTab
@@ -482,13 +451,7 @@ function PrivateMessageAccessNotice({ session }: { session: ChatSession }) {
 }
 
 /** Ações disponíveis na conversa privada ativa. */
-function PrivateChatActions({
-  session,
-  friends,
-}: {
-  session: ChatSession;
-  friends: Friend[];
-}) {
+function PrivateChatActions({ session, friends }: PrivateChatActionsProps) {
   const tab = activePrivateTab(session);
   if (tab == null) return null;
   const hasActiveInvitation = hasActiveInvitationFor(session, tab.otherUserId);
@@ -511,11 +474,7 @@ function GameInviteButton({
   session,
   userId,
   disabled,
-}: {
-  session: ChatSession;
-  userId: number;
-  disabled: boolean;
-}) {
+}: GameInviteButtonProps) {
   return (
     <ActionButton
       startIcon={<AppIcon name="sports" />}
@@ -528,13 +487,7 @@ function GameInviteButton({
 }
 
 /** Ação para bloquear ou desbloquear mensagens do contato. */
-function ChatBlockButton({
-  session,
-  userId,
-}: {
-  session: ChatSession;
-  userId: number;
-}) {
+function ChatBlockButton({ session, userId }: ChatBlockButtonProps) {
   if (session.blockedByOtherUser) return null;
   const blocked = session.blockedByCurrentUser;
   return (
@@ -579,7 +532,7 @@ function isActiveInvitationFor(
 }
 
 /** Exibe convites de partida enviados ou recebidos pelo chat. */
-function GameInvitationNotices({ session }: { session: ChatSession }) {
+function GameInvitationNotices({ session }: GameInvitationNoticesProps) {
   const tab = activePrivateTab(session);
   if (tab == null) return null;
   const invitations = session.gameInvitations.filter(
@@ -601,11 +554,6 @@ function GameInvitationNotices({ session }: { session: ChatSession }) {
     </Stack>
   );
 }
-
-type GameInvitationNoticeProps = {
-  invitation: ChatSession["gameInvitations"][number];
-  session: ChatSession;
-};
 
 /** Escolhe a notificação de convite correspondente ao estado atual. */
 function GameInvitationNotice({
@@ -632,11 +580,8 @@ function GameInvitationNotice({
   );
 }
 
-function GameInvitationAlert(props: {
-  accepted: boolean;
-  action?: ReactNode;
-  message: string;
-}) {
+/** Exibe o convite com a ação correspondente. */
+function GameInvitationAlert(props: GameInvitationAlertProps) {
   return (
     <Alert
       severity={props.accepted ? "success" : "info"}
@@ -686,10 +631,7 @@ function GameInvitationActions({
   session,
   accepted,
   sentByCurrentUser,
-}: GameInvitationNoticeProps & {
-  accepted: boolean;
-  sentByCurrentUser: boolean;
-}) {
+}: GameInvitationActionsProps) {
   if (accepted)
     return (
       <AcceptedInvitationActions invitation={invitation} session={session} />
@@ -753,11 +695,7 @@ function AcceptedInvitationActions({
 }
 
 /** Conteúdo da página (abas, lista, composer). */
-function ChatContent(props: {
-  session: ChatSession;
-  selfAvatarUrl: string | null | undefined;
-  friends: Friend[];
-}) {
+function ChatContent(props: ChatContentProps) {
   const { session } = props;
   const isPrivate = session.activeTabId !== GLOBAL_CHAT_TAB_ID;
   return (

@@ -1,11 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { createFriendsTransport, type Friend } from "../api/friends";
 import { useAuth } from "./auth-session";
 import { FriendsContext } from "./friends-session";
-
-type FriendsProviderProps = {
-  children: ReactNode;
-};
+import type { FriendsProviderProps } from "./props";
 
 /** Conecta/desconecta o socket de friends conforme a sessão. */
 function useFriendsConnection(

@@ -13,6 +13,7 @@ from .state import (
     SimState,
     create_initial_sim_state,
     is_match_finished,
+    release_serve,
     to_snapshot,
 )
 from .step import step_simulation
@@ -215,6 +216,15 @@ class PongMatch:
                 return False
             apply_paddle_input(self.sim, side, position, timestamp_ms)
         return True
+
+    def serve(self, user_id: int) -> bool:
+        side = self.sides.get(user_id)
+        if side is None:
+            return False
+        with self._lock:
+            if self.phase != "playing" or self.sim.serve_side != side:
+                return False
+            return release_serve(self.sim)
 
     def accept_rematch(self, user_id: int) -> RematchOutcome:
         side = self.sides.get(user_id)

@@ -14,6 +14,11 @@ import {
   type Friend,
 } from "../api/friends";
 import { friendlyError } from "../api/http";
+import {
+  NICKNAME_MAX_LENGTH,
+  NICKNAME_MIN_LENGTH,
+  NICKNAME_PATTERN,
+} from "../api/validation";
 import { useFriends } from "../app/friends-session";
 import { buildPrivateChatPath } from "../chat/privateChat";
 import { Avatar } from "../ui/Avatar";
@@ -24,10 +29,18 @@ import { PageContainer } from "../ui/PageContainer";
 import { PageHeading } from "../ui/PageHeading";
 import { SectionCard } from "../ui/SectionCard";
 import { EmptyState } from "../ui/EmptyState";
-
-const NICKNAME_MIN_LENGTH = 3;
-const NICKNAME_MAX_LENGTH = 20;
-const NICKNAME_PATTERN = "[A-Za-z0-9_]+";
+import type {
+  AddFriendFieldsProps,
+  FriendNicknameFieldProps,
+  FriendActionHandlers,
+  FriendProps,
+  FriendRowProps,
+  FriendSectionProps,
+  FriendsContentProps,
+  FriendsListProps,
+  FriendSectionsProps,
+  IncomingActionsProps,
+} from "./friendsProps";
 
 /** Envia o nickname para adicionar um friend e limpa o campo. */
 async function submitAddFriend(
@@ -57,10 +70,7 @@ async function submitAddFriend(
 }
 
 /** Input com label do nickname do friend. */
-function FriendNicknameField(props: {
-  nickname: string;
-  onNickname: (value: string) => void;
-}) {
+function FriendNicknameField(props: FriendNicknameFieldProps) {
   return (
     <AppTextField
       id="friend-nickname"
@@ -82,11 +92,7 @@ function FriendNicknameField(props: {
 }
 
 /** Campos do formulário de adicionar friend. */
-function AddFriendFields(props: {
-  nickname: string;
-  pending: boolean;
-  onNickname: (value: string) => void;
-}) {
+function AddFriendFields(props: AddFriendFieldsProps) {
   const label = props.pending ? "Adicionando…" : "Adicionar";
   return (
     <>
@@ -132,20 +138,8 @@ function AddFriendForm() {
   );
 }
 
-/** Props de uma linha de friend na lista. */
-type FriendRowProps = {
-  friend: Friend;
-  onAccept: (fromId: number) => void;
-  onReject: (fromId: number) => void;
-  onRemove: (friendId: number) => void;
-};
-
 /** Botões Aceitar / Recusar de um convite recebido. */
-function IncomingActions(props: {
-  fromId: number;
-  onAccept: (fromId: number) => void;
-  onReject: (fromId: number) => void;
-}) {
+function IncomingActions(props: IncomingActionsProps) {
   return (
     <>
       <ActionButton
@@ -194,7 +188,7 @@ function FriendActions(props: FriendRowProps) {
 }
 
 /** Link para o perfil público do friend. */
-function FriendProfileLink({ friend }: { friend: Friend }) {
+function FriendProfileLink({ friend }: FriendProps) {
   return (
     <MuiLink
       component={RouterLink}
@@ -208,7 +202,7 @@ function FriendProfileLink({ friend }: { friend: Friend }) {
 }
 
 /** Linha: avatar, nickname, online, relação e ações. */
-function FriendSummary({ friend }: { friend: Friend }) {
+function FriendSummary({ friend }: FriendProps) {
   return (
     <>
       <Avatar
@@ -228,6 +222,7 @@ function FriendSummary({ friend }: { friend: Friend }) {
   );
 }
 
+/** Exibe uma linha completa da lista de amigos. */
 function FriendRow(props: FriendRowProps) {
   return (
     <ListItem
@@ -244,26 +239,12 @@ function FriendRow(props: FriendRowProps) {
 }
 
 /** Props da lista de friends. */
-type FriendsListProps = {
-  friends: Friend[];
-  onAccept: (fromId: number) => void;
-  onReject: (fromId: number) => void;
-  onRemove: (friendId: number) => void;
-};
-
 /** Filtra friends por relation. */
 function byRelation(friends: Friend[], relation: Friend["relation"]): Friend[] {
   return friends.filter((friend) => friend.relation === relation);
 }
 
-type FriendSectionProps = {
-  title: string;
-  friends: Friend[];
-  onAccept: (fromId: number) => void;
-  onReject: (fromId: number) => void;
-  onRemove: (friendId: number) => void;
-};
-
+/** Exibe uma seção de amigos quando há itens para mostrar. */
 function FriendSection(props: FriendSectionProps) {
   if (props.friends.length === 0) return null;
   return (
@@ -296,6 +277,7 @@ function FriendRows(props: FriendsListProps) {
   );
 }
 
+/** Exibe a lista ou o estado vazio de uma seção. */
 function FriendsList(props: FriendsListProps) {
   if (props.friends.length === 0) {
     return <EmptyState>Nenhum amigo na lista ainda.</EmptyState>;
@@ -312,7 +294,7 @@ function FriendsList(props: FriendsListProps) {
 }
 
 /** Link para abrir conversa privada com um friend aceito. */
-function FriendPrivateChatLink({ friend }: { friend: Friend }) {
+function FriendPrivateChatLink({ friend }: FriendProps) {
   if (friend.relation !== "friend") return null;
   return (
     <Button
@@ -343,7 +325,7 @@ function friendHandlers(setError: (value: string | null) => void) {
       run(() => rejectFriend(fromId), "Falha ao recusar convite."),
     onRemove: (friendId: number) =>
       run(() => removeFriend(friendId), "Falha ao remover amigo."),
-  };
+  } satisfies FriendActionHandlers;
 }
 
 /** Página de friends/presença e convites. */
@@ -362,11 +344,8 @@ export function FriendsPage() {
   );
 }
 
-function FriendsContent(props: {
-  friends: Friend[];
-  actionError: string | null;
-  handlers: ReturnType<typeof friendHandlers>;
-}) {
+/** Monta o formulário, erros e seções da página. */
+function FriendsContent(props: FriendsContentProps) {
   return (
     <Stack spacing={2}>
       <SectionCard sx={{ p: 2 }}>
@@ -378,10 +357,8 @@ function FriendsContent(props: {
   );
 }
 
-function FriendSections(props: {
-  friends: Friend[];
-  handlers: ReturnType<typeof friendHandlers>;
-}) {
+/** Distribui os amigos nas três relações exibidas. */
+function FriendSections(props: FriendSectionsProps) {
   return (
     <>
       <FriendSection

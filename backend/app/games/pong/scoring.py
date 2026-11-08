@@ -1,6 +1,6 @@
 
 from .constants import POINTS_TO_WIN, TABLE, side_sign
-from .state import SimState, is_match_finished, reset_ball, stop_ball
+from .state import SimState, attach_ball_to_paddle, is_match_finished, stop_ball
 
 def is_goal_on_side(ball_x: float, side: str) -> bool:
     limit = side_sign(side) * TABLE["halfLength"]
@@ -20,7 +20,7 @@ def score_on_left_goal(state: SimState) -> None:
     if has_reached_point_limit(state.score_right):
         declare_winner(state, "right")
         return
-    reset_ball(state, toward_right=True)
+    attach_ball_to_paddle(state, "left")
 
 
 def score_on_right_goal(state: SimState) -> None:
@@ -28,7 +28,7 @@ def score_on_right_goal(state: SimState) -> None:
     if has_reached_point_limit(state.score_left):
         declare_winner(state, "left")
         return
-    reset_ball(state, toward_right=False)
+    attach_ball_to_paddle(state, "right")
 
 
 def resolve_goals(state: SimState) -> None:

@@ -2,10 +2,13 @@ import { me } from "./auth";
 import { apiFetch } from "./api";
 import { defaultAvatarUrl, profileAvatarUrl, profileUrl } from "./endpoints";
 import { errorMessage } from "./http";
+import {
+  AVATAR_ACCEPTED_TYPES,
+  AVATAR_TOO_LARGE,
+  MAX_AVATAR_DIMENSION,
+  MAX_AVATAR_FILE_SIZE,
+} from "./validation";
 import type { Profile, User } from "./types";
-
-/** Mensagem quando o avatar excede o tamanho permitido. */
-const AVATAR_TOO_LARGE = "imagem muito grande (máx. 600KB)";
 
 /** URL de exibição do avatar (fallback para o default). */
 export function resolveAvatarUrl(avatarUrl: string | null | undefined): string {
@@ -114,23 +117,39 @@ export async function deleteAvatar(): Promise<Profile> {
 }
 
 /** Lê um arquivo de imagem e devolve data URL. */
-export function readImageAsDataUrl(file: File): Promise<string> {
-  if (!file.type.startsWith("image/")) {
-    return Promise.reject(new Error("o arquivo precisa ser uma imagem"));
+export async function readImageAsDataUrl(file: File): Promise<string> {
+  await validateImageFile(file);
+  return readFileAsDataUrl(file);
+}
+
+/** Valida formato, tamanho e dimensões do arquivo de avatar. */
+async function validateImageFile(file: File): Promise<void> {
+  if (!AVATAR_ACCEPTED_TYPES.includes(file.type)) {
+    throw new Error("Escolha uma imagem PNG, JPEG ou WebP.");
   }
-  if (file.size > 600_000) {
-    return Promise.reject(new Error(AVATAR_TOO_LARGE));
+  if (file.size > MAX_AVATAR_FILE_SIZE) {
+    throw new Error(AVATAR_TOO_LARGE);
   }
+  const image = await createImageBitmap(file).catch(() => {
+    throw new Error("O arquivo não é uma imagem válida ou está corrompido.");
+  });
+  try {
+    if (Math.max(image.width, image.height) > MAX_AVATAR_DIMENSION) {
+      throw new Error("A imagem deve ter no máximo 4096 × 4096 pixels.");
+    }
+  } finally {
+    image.close();
+  }
+}
+
+/** Lê o arquivo selecionado como data URL. */
+function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result;
       if (typeof dataUrl !== "string") {
         reject(new Error("falha ao ler a imagem"));
-        return;
-      }
-      if (dataUrl.length > 800_000) {
-        reject(new Error(AVATAR_TOO_LARGE));
         return;
       }
       resolve(dataUrl);

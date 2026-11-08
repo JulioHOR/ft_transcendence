@@ -333,7 +333,6 @@ def test_avatar_aceita_formatos_permitidos(client, store, mime, image_format):
     assert response.status_code == 200
     assert store.avatars[1][:2] == (mime, content)
 
-
 def test_avatar_data_url_invalido_400(client):
     login(client, 1)
     formato_ruim = (

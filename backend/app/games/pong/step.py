@@ -3,7 +3,7 @@ from .collisions import resolve_paddle_collisions, resolve_side_borders
 from .motion import move_ball
 from .paddles import decay_paddle_velocities
 from .scoring import resolve_goals
-from .state import SimState, is_match_finished
+from .state import SimState, is_match_finished, update_attached_ball
 
 
 def step_simulation(state: SimState, delta_seconds: float) -> None:
@@ -11,6 +11,9 @@ def step_simulation(state: SimState, delta_seconds: float) -> None:
         return
 
     decay_paddle_velocities(state, delta_seconds)
+    if state.serve_side is not None:
+        update_attached_ball(state)
+        return
     move_ball(state, delta_seconds)
     resolve_side_borders(state)
     resolve_paddle_collisions(state)

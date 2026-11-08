@@ -1,8 +1,9 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider, type PaletteMode } from "@mui/material/styles";
 import { ColorModeContext } from "./color-mode-context";
 import { createAppTheme } from "./theme";
+import type { ColorModeProviderProps } from "./props";
 
 /** Chave local usada para restaurar o tema entre visitas. */
 const STORAGE_KEY = "ft-transcendence-color-mode";
@@ -19,10 +20,11 @@ function savedMode(): PaletteMode {
 }
 
 /** Fornece o tema selecionado e persiste a escolha neste navegador. */
-export function ColorModeProvider({ children }: { children: ReactNode }) {
+export function ColorModeProvider({ children }: ColorModeProviderProps) {
   const [mode, setMode] = useState<PaletteMode>(savedMode);
   const theme = useMemo(() => createAppTheme(mode), [mode]);
 
+  /** Alterna o tema e persiste a escolha localmente. */
   function toggleMode() {
     setMode((current) => {
       const next = current === "dark" ? "light" : "dark";

@@ -3,12 +3,7 @@ import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 
 import { useAuth } from "./auth-session";
-
-/** Propriedades do guard de autenticação. */
-type RequireAuthProps = {
-  /** Conteúdo protegido, renderizado apenas com sessão válida. */
-  children: React.ReactNode;
-};
+import type { RequireAuthProps } from "./props";
 
 /**
  * Guard de rota.

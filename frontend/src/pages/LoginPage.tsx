@@ -1,4 +1,4 @@
-import { useState, type ChangeEventHandler, type SubmitEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { Navigate, useNavigate, type NavigateFunction } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -6,60 +6,32 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 
 import { login, signup } from "../api/auth";
+import {
+  EMAIL_PATTERN,
+  NICKNAME_MAX_LENGTH,
+  NICKNAME_MIN_LENGTH,
+  NICKNAME_PATTERN,
+  PASSWORD_MIN_LENGTH,
+} from "../api/validation";
 import { friendlyError } from "../api/http";
 import { useAuth } from "../app/auth-session";
 import type { User } from "../api/types";
 import { ActionButton } from "../ui/ActionButton";
 import { AppTextField } from "../ui/AppTextField";
 import { ErrorText } from "../ui/ErrorText";
-
-/** Modo exibido no formulário de autenticação. */
-type AuthMode = "login" | "signup";
-
-/** Valores dos campos do formulário. */
-type FieldValues = {
-  mode: AuthMode;
-  email: string;
-  nickname: string;
-  password: string;
-};
-
-const NICKNAME_MIN_LENGTH = 3;
-const NICKNAME_MAX_LENGTH = 20;
-const PASSWORD_MIN_LENGTH = 8;
-const NICKNAME_PATTERN = "[A-Za-z0-9_]+";
-
-/** Modelo de estado do formulário de login/cadastro. */
-type LoginFormModel = FieldValues & {
-  error: string | null;
-  pending: boolean;
-  setEmail: (value: string) => void;
-  setNickname: (value: string) => void;
-  setPassword: (value: string) => void;
-  setError: (value: string | null) => void;
-  setPending: (value: boolean) => void;
-  setMode: (value: AuthMode) => void;
-};
+import type {
+  AuthFormBodyProps,
+  AuthMode,
+  FieldProps,
+  FieldValues,
+  FormErrorProps,
+  LoginCardProps,
+  LoginFormProps,
+  LoginFormModel,
+} from "./loginProps";
 
 /** Campo de formulário Material UI. */
-function Field({
-  minLength,
-  maxLength,
-  pattern,
-  ...props
-}: {
-  id: string;
-  label: string;
-  type?: string;
-  autoComplete?: string;
-  placeholder?: string;
-  required?: boolean;
-  minLength?: number;
-  maxLength?: number;
-  pattern?: string;
-  value: string;
-  onChange: ChangeEventHandler<HTMLInputElement>;
-}) {
+function Field({ minLength, maxLength, pattern, ...props }: FieldProps) {
   return (
     <AppTextField
       {...props}
@@ -69,7 +41,7 @@ function Field({
 }
 
 /** Campo de nickname exibido apenas no cadastro. */
-function NicknameField(form: LoginFormModel) {
+function NicknameField({ form }: LoginFormProps) {
   if (form.mode !== "signup") return null;
   return (
     <Field
@@ -89,13 +61,14 @@ function NicknameField(form: LoginFormModel) {
 }
 
 /** Campo de email. */
-function EmailField(form: LoginFormModel) {
+function EmailField({ form }: LoginFormProps) {
   return (
     <Field
       id="login-email"
       label="Email"
       type="email"
       autoComplete="email"
+      pattern={EMAIL_PATTERN}
       placeholder="email"
       required
       value={form.email}
@@ -105,7 +78,7 @@ function EmailField(form: LoginFormModel) {
 }
 
 /** Campo de senha. */
-function PasswordField(form: LoginFormModel) {
+function PasswordField({ form }: LoginFormProps) {
   return (
     <Field
       id="login-password"
@@ -162,12 +135,12 @@ function toggleAuthMode(form: LoginFormModel): void {
 }
 
 /** Exibe o erro do formulário, se houver. */
-function FormError({ error }: { error: string | null }) {
+function FormError({ error }: FormErrorProps) {
   return <ErrorText error={error} />;
 }
 
 /** Botões de submit e alternância de modo. */
-function AuthActions(form: LoginFormModel) {
+function AuthActions({ form }: LoginFormProps) {
   return (
     <>
       <ActionButton appearance="primary" type="submit" disabled={form.pending}>
@@ -189,13 +162,7 @@ function AuthActions(form: LoginFormModel) {
 }
 
 /** Corpo do formulário (campos + ações). */
-function AuthFormBody({
-  form,
-  onSubmit,
-}: {
-  form: LoginFormModel;
-  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
-}) {
+function AuthFormBody({ form, onSubmit }: AuthFormBodyProps) {
   return (
     <Stack
       component="form"
@@ -203,10 +170,10 @@ function AuthFormBody({
       sx={{ width: "100%", maxWidth: 420 }}
       onSubmit={onSubmit}
     >
-      <NicknameField {...form} />
-      <EmailField {...form} />
-      <PasswordField {...form} />
-      <AuthActions {...form} />
+      <NicknameField form={form} />
+      <EmailField form={form} />
+      <PasswordField form={form} />
+      <AuthActions form={form} />
     </Stack>
   );
 }
@@ -265,13 +232,7 @@ const loginCardSx = {
 };
 
 /** Cartão que reúne título, formulário e mensagem de erro. */
-function LoginCard({
-  form,
-  onSubmit,
-}: {
-  form: LoginFormModel;
-  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
-}) {
+function LoginCard({ form, onSubmit }: LoginCardProps) {
   return (
     <Paper variant="outlined" sx={loginCardSx}>
       <Stack spacing={2.5}>

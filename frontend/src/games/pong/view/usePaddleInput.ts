@@ -2,16 +2,18 @@ import { useEffect, useRef, type MutableRefObject } from "react";
 import type { Transport } from "../protocol";
 import { inputLimit } from "../protocol";
 import { clamp, computeDeltaSeconds } from "../shared/math";
+import {
+  MOVE_DOWN_CODES,
+  MOVE_UP_CODES,
+  PADDLE_SPEED,
+} from "../constants";
+import type { UsePaddleInputOptions } from "./props";
 
-/** Velocidade de deslocamento da paddle no eixo Z (largura). */
-const PADDLE_SPEED = 8;
-const MOVE_UP_CODES = new Set(["KeyW", "ArrowUp"]);
-const MOVE_DOWN_CODES = new Set(["KeyS", "ArrowDown"]);
-
+/** Direções aceitas pelo controle da raquete. */
 type MoveDirection = "moveUp" | "moveDown";
-type PressedKeys = Record<MoveDirection, boolean>;
-type UsePaddleInputOptions = { enabled: boolean };
 
+/** Estado das teclas de movimento. */
+type PressedKeys = Record<MoveDirection, boolean>;
 /**
  * Converte um código de tecla em direção de movimento,
  * ou `null` se a tecla não controla a paddle.
@@ -65,6 +67,7 @@ function hasMovementInput(pressed: PressedKeys): boolean {
   return pressed.moveUp || pressed.moveDown;
 }
 
+/** Referências mutáveis usadas no loop de entrada. */
 type InputLoopRefs = {
   paddlePosition: MutableRefObject<number>;
   pressed: MutableRefObject<PressedKeys>;
@@ -124,21 +127,20 @@ function runInputFrame(
  *
  * @param pressed - Referência com o estado das teclas de movimento
  */
-function attachKeyboard(pressed: MutableRefObject<PressedKeys>) {
-  function setDirectionPressed(code: string, isPressed: boolean): void {
-    const direction = getMoveDirection(code);
-    if (!direction) return;
-    pressed.current[direction] = isPressed;
-  }
-
-  function onKeyDown(event: KeyboardEvent): void {
-    setDirectionPressed(event.code, true);
-  }
-
-  function onKeyUp(event: KeyboardEvent): void {
-    setDirectionPressed(event.code, false);
-  }
-
+function attachKeyboard(
+  pressed: MutableRefObject<PressedKeys>,
+  onServe: () => void,
+) {
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.code === "Space") {
+      event.preventDefault();
+      if (!event.repeat) onServe();
+      return;
+    }
+    setDirectionPressed(pressed, event.code, true);
+  };
+  const onKeyUp = (event: KeyboardEvent) =>
+    setDirectionPressed(pressed, event.code, false);
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
 
@@ -146,6 +148,16 @@ function attachKeyboard(pressed: MutableRefObject<PressedKeys>) {
     window.removeEventListener("keydown", onKeyDown);
     window.removeEventListener("keyup", onKeyUp);
   };
+}
+
+/** Atualiza o estado da direção associada a uma tecla. */
+function setDirectionPressed(
+  pressed: MutableRefObject<PressedKeys>,
+  code: string,
+  isPressed: boolean,
+): void {
+  const direction = getMoveDirection(code);
+  if (direction) pressed.current[direction] = isPressed;
 }
 
 /**
@@ -163,6 +175,7 @@ function startInputLoop(
   let frameId = 0;
   const lastFrameTime = { current: 0 };
 
+  /** Processa um frame e agenda o próximo. */
   function tick(now: number): void {
     runInputFrame(transport, refs, enabled, now, lastFrameTime);
     frameId = requestAnimationFrame(tick);
@@ -180,18 +193,24 @@ function startInputLoop(
  */
 export function usePaddleInput(
   transport: Transport,
-  { enabled }: UsePaddleInputOptions,
+  { enabled, paddlePosition: serverPaddlePosition }: UsePaddleInputOptions,
 ) {
-  const paddlePosition = useRef(0);
+  const paddlePosition = useRef(serverPaddlePosition);
+  const wasEnabled = useRef(enabled);
   const pressed = useRef<PressedKeys>({ moveUp: false, moveDown: false });
 
   useEffect(() => {
     if (!enabled) pressed.current = { moveUp: false, moveDown: false };
-  }, [enabled]);
+    if (!enabled || !wasEnabled.current)
+      paddlePosition.current = serverPaddlePosition;
+    wasEnabled.current = enabled;
+  }, [enabled, serverPaddlePosition]);
 
   useEffect(() => {
     const refs = { paddlePosition, pressed };
-    const detachKeyboard = attachKeyboard(pressed);
+    const detachKeyboard = attachKeyboard(pressed, () => {
+      if (enabled) transport.requestServe();
+    });
     const stopLoop = startInputLoop(transport, refs, enabled);
     return () => {
       stopLoop();

@@ -50,6 +50,11 @@ def _parse_input(data) -> float:
     position = _parse_position(data)
     if position is None:
         raise MalformedInput()
+    try:
+        if not math.isfinite(position):
+            raise MalformedInput()
+    except OverflowError:
+        raise MalformedInput() from None
     return position
 
 

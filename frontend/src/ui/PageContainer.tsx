@@ -1,13 +1,5 @@
-import type { ReactNode } from "react";
 import Box from "@mui/material/Box";
-
-/** Propriedades compartilhadas pelas páginas principais. */
-type PageContainerProps = {
-  /** Conteúdo da página. */
-  children: ReactNode;
-  /** Mantém a página na altura disponível, usado pelo chat. */
-  fillHeight?: boolean;
-};
+import type { PageContainerProps } from "./props";
 
 /** Centraliza as páginas e define espaçamento e largura do conteúdo. */
 export function PageContainer({

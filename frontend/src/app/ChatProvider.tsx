@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createChatTransport,
   fetchChatHistory,
@@ -26,39 +19,13 @@ import {
 import { useAuth } from "./auth-session";
 import { ChatContext, type ChatContextValue } from "./chat-session";
 import { useLatestRef } from "./useLatestRef";
-
-type ChatProviderProps = {
-  children: ReactNode;
-};
-
-type ChatSetters = {
-  setGlobal: Dispatch<SetStateAction<ChatMessage[]>>;
-  setPrivate: Dispatch<SetStateAction<Record<string, ChatMessage[]>>>;
-  setTabs: Dispatch<SetStateAction<PrivateChatTab[]>>;
-  setUnread: Dispatch<SetStateAction<Record<string, number>>>;
-  setTyping: Dispatch<SetStateAction<Record<string, string | null>>>;
-  setPeerRead: Dispatch<SetStateAction<Record<string, string>>>;
-  setError: Dispatch<SetStateAction<string | null>>;
-  setBlockedUsers: Dispatch<SetStateAction<number[]>>;
-  setBlockingUsers: Dispatch<SetStateAction<number[]>>;
-  setGameInvitations: Dispatch<SetStateAction<GameInvitation[]>>;
-};
-
-type ChatProviderState = {
-  globalMessages: ChatMessage[];
-  privateMessagesByConversation: Record<string, ChatMessage[]>;
-  privateChatTabs: PrivateChatTab[];
-  unreadByConversation: Record<string, number>;
-  typingByConversation: Record<string, string | null>;
-  peerReadByConversation: Record<string, string>;
-  error: string | null;
-  blockedUserIds: number[];
-  blockingUserIds: number[];
-  gameInvitations: GameInvitation[];
-  setters: ChatSetters;
-  transportRef: { current: ChatTransport | null };
-  viewingRef: { current: string | null };
-};
+import type {
+  ChatProviderProps,
+  ChatProviderState,
+  ChatSetters,
+  ChatTransportRef,
+  ChatViewingRef,
+} from "./props";
 
 /** Remove a contagem de não lidas de uma conversa. */
 function dropUnread(
@@ -75,7 +42,7 @@ function dropUnread(
 function applyPrivateMessage(
   message: ChatMessage,
   userId: number,
-  viewingRef: { current: string | null },
+  viewingRef: ChatViewingRef,
   setters: ChatSetters,
 ): void {
   setters.setPrivate((current) => appendPrivateMessage(current, message));
@@ -119,7 +86,7 @@ function bindPrivateSignals(
 function bindTransport(
   transport: ChatTransport,
   userId: number,
-  viewingRef: { current: string | null },
+  viewingRef: ChatViewingRef,
   setters: ChatSetters,
 ): void {
   transport.onGlobalMessage((message) => {
@@ -133,10 +100,11 @@ function bindTransport(
   bindPrivateSignals(transport, setters);
 }
 
+/** Liga os eventos de convite aos handlers do contexto. */
 function bindGameInvitationEvents(
   transport: ChatTransport,
   userId: number,
-  viewingRef: { current: string | null },
+  viewingRef: ChatViewingRef,
   setters: ChatSetters,
 ): void {
   const handleInvitation = createInvitationHandler(userId, viewingRef, setters);
@@ -144,9 +112,10 @@ function bindGameInvitationEvents(
   transport.onGameInviteUpdate(handleInvitation);
 }
 
+/** Cria um handler que evita processar o mesmo convite duas vezes. */
 function createInvitationHandler(
   userId: number,
-  viewingRef: { current: string | null },
+  viewingRef: ChatViewingRef,
   setters: ChatSetters,
 ): (invitation: GameInvitation) => void {
   const seenInvitationIds = new Set<string>();
@@ -164,7 +133,7 @@ function createInvitationHandler(
 function receiveGameInvitation(
   invitation: GameInvitation,
   userId: number,
-  viewingRef: { current: string | null },
+  viewingRef: ChatViewingRef,
   setters: ChatSetters,
   seenInvitationIds: Set<string>,
 ): void {
@@ -186,6 +155,7 @@ function receiveGameInvitation(
   updateGameInvitation(setters, invitation);
 }
 
+/** Indica se o convite é ativo e ainda não foi visto. */
 function isNewInvitation(
   invitation: GameInvitation,
   seenInvitationIds: Set<string>,
@@ -223,7 +193,7 @@ function markInvitationUnread(
   invitation: GameInvitation,
   userId: number,
   conversationId: string,
-  viewingRef: { current: string | null },
+  viewingRef: ChatViewingRef,
   setters: ChatSetters,
 ): void {
   if (
@@ -315,8 +285,8 @@ function loadHistory(cancelled: () => boolean, setters: ChatSetters): void {
 /** Abre transporte e devolve cleanup. */
 function openChatTransport(
   userId: number,
-  transportRef: { current: ChatTransport | null },
-  viewingRef: { current: string | null },
+  transportRef: ChatTransportRef,
+  viewingRef: ChatViewingRef,
   setters: ChatSetters,
 ): () => void {
   let cancelled = false;
@@ -332,6 +302,7 @@ function openChatTransport(
   };
 }
 
+/** Conecta o socket e encaminha falhas ao estado do chat. */
 function connectChatTransport(
   transport: ChatTransport,
   cancelled: () => boolean,
@@ -353,8 +324,8 @@ function connectChatTransport(
 function useChatConnection(
   userId: number | null,
   ready: boolean,
-  transportRef: { current: ChatTransport | null },
-  viewingRef: { current: string | null },
+  transportRef: ChatTransportRef,
+  viewingRef: ChatViewingRef,
   setters: ChatSetters,
 ): void {
   const settersRef = useLatestRef(setters);
@@ -373,9 +344,9 @@ function useChatConnection(
 }
 
 /** Envio via socket. */
-function transportSendActions(transportRef: {
-  current: ChatTransport | null;
-}): Pick<
+function transportSendActions(
+  transportRef: ChatTransportRef,
+): Pick<
   ChatContextValue,
   | "sendGlobalMessage"
   | "sendPrivateMessage"
@@ -394,9 +365,9 @@ function transportSendActions(transportRef: {
 }
 
 /** Ações de convite de partida no chat. */
-function gameInviteActions(transportRef: {
-  current: ChatTransport | null;
-}): Pick<
+function gameInviteActions(
+  transportRef: ChatTransportRef,
+): Pick<
   ChatContextValue,
   "sendGameInvite" | "respondGameInvite" | "cancelGameInvite"
 > {
@@ -463,8 +434,9 @@ type TabViewActions = Pick<
   | "markConversationRead"
 >;
 
+/** Cria as ações de abertura, fechamento e leitura das abas. */
 function tabViewActions(
-  viewingRef: { current: string | null },
+  viewingRef: ChatViewingRef,
   setters: ChatSetters,
 ): TabViewActions {
   return {

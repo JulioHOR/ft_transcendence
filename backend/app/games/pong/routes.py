@@ -1,6 +1,8 @@
 from flask import jsonify, request
 from flask_smorest import Blueprint
 
+from schemas import ErrorResponseSchema
+
 from . import store
 from .schemas import PongStatisticsSchema
 
@@ -23,8 +25,24 @@ def _statistics_with_history(user_id: int) -> dict:
 
 @pong_bp.get("/api/games/pong/statistics")
 @pong_bp.response(200, PongStatisticsSchema)
-@pong_bp.alt_response(400, description="O id informado não é válido.")
-@pong_bp.alt_response(404, description="Usuário não encontrado.")
+@pong_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sem sessão nem chave de API válida.",
+)
+@pong_bp.alt_response(
+    400,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="O id informado não é válido.",
+)
+@pong_bp.alt_response(
+    404,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Usuário não encontrado.",
+)
 @pong_bp.doc(
     summary="Estatísticas e histórico do Pong",
     description=(
@@ -33,6 +51,16 @@ def _statistics_with_history(user_id: int) -> dict:
         "do usuário informado."
     ),
     security=[{"cookieAuth": []}, {"apiKeyAuth": []}],
+    parameters=[
+        {
+            "name": "id",
+            "in": "query",
+            "required": True,
+            "schema": {"type": "integer"},
+            "description": "Id do usuário.",
+            "example": 2,
+        }
+    ],
 )
 def get_pong_statistics():
     user_id = _requested_user_id()

@@ -208,6 +208,12 @@ def _fetch_user_summary(cur, user_id: int) -> tuple[str, str] | None:
     success=True,
     description="E-mail ou nickname já em uso.",
 )
+@auth_bp.alt_response(
+    429,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Limite de 3 cadastros por hora por endereço IP.",
+)
 @auth_bp.doc(
     summary="Criar conta e abrir sessão",
     description=(
@@ -244,6 +250,12 @@ def signup():
     schema=ErrorResponseSchema,
     success=True,
     description=f"Mensagem genérica: {INVALID_CREDENTIALS}.",
+)
+@auth_bp.alt_response(
+    429,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Limite de 5 tentativas por minuto por e-mail ou endereço IP.",
 )
 @auth_bp.doc(
     summary="Entrar",

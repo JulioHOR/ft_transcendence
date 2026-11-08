@@ -188,7 +188,7 @@ def register_social_handlers(socketio, matchmaker) -> Callable[[str], None]:
         if text is None:
             return
         if len(text) > MAX_CHAT_MESSAGE_LENGTH:
-            _emit_chat_error(MESSAGE_TOO_LONG)
+            _emit_chat_error(MESSAGE_TOO_LONG, "chat:error")
             return
         user_id = identity[0]
         if not _chat_event_allowed(user_id):

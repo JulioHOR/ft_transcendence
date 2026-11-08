@@ -58,8 +58,9 @@ API HTTP do ft_transcendence.
    aplicação neste mesmo navegador antes de usar **Try it out**.
 3. Sem chave ou sessão válida, endpoints protegidos respondem `401`.
 
-O limite atual é de 120 requisições por minuto por endereço IP. A documentação
-dos eventos WebSocket está em `/api/docs/asyncapi.yaml`.
+O limite geral é de 120 requisições por minuto por endereço IP. Cadastro aceita
+3 por hora e login aceita 5 por minuto; acima do limite a resposta é `429`. A
+documentação dos eventos WebSocket está em `/api/docs/asyncapi.yaml`.
 """
 
 docs_bp = Blueprint("docs", __name__)

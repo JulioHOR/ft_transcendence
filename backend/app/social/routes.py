@@ -160,6 +160,12 @@ def _decode_avatar_data_url(raw) -> tuple[str, bytes] | tuple[None, str]:
     200, ProfileSchema, description="Perfil público de qualquer usuário."
 )
 @social_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sem sessão nem chave de API válida.",
+)
+@social_bp.alt_response(
     400,
     schema=ErrorResponseSchema,
     success=True,
@@ -344,6 +350,12 @@ def delete_avatar():
     description="Bytes da foto, no Content-Type do upload.",
 )
 @social_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sem sessão nem chave de API válida.",
+)
+@social_bp.alt_response(
     404,
     schema=ErrorResponseSchema,
     success=True,
@@ -372,25 +384,6 @@ def get_avatar(user_id: int):
         },
     )
 
-@social_bp.get("/api/chat/history")
-@social_bp.response(
-    200, ChatHistorySchema, description="Histórico do chat público e das conversas privadas."
-)
-@social_bp.alt_response(
-    401,
-    schema=ErrorResponseSchema,
-    success=True,
-    description="Sessão ausente, expirada ou inválida.",
-)
-@social_bp.doc(
-    summary="Histórico de chat",
-    description=(
-        "Traz todas as mensagens da sala pública e as conversas privadas do "
-        "usuário da sessão; apelidos e fotos resolvidos no momento da leitura. "
-        "Exige o cookie de sessão; a chave de API sozinha não dá acesso ao chat."
-    ),
-    security=[{"cookieAuth": []}],
-)
 def _conversation_history(rows: list[dict]) -> list[dict]:
     conversations: dict[str, dict] = {}
     for row in rows:
@@ -413,6 +406,25 @@ def _conversation_history(rows: list[dict]) -> list[dict]:
         entry["messages"].append(message)
     return list(conversations.values())
 
+@social_bp.get("/api/chat/history")
+@social_bp.response(
+    200, ChatHistorySchema, description="Histórico do chat público e das conversas privadas."
+)
+@social_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sessão ausente, expirada ou inválida.",
+)
+@social_bp.doc(
+    summary="Histórico de chat",
+    description=(
+        "Traz todas as mensagens da sala pública e as conversas privadas do "
+        "usuário da sessão; apelidos e fotos resolvidos no momento da leitura. "
+        "Exige o cookie de sessão; a chave de API sozinha não dá acesso ao chat."
+    ),
+    security=[{"cookieAuth": []}],
+)
 def get_chat_history():
     user_id = _session_user_id()
     if user_id is None:

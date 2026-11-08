@@ -366,6 +366,19 @@ def test_chat_send_muito_rapido_e_recusado(env):
     ]
     assert drain(ana, "chat:message") == []
 
+def test_chat_send_longo_demais_e_recusado(env):
+    ana = connect_api(env, 1)
+    bia = connect_api(env, 2)
+    drain(ana)
+    drain(bia)
+
+    ana.emit("chat:send", {"text": "a" * 1001})
+
+    assert drain(ana, "chat:error") == [
+        {"message": "A mensagem pode ter até 1000 caracteres."}
+    ]
+    assert drain(bia, "chat:message") == []
+
 def test_chat_privado_muito_rapido_e_recusado(env):
     ana = connect_api(env, 1)
     bia = connect_api(env, 2)

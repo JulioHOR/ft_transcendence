@@ -11,8 +11,6 @@ import {
 import { ColyseusSDK, Callbacks } from "@colyseus/sdk";
 import { Predict } from "@colyseus/sdk/predict";
 import type { default as server } from "../app.config.js";
-import type { MoveInput } from "../rooms/schema/MyRoomState.js";
-import { stepEntity } from "../shared/movement.js";
 import {CLOSE_LOGGED_IN_ELSEWHERE} from "../shared/constants.js";
 import {createScene} from "./sceneSetup.js";
 import {loadAssets} from "./assets.js";
@@ -64,23 +62,10 @@ async function main() {
 		smoothMs: 65,
 	});
 
-	const input = room.input<MoveInput>({ mode: "reliable" });
-
-	// Wait for the first state patch to create our own Player data reference
+	// the render loop reads room.state, which only exists after the first state patch
 	await new Promise<void>((resolve) =>
 		room.onStateChange.once(() => resolve()),
 	);
-	const self = room.state.players.get(room.sessionId);
-
-	if (!self) {
-		throw new Error("Failed to get our own player data.");
-	}
-
-	predict.reconciler(self, {
-		input,
-		fields: ["x", "y", "vx", "vy"],
-		step: (ctx, predicted, command) => stepEntity(predicted, command, ctx.dt),
-	});
 
 	if (micTurnedOffWarning === true) {
 		statusEl.textContent += `Connected as ${room.sessionId}`;
@@ -137,7 +122,7 @@ async function main() {
 
 	// --- Main Game Loop (Integrated with Babylon Render Loop) ---
 	engine.runRenderLoop(() => {
-		// Drives prediction, interpolation, and the reconciler
+		// Drives the interpolation of the other players
 		predict.tick(performance.now());
 
 		if (local) {

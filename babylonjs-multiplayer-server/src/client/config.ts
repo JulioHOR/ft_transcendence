@@ -19,3 +19,10 @@ export const GUN_YAW_OFFSET = Math.PI / 2; // origin offset to handle yaw moveme
 export const VIEWMODEL_OFFSET = new BABYLON.Vector3(0.07, -0.1, -0.007);
 // other players' guns sit relative to their eyes
 export const HELD_GUN_OFFSET = new BABYLON.Vector3(0.12, -0.2, 0.15);
+
+// movement, in units per second (and per second squared for gravity)
+export const PLAYER_SPEED = 2;
+export const RUN_SPEED = 10;
+export const GRAVITY = 20;
+export const JUMP_SPEED = 7;
+

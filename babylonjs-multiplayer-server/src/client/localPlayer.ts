@@ -1,5 +1,4 @@
 import * as BABYLON from "@babylonjs/core";
-import { GRAVITY, JUMP_SPEED, PLAYER_SPEED, RUN_SPEED } from "../shared/constants.js";
 import type { Assets } from "./assets.js";
 import {
 	CHARACTER_HEIGHT,
@@ -8,6 +7,10 @@ import {
 	GUN_SCALE,
 	MODEL_YAW_OFFSET,
 	VIEWMODEL_OFFSET,
+	GRAVITY,
+	JUMP_SPEED,
+	PLAYER_SPEED,
+	RUN_SPEED
 } from "./config.js";
 import { createGun } from "./gun.js";
 import { axis, isHeld } from "./input.js";

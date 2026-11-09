@@ -2,6 +2,7 @@ import { Room, type Client, CloseCode, type AuthContext } from "colyseus";
 import { authenticate, type GameUser } from "./auth.js";
 import { MyRoomState, Player } from "./schema/MyRoomState.js";
 import { CLOSE_LOGGED_IN_ELSEWHERE } from "../shared/constants.js";
+import { MSG_SET_EQUIPPED, MSG_SIGNAL, MSG_UPDATE_POSITION } from "../shared/messages.js";
 
 type GameClient = Client<{ auth: GameUser}>;
 
@@ -18,7 +19,7 @@ export class MyRoom extends Room<{ state: MyRoomState; client: GameClient }> {
 		console.log("room created", this.roomId);
 
 		// Accept client-authoritative position updates from Babylon collisions
-		this.onMessage("updatePosition", (client, data) => {
+		this.onMessage(MSG_UPDATE_POSITION, (client, data) => {
 		const player = this.state.players.get(client.sessionId);
 		if (player && data) {
 			// the client is authoritative on its position.
@@ -44,16 +45,16 @@ export class MyRoom extends Room<{ state: MyRoomState; client: GameClient }> {
 		}
 	});
 
-	this.onMessage("setEquipped", (client, data) => {
+	this.onMessage(MSG_SET_EQUIPPED, (client, data) => {
 	const player = this.state.players.get(client.sessionId);
 		if (player && typeof data?.equipped === "boolean") {
 			player.equipped = data.equipped;
 		}
 	});
 
-	this.onMessage("signal", (client, data) => {
+	this.onMessage(MSG_SIGNAL, (client, data) => {
 		if (typeof data?.to !== "string") return;
-		this.clients.get(data.to)?.send("signal", {
+		this.clients.get(data.to)?.send(MSG_SIGNAL, {
 			from: client.sessionId,
 			data: data.data,
 		});

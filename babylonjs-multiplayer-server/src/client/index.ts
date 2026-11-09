@@ -17,6 +17,7 @@ import {loadAssets} from "./assets.js";
 import {loadLevel} from "./level.js";
 import {RemotePlayer} from "./remotePlayer.js";
 import {LocalPlayer} from "./localPlayer.js";
+import { MSG_SET_EQUIPPED, MSG_UPDATE_POSITION } from "../shared/messages.js";
 
 // --- DOM & Status Elements ---
 const statusEl = document.getElementById("status")!;
@@ -80,7 +81,7 @@ async function main() {
 		if (e.repeat || e.key !== "1") return;
 		if (document.pointerLockElement !== canvas || !local) return;
 
-		room.send("setEquipped", { equipped: local.toggleGun() });
+		room.send(MSG_SET_EQUIPPED, { equipped: local.toggleGun() });
 	});
 
 
@@ -126,7 +127,7 @@ async function main() {
 		predict.tick(performance.now());
 
 		if (local) {
-			room.send("updatePosition", local.update(engine.getDeltaTime() / 1000));
+			room.send(MSG_UPDATE_POSITION, local.update(engine.getDeltaTime() / 1000));
 		}
 
 		for (const [sessionId, player] of room.state.players) {

@@ -3,6 +3,7 @@ import { ColyseusTestServer, boot } from "@colyseus/testing";
 
 import appConfig from "../src/app.config.js";
 import type { MyRoomState } from "../src/rooms/schema/MyRoomState.js";
+import { MSG_UPDATE_POSITION } from "../src/shared/messages.js";
 
 describe("MyRoom", () => {
 	let colyseus: ColyseusTestServer<typeof appConfig>;
@@ -31,7 +32,7 @@ describe("MyRoom", () => {
 		const player = room.state.players.get(client1.sessionId);
 		assert.ok(player);
 
-		client1.send("updatePosition", position);
+		client1.send(MSG_UPDATE_POSITION, position);
 		await room.waitForNextMessage();
 
 		assert.strictEqual(player.x, 5);
@@ -45,9 +46,9 @@ describe("MyRoom", () => {
 		const player = room.state.players.get(client1.sessionId);
 		assert.ok(player);
 
-		client1.send("updatePosition", position);
+		client1.send(MSG_UPDATE_POSITION, position);
 		await room.waitForNextMessage();
-		client1.send("updatePosition", { x: NaN, y: "abc", height: Infinity, yaw: 2, pitch: null });
+		client1.send(MSG_UPDATE_POSITION, { x: NaN, y: "abc", height: Infinity, yaw: 2, pitch: null });
 		await room.waitForNextMessage();
 
 		assert.strictEqual(player.x, 5); // bad values ignored
@@ -61,9 +62,9 @@ describe("MyRoom", () => {
 		const player = room.state.players.get(client1.sessionId);
 		assert.ok(player);
 
-		client1.send("updatePosition");
+		client1.send(MSG_UPDATE_POSITION);
 		await room.waitForNextMessage();
-		client1.send("updatePosition", position);
+		client1.send(MSG_UPDATE_POSITION, position);
 		await room.waitForNextMessage();
 
 		assert.strictEqual(player.x, 5);

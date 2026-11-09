@@ -5,6 +5,85 @@ in one push. It lists the commit titles it covers, so every change can still be
 found in `git log`, and describes each change once, however many commits it
 took. Older sections, written one per commit, are kept as they were.
 
+## Game client split into modules, server cleanup
+
+**Date:** 2026-11-08 · **Author:** Fred
+
+**Commits:** `clean up: new files for index.ts refactoring, part 1`,
+`cleanup: move scene, camera and floor setup into sceneSetup.ts`,
+`cleanup: move model loading into assets and level modules`,
+`cleanup: add remoteplayer to handle remote players scene objects`,
+`cleanup: move local player movement and input out of index`,
+`fix: ignore non-numeric position and signal data from clients`,
+`cleanup: remove the unused server-side input and prediciton path`,
+`clean up: removed the functions and variables for movement prediction on server`,
+`refactor: share message names between client and server unified in the message.ts to prevent listener names missmatches`
+
+- **`client/index.ts` went from 676 lines to about 170**
+
+  The file did everything in one 450-line `main()`. It is now split by job:
+  `config.ts` (sizes and offsets), `sceneSetup.ts` (engine, camera, light,
+  floor, pointer lock), `assets.ts` (loads the character, gun and walking
+  clips, now in parallel), `level.ts` (building and its collisions),
+  `input.ts` (held keys), `gun.ts`, `nameTag.ts`, `localPlayer.ts` (your own
+  movement, gravity, jumping and collisions, one method per step) and
+  `remotePlayer.ts` (one class per other player). `index.ts` only connects to
+  the room and runs the render loop. Behaviour is the same, except that your
+  own invisible character no longer plays an idle animation, and your own
+  update now always runs before the others each frame.
+
+- **Players leaving no longer leak memory**
+
+  Every player that left used to leave a name tag material, its texture and
+  the character's skeleton behind in the scene (textures grew by one per
+  leave). `RemotePlayer.dispose()` now removes the instantiated entries, the
+  walking clips, the head with its gun, and the name tag with its material and
+  texture. After five joins and leaves the scene counts stayed flat.
+
+- **The server ignores bad position numbers**
+
+  `updatePosition` stored `x` and `y` as they came. A modified client could
+  send `NaN`, `Infinity` or a string and that went to every other player, and a
+  missing payload threw. Each field now needs `Number.isFinite`, a missing
+  payload is ignored, and `signal` ignores messages without a string `to`. The
+  client is still trusted for where it is (Babylon resolves collisions in the
+  browser); the server only refuses values that are not numbers.
+
+- **The unused input path is gone from the server**
+
+  The Colyseus template's input buffer, fixed-timestep `step()`, `MoveInput`,
+  `vx`/`vy` and `shared/movement.ts` were never fed by the client, which sends
+  positions instead. They and the client's reconciler are removed, and the
+  movement constants moved to `client/config.ts`. Players now start at the
+  origin instead of a ring around the middle of the old 500 by 500 arena. The
+  tests were rewritten around the real messages (join, position stored, bad
+  values ignored, empty payload).
+
+- **Message names live in one file**
+
+  `shared/messages.ts` holds `updatePosition`, `setEquipped` and `signal`. A
+  name misspelled on one side was never handled and nothing reported it; now it
+  fails to compile. `voice.ts` keeps its own `"signal"` strings.
+
+- **Template leftovers removed**
+
+  The Colyseus `/hi` and `/api/hello` routes were reachable in production
+  through `/game/`. They are deleted, with the unused `animations/` folder,
+  `linux-char.glb`, the `loadtest` stub and its dependency, and the PM2
+  `ecosystem.config.cjs`.
+
+- **The room stays up**
+
+  `my_room` is created when the server starts (`beforeListen`) and is not
+  disposed when empty, so there is always a room to join.
+
+- **Next: spawn points and several rooms**
+
+  Players start at the origin for now. The plan is a list of spawn points per
+  room, chosen on join by skipping points that have a player on them, with the
+  client starting from the position the server chose. Rooms are created from a
+  server-side config by name, and clients may only pass the name.
+
 ## Gun toggle, dashboard login in the game, game in Docker
 
 **Date:** 2026-11-05 · **Author:** Fred

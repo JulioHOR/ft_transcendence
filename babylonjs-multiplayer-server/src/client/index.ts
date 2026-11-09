@@ -84,15 +84,13 @@ async function main() {
 		room.send(MSG_SET_EQUIPPED, { equipped: local.toggleGun() });
 	});
 
-
-
 	const callbacks = Callbacks.get(room);
 
 	const assets = await loadAssets(scene);
 
 	callbacks.onAdd("players", (player, sessionId) => {
 		if (sessionId === room.sessionId) {
-			local = new LocalPlayer(scene, camera, assets, sessionId);
+			local = new LocalPlayer(scene, camera, assets, sessionId, player);
 			return;
 		}
 

@@ -3,6 +3,7 @@ import { authenticate, type GameUser } from "./auth.js";
 import { MyRoomState, Player } from "./schema/MyRoomState.js";
 import { CLOSE_LOGGED_IN_ELSEWHERE } from "../shared/constants.js";
 import { MSG_SET_EQUIPPED, MSG_SIGNAL, MSG_UPDATE_POSITION } from "../shared/messages.js";
+import { pickSpawn, SPAWN_POINTS } from "./spawn.js";
 
 type GameClient = Client<{ auth: GameUser}>;
 
@@ -64,25 +65,34 @@ export class MyRoom extends Room<{ state: MyRoomState; client: GameClient }> {
 		const user = client.auth!;
 		console.log(client.sessionId, "joined as", user.nickname, `(#${user.id})`);
 
-	//same account, different tab: the newset conneciton wins
-	for (const other of this.clients) {
-		if (other !== client && other.auth?.id === user.id) {
-			other.leave(CLOSE_LOGGED_IN_ELSEWHERE);
+		//same account, different tab: the newset conneciton wins
+		for (const other of this.clients) {
+			if (other !== client && other.auth?.id === user.id) {
+				other.leave(CLOSE_LOGGED_IN_ELSEWHERE);
+			}
 		}
-	}
 
-	// the client is authoritative on tis position and sends it right away
-	this.state.players.set(
-	client.sessionId,
-	new Player({
-			name: user.nickname,
-		x: 0,
-		y: 0,
-		height: 0,
-		yaw: 0,
-		pitch: 0,
-		equipped: false,
-		}),
+		// a refresh drops the previous instantly.
+		for (const [sessionId, player] of Array.from(this.state.players)) {
+			if (sessionId !== client.sessionId && player.name === user.nickname) {
+				this.state.players.delete(sessionId);
+			}
+		}
+
+		// the position is chosen here and the client start from it.
+		// after that the client is authoritative.
+		const spawn = pickSpawn(SPAWN_POINTS, Array.from(this.state.players.values()));
+		this.state.players.set(
+		client.sessionId,
+			new Player({
+				name: user.nickname,
+				x: spawn.x,
+				y: spawn.y,
+				height: 0,
+				yaw: spawn.yaw,
+				pitch: 0,
+				equipped: false,
+			}),
 		);
 	}
 

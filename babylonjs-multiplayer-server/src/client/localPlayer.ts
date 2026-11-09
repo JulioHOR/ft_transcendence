@@ -14,6 +14,7 @@ import {
 } from "./config.js";
 import { createGun } from "./gun.js";
 import { axis, isHeld } from "./input.js";
+import type { Player } from "../rooms/schema/MyRoomState.js";
 
 /** What the server needs each frame. On the server, y is Babylon's z and height is Babylon's y. */
 export type PositionUpdate = {
@@ -39,6 +40,7 @@ export class LocalPlayer {
 		camera: BABYLON.UniversalCamera,
 		assets: Assets,
 		sessionId: string,
+		spawn: Player,
 	) {
 		this.scene = scene;
 		this.camera = camera;
@@ -48,13 +50,14 @@ export class LocalPlayer {
 		this.mesh.name = `player_${sessionId}`;
 		this.mesh.rotationQuaternion = null; // see RemotePlayer: the loader's 180° turn
 		this.mesh.rotation.y = MODEL_YAW_OFFSET;
-		this.mesh.position.y = 0; // model origin is at its feet
+		this.mesh.position.set(spawn.x, 0, spawn.y); // y is babylon's Z; the models origins should be at its feet
 		this.mesh.getChildMeshes().forEach((m) => (m.isVisible = false));
 
 		// collision capsule
 		this.mesh.ellipsoid = new BABYLON.Vector3(CHARACTER_RADIUS, CHARACTER_HEIGHT / 2, CHARACTER_RADIUS);
 		this.mesh.ellipsoidOffset = new BABYLON.Vector3(0, CHARACTER_HEIGHT / 2, 0);
-		camera.position.y = this.mesh.position.y + EYE_HEIGHT;
+		camera.position.set(spawn.x, this.mesh.position.y + EYE_HEIGHT, spawn.y);
+		camera.rotation.y = spawn.yaw;
 
 		// the gun rides on the camera, so it follows where you look for free
 		this.gun = createGun(scene, assets.gun, "gun_self", GUN_SCALE);

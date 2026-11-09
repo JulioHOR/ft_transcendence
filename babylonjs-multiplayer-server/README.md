@@ -159,3 +159,138 @@ lobby.onMessage("-", (roomId) => {
 `onReconnect()` fires if it gets back in time, `onLeave()` if it does not.
 
 - https://docs.colyseus.io/room/reconnection
+
+
+# V2
+
+# Virtual Office Environment
+
+The 3D multiplayer part of ft_transcendence: a first-person room where
+logged-in users walk around together, see each other, and talk with proximity
+voice chat. It is a [Colyseus](https://colyseus.io) server plus a
+[Babylon.js](https://www.babylonjs.com) client, served at `/game/` behind the
+project's nginx.
+
+## Controls
+
+| Input | Action |
+| ----- | ------ |
+| Click the canvas | Lock the mouse to look around (press Esc to release) |
+| `W` `A` `S` `D` or arrow keys | Move |
+| `Shift` | Run |
+| `Space` | Jump (also off a wall you are touching) |
+| `1` | Show or hide your gun; other players see it too |
+
+The browser asks for microphone access on load. If you refuse, you still hear
+the others, but they don't hear you.
+
+## Running it
+
+**With the whole project** (recommended): run `make up` from the repository
+root, log in on the dashboard, then open `/game/` on the same host. The game
+uses your dashboard session, so your name is your dashboard nickname.
+
+**On its own, for development:**
+
+```sh
+cd babylonjs-multiplayer-server
+npm install
+npm run dev
+```
+
+Open http://localhost:2567. Outside production there is no login: you join as
+a guest named `dev_1234`. `/playground` and `/monitor` (Colyseus tools) are
+available only in this mode.
+
+## How it works
+
+```
+browser (Babylon.js)  --WebSocket-->  nginx /game/  -->  Colyseus server  --GET /api/me-->  backend
+        \------------- WebRTC audio, directly between browsers -------------/
+```
+
+- **Login:** the browser's dashboard session cookie goes to the room's
+  `onAuth`, which asks the backend `GET /api/me` who it belongs to. No valid
+  session means the join is refused. The game never reads the database or holds
+  a secret.
+- **Position:** the client is authoritative. Babylon resolves collisions in the
+  browser and sends the result with `updatePosition`; the server stores it and
+  syncs it to everyone. The server only refuses values that are not finite
+  numbers. This keeps the collision code in one place, at the price that a
+  modified client could cheat on its own position.
+- **State:** each player has `name`, `x`, `y`, `height`, `yaw`, `pitch` and
+  `equipped`. Other players are interpolated on the client so they move
+  smoothly.
+- **One account, one connection:** joining again from another tab or device
+  closes the older connection with code `4100`.
+- **Voice:** peer-to-peer WebRTC. The server only relays the setup messages
+  (`signal`). Volume falls off with distance and is silent beyond 30 units.
+- **Room:** `my_room` is created when the server starts and is never disposed
+  when empty. It holds up to 8 players.
+
+### Messages
+
+| Message | Direction | Content |
+| ------- | --------- | ------- |
+| `updatePosition` | client → server | `{ x, y, height, yaw, pitch }`, every frame |
+| `setEquipped` | client → server | `{ equipped: boolean }` |
+| `signal` | both ways | WebRTC setup (`{ to, data }` out, `{ from, data }` in) |
+
+## Project structure
+
+```
+src/
+  app.config.ts          server: rooms, express, tools available only in dev
+  rooms/
+    MyRoom.ts            the room: joins, leaves, position and gun messages, signal relay
+    auth.ts              dashboard session check (guest fallback outside production)
+    schema/MyRoomState.ts  the state synced to every client
+  shared/constants.ts    close code used by client and server
+  client/
+    index.ts             connects to the room and runs the render loop
+    sceneSetup.ts        engine, scene, camera, light, floor, pointer lock
+    assets.ts            loads the character, gun and walking animations
+    level.ts             loads the building and enables its collisions
+    localPlayer.ts       your own movement, gravity, jumping and collisions
+    remotePlayer.ts      one other player: model, animations, gun, name tag
+    input.ts             held keys
+    gun.ts, nameTag.ts   small builders used by the player classes
+    config.ts            sizes, offsets and movement constants
+    voice.ts             proximity voice chat
+test/MyRoom.test.ts      boots the real server and connects real clients
+public/models/           the 3D models (.glb)
+```
+
+## Scripts
+
+| Command | What it does |
+| ------- | ------------ |
+| `npm run dev` / `npm start` | Vite: client and server on one port, with hot reload |
+| `npm run build` | Build the client (`dist/client`) and the server (`dist/server`) |
+| `npm run build:client` | Build only the client |
+| `npm test` | Run the mocha tests |
+| `npm run clean` | Remove `dist/` |
+
+## Configuration
+
+The container is configured by the root `docker-compose.yml`. The variables the
+game reads:
+
+| Variable | Used for |
+| -------- | -------- |
+| `NODE_ENV` | `production` turns on the real login and hides the dev tools |
+| `BACKEND_INTERNAL_PORT` | Port of the backend for the `/api/me` check |
+| `BACKEND_URL` | Optional full URL of the backend; defaults to `https://backend:<port>` |
+| `NODE_EXTRA_CA_CERTS` | Trusts the backend's internal TLS certificate |
+
+## Known limitations
+
+- Voice has no STUN/TURN server, so it works on the same machine or network,
+  not across different networks.
+- Because the client is authoritative, positions are not checked against the
+  level by the server.
+- Every player spawns at the origin; per-room spawn points are planned.
+
+## Credits
+
+Third-party assets: see [CREDITS.md](../CREDITS.md).

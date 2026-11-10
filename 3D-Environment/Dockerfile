@@ -20,5 +20,5 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 
 USER node
-EXPOSE 2567
+# EXPOSE 2567
 CMD ["node", "dist/server/server.mjs"]

@@ -80,7 +80,7 @@ services:
 
   game:
     build:
-      context: ./babylonjs-multiplayer-server
+      context: ./3D-Environment
       dockerfile: Dockerfile
     networks:
       - ft_transcendence

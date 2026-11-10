@@ -9,6 +9,9 @@ exec gunicorn \
     --worker-class gthread \
     --workers 1 \
     --threads 32 \
+    --preload \
+    --user appuser \
+    --group appuser \
     --bind "0.0.0.0:${BACKEND_INTERNAL_PORT}" \
     --control-socket "${GUNICORN_CONTROL_SOCKET:-/tmp/gunicorn.ctl}" \
     --control-socket-mode 600 \

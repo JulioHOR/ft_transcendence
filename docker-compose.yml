@@ -42,7 +42,7 @@ services:
       dockerfile: Dockerfile
     networks:
       - ft_transcendence
-    user: "${USER_UID:-1000}:${USER_UID:-1000}"
+    user: "0:0"
     secrets:
       - db_password
       - flask_secret_key

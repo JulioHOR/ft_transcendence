@@ -1,5 +1,5 @@
 
-from .constants import POINTS_TO_WIN, TABLE, side_sign
+from .constants import POINTS_TO_WIN, TABLE, Side, side_sign
 from .state import SimState, attach_ball_to_paddle, is_match_finished, stop_ball
 
 def is_goal_on_side(ball_x: float, side: str) -> bool:

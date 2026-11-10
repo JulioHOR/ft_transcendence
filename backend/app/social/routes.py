@@ -11,8 +11,8 @@ from schemas import ErrorResponseSchema
 
 from . import handlers
 from . import store
-from .handlers import conversation_id
 from .avatar import validate_avatar
+from .handlers import conversation_id
 from .schemas import (
     ChatBlockSchema,
     ChatHistorySchema,
@@ -22,9 +22,13 @@ from .schemas import (
 )
 
 UNAUTHENTICATED = "Você não está logado."
+SELF_BLOCK_ERROR = "Você não pode bloquear sua própria conta."
+USER_NOT_FOUND = "Usuário não encontrado."
+PENDING_INVITATION_MISSING = "Não há convite pendente desse usuário para você."
 
-AVATAR_MAX_CHARS = 800_000
+MAX_AVATAR_DATA_URL_CHARS = 800_000
 AVATAR_DATA_URL_RE = re.compile(r"^data:(image/[\w.+-]+);base64,(.+)$", re.DOTALL)
+ALLOWED_AVATAR_CONTENT_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
 social_bp = Blueprint("social", __name__, description="Perfil, amigos e chat.")
 
@@ -108,9 +112,59 @@ def _session_user_id() -> int | None:
 def _unauthorized():
     return jsonify({"error": UNAUTHENTICATED}), 401
 
+def _discard_session_of_missing_user(user_id: int) -> bool:
+    if store.get_user_profile(user_id) is not None:
+        return False
+    session.clear()
+    return True
+
+def _block_target_error(current_user_id: int, target_user_id: int) -> tuple[str, int] | None:
+    if target_user_id == current_user_id:
+        return SELF_BLOCK_ERROR, 400
+    if store.get_user_profile(target_user_id) is None:
+        return USER_NOT_FOUND, 404
+    return None
+
+def _friend_payload(
+    other_id: int, nickname: str, avatar_ts, status: str, relation: str
+) -> dict:
+    return {
+        "id": other_id,
+        "nickname": nickname,
+        "avatarUrl": store.avatar_url(other_id, avatar_ts),
+        "online": handlers.user_online(other_id),
+        "status": status,
+        "relation": relation,
+    }
+
+def _decode_avatar_data_url(raw) -> tuple[str, bytes] | tuple[None, str]:
+    if not isinstance(raw, str):
+        return None, "Envie o campo avatarDataUrl como texto (data URL de imagem)."
+    match = AVATAR_DATA_URL_RE.match(raw)
+    if match is None:
+        return None, (
+            "avatarDataUrl precisa ser um data URL de imagem em base64 "
+            "(ex.: data:image/png;base64,AAAA)."
+        )
+    content_type = match.group(1)
+    if content_type not in ALLOWED_AVATAR_CONTENT_TYPES:
+        return None, "O avatar deve ser PNG, JPEG, GIF ou WebP."
+    if len(raw) > MAX_AVATAR_DATA_URL_CHARS:
+        return None, "O avatar excede o limite de 600 KB."
+    try:
+        return content_type, base64.b64decode(match.group(2), validate=True)
+    except (binascii.Error, ValueError):
+        return None, "O conteúdo do avatar não é um base64 válido."
+
 @social_bp.get("/api/profile")
 @social_bp.response(
     200, ProfileSchema, description="Perfil público de qualquer usuário."
+)
+@social_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sem sessão nem chave de API válida.",
 )
 @social_bp.alt_response(
     400,
@@ -194,6 +248,8 @@ def update_profile():
     nickname = body.get("nickname")
     if not isinstance(email, str) or not isinstance(nickname, str):
         return jsonify({"error": "Informe um e-mail e um apelido válidos."}), 400
+    email = email.strip()
+    nickname = nickname.strip()
     validation_error = validate_email(email)
     if validation_error is not None:
         return jsonify({"error": validation_error}), 400
@@ -244,29 +300,15 @@ def post_avatar():
     user_id = _session_user_id()
     if user_id is None:
         return _unauthorized()
-    raw = _json_body().get("avatarDataUrl")
-    if not isinstance(raw, str):
-        return jsonify(
-            {"error": "Envie o campo avatarDataUrl como texto (data URL de imagem)."}
-        ), 400
-    match = AVATAR_DATA_URL_RE.match(raw)
-    if match is None:
-        return jsonify(
-            {"error": "avatarDataUrl precisa ser um data URL de imagem em base64 "
-                      "(ex.: data:image/png;base64,AAAA)."}
-        ), 400
-    if len(raw) > AVATAR_MAX_CHARS:
-        return jsonify({"error": "O avatar excede o limite de 600 KB."}), 400
-    try:
-        data = base64.b64decode(match.group(2), validate=True)
-    except (binascii.Error, ValueError):
-        return jsonify(
-            {"error": "O conteúdo do avatar não é um base64 válido."}
-        ), 400
-    validation_error = validate_avatar(match.group(1), data)
+    if _discard_session_of_missing_user(user_id):
+        return jsonify({"error": UNAUTHENTICATED}), 401
+    content_type, data = _decode_avatar_data_url(_json_body().get("avatarDataUrl"))
+    if content_type is None:
+        return jsonify({"error": data}), 400
+    validation_error = validate_avatar(content_type, data)
     if validation_error is not None:
         return jsonify({"error": validation_error}), 400
-    store.set_avatar(user_id, match.group(1), data)
+    store.set_avatar(user_id, content_type, data)
     profile = store.get_user_profile(user_id)
     handlers.broadcast_friends()
     return {
@@ -294,6 +336,8 @@ def delete_avatar():
     user_id = _session_user_id()
     if user_id is None:
         return _unauthorized()
+    if _discard_session_of_missing_user(user_id):
+        return jsonify({"error": UNAUTHENTICATED}), 401
     store.delete_avatar(user_id)
     profile = store.get_user_profile(user_id)
     handlers.broadcast_friends()
@@ -308,6 +352,12 @@ def delete_avatar():
     200,
     {"type": "string", "format": "binary"},
     description="Bytes da foto, no Content-Type do upload.",
+)
+@social_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sem sessão nem chave de API válida.",
 )
 @social_bp.alt_response(
     404,
@@ -334,9 +384,32 @@ def get_avatar(user_id: int):
         headers={
             "Cache-Control": "no-cache",
             "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline",
             "Content-Security-Policy": "default-src 'none'; sandbox",
         },
     )
+
+def _conversation_history(rows: list[dict]) -> list[dict]:
+    conversations: dict[str, dict] = {}
+    for row in rows:
+        conv_id = conversation_id(row["senderId"], row["recipientId"])
+        message = {
+            key: row[key]
+            for key in ("id", "userId", "nickname", "avatarUrl", "text", "createdAt")
+        }
+        message["otherUserId"] = row["peerId"]
+        message["conversationId"] = conv_id
+        entry = conversations.setdefault(
+            conv_id,
+            {
+                "conversationId": conv_id,
+                "otherUserId": row["peerId"],
+                "otherNickname": row["peerNickname"],
+                "messages": [],
+            },
+        )
+        entry["messages"].append(message)
+    return list(conversations.values())
 
 @social_bp.get("/api/chat/history")
 @social_bp.response(
@@ -361,28 +434,9 @@ def get_chat_history():
     user_id = _session_user_id()
     if user_id is None:
         return _unauthorized()
-    conversations: dict[str, dict] = {}
-    for row in store.private_rows(user_id):
-        conv_id = conversation_id(row["senderId"], row["recipientId"])
-        message = {
-            key: row[key]
-            for key in ("id", "userId", "nickname", "avatarUrl", "text", "createdAt")
-        }
-        message["otherUserId"] = row["peerId"]
-        message["conversationId"] = conv_id
-        entry = conversations.get(conv_id)
-        if entry is None:
-            entry = {
-                "conversationId": conv_id,
-                "otherUserId": row["peerId"],
-                "otherNickname": row["peerNickname"],
-                "messages": [],
-            }
-            conversations[conv_id] = entry
-        entry["messages"].append(message)
     return {
         "global": store.global_rows(),
-        "conversations": list(conversations.values()),
+        "conversations": _conversation_history(store.private_rows(user_id)),
         "blockedUserIds": store.blocked_user_ids(user_id),
         "blockingUserIds": store.blocking_user_ids(user_id),
     }
@@ -417,10 +471,9 @@ def post_chat_block(user_id: int):
     current_user_id = _session_user_id()
     if current_user_id is None:
         return _unauthorized()
-    if user_id == current_user_id:
-        return jsonify({"error": "Você não pode bloquear sua própria conta."}), 400
-    if store.get_user_profile(user_id) is None:
-        return jsonify({"error": "Usuário não encontrado."}), 404
+    error = _block_target_error(current_user_id, user_id)
+    if error is not None:
+        return jsonify({"error": error[0]}), error[1]
     store.block_user(current_user_id, user_id)
     return {"status": "blocked", "userId": user_id}
 
@@ -433,6 +486,18 @@ def post_chat_block(user_id: int):
     success=True,
     description="Sessão ausente, expirada ou inválida.",
 )
+@social_bp.alt_response(
+    400,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="A conta atual não pode ser bloqueada.",
+)
+@social_bp.alt_response(
+    404,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="O usuário informado não existe.",
+)
 @social_bp.doc(
     summary="Desbloquear mensagens privadas de um usuário",
     description="Exige o cookie de sessão. A chave de API sozinha não autoriza esta ação.",
@@ -442,6 +507,9 @@ def delete_chat_block(user_id: int):
     current_user_id = _session_user_id()
     if current_user_id is None:
         return _unauthorized()
+    error = _block_target_error(current_user_id, user_id)
+    if error is not None:
+        return jsonify({"error": error[0]}), error[1]
     store.unblock_user(current_user_id, user_id)
     return {"status": "unblocked", "userId": user_id}
 
@@ -503,14 +571,9 @@ def add_friend():
             {"error": "Já existe um convite entre vocês ou vocês já são amigos."}
         ), 409
     handlers.broadcast_friends()
-    return {
-        "id": friend[0],
-        "nickname": friend[1],
-        "avatarUrl": store.avatar_url(friend[0], friend[2]),
-        "online": handlers.user_online(friend[0]),
-        "status": "pending",
-        "relation": "outgoing",
-    }, 201
+    return _friend_payload(
+        friend[0], friend[1], friend[2], "pending", "outgoing"
+    ), 201
 
 @social_bp.delete("/api/friends/<int:friend_id>")
 @social_bp.alt_response(
@@ -566,17 +629,12 @@ def accept_friend(from_id: int):
     if user_id is None:
         return _unauthorized()
     if not store.accept_edge(from_id, user_id):
-        return jsonify({"error": "Não há convite pendente desse usuário para você."}), 404
+        return jsonify({"error": PENDING_INVITATION_MISSING}), 404
     profile = store.get_user_profile(from_id)
     handlers.broadcast_friends()
-    return {
-        "id": from_id,
-        "nickname": profile[0] if profile else "",
-        "avatarUrl": store.avatar_url(from_id, profile[1]) if profile else None,
-        "online": handlers.user_online(from_id),
-        "status": "accepted",
-        "relation": "friend",
-    }
+    if profile is None:
+        return _friend_payload(from_id, "", None, "accepted", "friend")
+    return _friend_payload(from_id, profile[0], profile[1], "accepted", "friend")
 
 @social_bp.post("/api/friends/<int:from_id>/reject")
 @social_bp.alt_response(
@@ -607,6 +665,6 @@ def reject_friend(from_id: int):
     if user_id is None:
         return _unauthorized()
     if not store.reject_edge(from_id, user_id):
-        return jsonify({"error": "Não há convite pendente desse usuário para você."}), 404
+        return jsonify({"error": PENDING_INVITATION_MISSING}), 404
     handlers.broadcast_friends()
     return "", 204

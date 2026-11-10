@@ -134,7 +134,7 @@ def test_retomar_partida_exige_aceitacao_dos_dois_lados():
         match.destroy()
 
 
-def test_nova_desconexao_limpa_aceites_de_retomada():
+def test_pausa_redundante_preserva_aceite_de_retomada():
     match, _ = make_match(countdown_seconds=0)
     try:
         time.sleep(0.05)
@@ -143,7 +143,119 @@ def test_nova_desconexao_limpa_aceites_de_retomada():
 
         match.pause()
 
-        assert match.accepted_sides() == {"left": False, "right": False}
+        assert match.accepted_sides() == {"left": True, "right": False}
+    finally:
+        match.destroy()
+
+
+def test_delta_grande_e_limitado(monkeypatch):
+    import games.pong.match as match_module
+
+    match, _ = make_match(countdown_seconds=0)
+    try:
+        time.sleep(0.05)
+        monkeypatch.setattr(
+            match_module,
+            "compute_delta_seconds",
+            lambda _last: (1.0, time.monotonic() * 1000),
+        )
+        match.sim.ball_x = 9.0
+        match.sim.ball_z = 0.0
+        match.sim.velocity_x = 6.0
+        match.sim.velocity_z = 0.0
+        left_score = match.sim.score_left
+        right_score = match.sim.score_right
+        start = time.monotonic()
+        time.sleep(0.08)
+        assert time.monotonic() - start < 0.16
+
+        assert match.sim.score_left == left_score
+        assert match.sim.score_right == right_score
+        assert match.sim.ball_x <= 10.0
+    finally:
+        match.destroy()
+
+
+def test_try_close_encerra_e_bloqueia_rematch():
+    match, _ = make_match(countdown_seconds=0)
+    try:
+        time.sleep(0.05)
+        match.sim.winner = "left"
+        match.phase = "finished"
+
+        assert match.try_close() is True
+        assert match.phase == "closed"
+        assert match.accept_rematch(2) == "rejected"
+        assert match.accept_resume(1) == "rejected"
+        assert match.try_close() is False
+    finally:
+        match.destroy()
+
+
+def test_try_close_disputa_com_rematch_tem_um_vencedor():
+    match, _ = make_match(countdown_seconds=0)
+    try:
+        time.sleep(0.05)
+        match.sim.winner = "left"
+        match.phase = "finished"
+
+        outcomes = {}
+        begun = threading.Barrier(2)
+
+        def tentar_close():
+            begun.wait()
+            outcomes["close"] = match.try_close()
+
+        def tentar_rematch():
+            begun.wait()
+            outcomes["rematch"] = match.accept_rematch(2)
+
+        first = threading.Thread(target=tentar_close)
+        second = threading.Thread(target=tentar_rematch)
+        first.start()
+        second.start()
+        first.join()
+        second.join()
+
+        if outcomes["close"]:
+            assert outcomes["rematch"] != "countdown"
+        else:
+            assert outcomes["rematch"] == "countdown"
+            assert match.try_close() is False
+    finally:
+        match.destroy()
+
+
+def test_falha_de_broadcast_fecha_a_partida():
+    class RaisingBroadcaster:
+        def __call__(self, *args):
+            raise RuntimeError("boom")
+
+    match = PongMatch(1, 2, RaisingBroadcaster(), countdown_seconds=0)
+    try:
+        time.sleep(0.1)
+        assert match.phase == "closed"
+    finally:
+        match.destroy()
+
+
+def test_fase_finished_para_o_step_e_cessa_broadcast():
+    match, bc = make_match(countdown_seconds=0)
+    try:
+        time.sleep(0.05)
+        match.sim.winner = "left"
+        match.phase = "finished"
+        ball_x_before = match.sim.ball_x
+        time.sleep(0.2)
+        assert match.phase == "finished"
+        assert match.sim.ball_x == ball_x_before
+        with bc.lock:
+            first_count = sum(1 for _, ev, _ in bc.events if ev == "game:snapshot")
+        assert first_count >= 1
+        time.sleep(0.4)
+        with bc.lock:
+            second_count = sum(1 for _, ev, _ in bc.events if ev == "game:snapshot")
+        assert second_count == first_count
     finally:
         match.destroy()
 
@@ -155,20 +267,3 @@ def test_destroy_encerra_thread():
     match.destroy()
     assert not thread.is_alive()
     match.destroy()
-
-
-def test_fase_finished_para_o_step_mas_continua_broadcast():
-    match, bc = make_match(countdown_seconds=0)
-    try:
-        time.sleep(0.05)
-        match.sim.winner = "left"
-        match.phase = "finished"
-        ball_x_before = match.sim.ball_x
-        time.sleep(0.2)
-        assert match.phase == "finished"
-        assert match.sim.ball_x == ball_x_before
-        with bc.lock:
-            count = sum(1 for _, ev, _ in bc.events if ev == "game:snapshot")
-        assert count >= 3
-    finally:
-        match.destroy()

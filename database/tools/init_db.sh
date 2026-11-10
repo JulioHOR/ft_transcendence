@@ -20,9 +20,12 @@ if [ ! -f "${PGDATA}/PG_VERSION" ]; then
 
     gosu postgres "${PG_BIN}/pg_ctl" -D "${PGDATA}" -o "-c listen_addresses=localhost -p ${POSTGRES_INTERNAL_PORT}" -w start
 
-    gosu postgres psql -v ON_ERROR_STOP=1 --username=postgres <<-EOSQL
-        CREATE USER ${POSTGRES_USER} WITH PASSWORD '${db_password}';
-        CREATE DATABASE ${POSTGRES_DB} OWNER ${POSTGRES_USER};
+    gosu postgres psql -v ON_ERROR_STOP=1 --username=postgres \
+        -v db_user="${POSTGRES_USER}" \
+        -v db_pass="${db_password}" \
+        -v db_name="${POSTGRES_DB}" <<-EOSQL
+        CREATE USER :"db_user" WITH PASSWORD :'db_pass';
+        CREATE DATABASE :"db_name" OWNER :"db_user";
 EOSQL
 
     for script in /docker-entrypoint-initdb.d/*.sql; do

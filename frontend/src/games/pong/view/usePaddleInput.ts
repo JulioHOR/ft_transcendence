@@ -1,6 +1,6 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
 import type { Transport } from "../protocol";
-import { TABLE } from "../protocol";
+import { inputLimit } from "../protocol";
 import { clamp, computeDeltaSeconds } from "../shared/math";
 import {
   MOVE_DOWN_CODES,
@@ -30,7 +30,7 @@ function getMoveDirection(code: string): MoveDirection | null {
  * @param position - Posição candidata no eixo Z (largura)
  */
 function clampPaddlePosition(position: number): number {
-  return clamp(position, -TABLE.halfWidth, TABLE.halfWidth);
+  return clamp(position, -inputLimit, inputLimit);
 }
 
 /**

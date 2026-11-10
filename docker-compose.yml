@@ -42,13 +42,14 @@ services:
       dockerfile: Dockerfile
     networks:
       - ft_transcendence
+    user: "${USER_UID:-1000}:${USER_UID:-1000}"
     secrets:
       - db_password
       - flask_secret_key
       - backend_tls_certificate
       - backend_tls_key
     environment:
-      API_KEY: ${API_KEY}
+      API_KEY: ${API_KEY:?API_KEY é obrigatória no .env}
       BACKEND_INTERNAL_PORT: ${BACKEND_INTERNAL_PORT}
       POSTGRES_INTERNAL_PORT: ${POSTGRES_INTERNAL_PORT}
       POSTGRES_DB: ${POSTGRES_DB}

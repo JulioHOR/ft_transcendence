@@ -13,8 +13,9 @@ info:
 
     Enquadramento Socket.IO: sobre o WebSocket cada evento é uma moldura cujo
     payload é um array JSON `[nomeDoEvento, dados]`. Os handlers de
-    `queue:join` e `queue:leave` respondem pelo callback de ack do Socket.IO;
-    aqui essas respostas aparecem como mensagens de reply do próprio evento.
+    `queue:join`, `queue:leave`, `game:rematch`, `game:resume` e `game:leave`
+    respondem pelo callback de ack do Socket.IO; aqui essas respostas aparecem
+    como mensagens de reply do próprio evento.
 
     Estado da partida: `game:snapshot` chega a 30 Hz para os dois jogadores da
     sala da partida. Coordenadas são centradas na mesa; `winner` vale `left`,
@@ -44,6 +45,10 @@ channels:
         $ref: "#/components/messages/paddleInput"
       gameRematch:
         $ref: "#/components/messages/gameRematch"
+      gameResume:
+        $ref: "#/components/messages/gameResume"
+      gameLeave:
+        $ref: "#/components/messages/gameLeave"
       disconnect:
         $ref: "#/components/messages/disconnect"
       gameStatus:
@@ -75,6 +80,8 @@ channels:
         $ref: "#/components/messages/chatPrivateMessage"
       chatPrivateError:
         $ref: "#/components/messages/chatPrivateError"
+      chatError:
+        $ref: "#/components/messages/chatError"
       chatPrivateTypingRelay:
         $ref: "#/components/messages/chatPrivateTypingRelay"
       chatPrivateReadRelay:
@@ -129,11 +136,11 @@ operations:
       $ref: "#/channels/matchmaking"
     summary: Cliente envia a posição desejada da própria raquete
     description: |
-      `offset` é limitado à metade da largura da mesa menos a meia profundidade
-      da raquete; fora disso é ajustado (clamp), não rejeitado. Payload
-      malformado gera `game:error` com `reason: malformed`; jogador fora de
-      partida gera `reason: not_in_match`; partida encerrada gera
-      `reason: invalid`. Não há ack.
+      `position` é limitado à metade da largura da mesa menos a meia
+      profundidade da raquete; fora disso é ajustado (clamp), não rejeitado.
+      Payload malformado gera `game:error` com `reason: malformed`; jogador fora
+      de partida gera `reason: not_in_match`; fora da fase `playing` o input é
+      descartado sem erro. Não há ack.
     messages:
       - $ref: "#/channels/matchmaking/messages/paddleInput"
   requestRematch:
@@ -142,11 +149,41 @@ operations:
       $ref: "#/channels/matchmaking"
     summary: Cliente reinicia a partida encerrada
     description: |
-      Sem payload. Só vale após o fim da partida: o estado zera e o servidor
-      emite `game:status` com `state: playing`. Fora de partida gera
+      Sem payload. Só vale após o fim da partida. Com o pedido de um jogador, o
+      servidor emite `game:status` com `state: rematch_pending` e `accepted`, e o
+      ack responde `{"status": "pending"}`; com os dois, a partida reinicia e o
+      servidor emite `game:status` com `state: countdown` e `startsAt`, e o ack
+      responde `{"status": "countdown"}`. Fora de partida gera
       `reason: not_in_match`; partida ainda em jogo gera `reason: invalid`.
     messages:
       - $ref: "#/channels/matchmaking/messages/gameRematch"
+  resumeGame:
+    action: receive
+    channel:
+      $ref: "#/channels/matchmaking"
+    summary: Cliente confirma a retomada da partida pausada
+    description: |
+      Sem payload. Só vale com a partida pausada por desconexão. Com a
+      confirmação de um jogador, o servidor emite `game:status` com
+      `state: resume_pending` e `accepted`, e o ack responde
+      `{"status": "pending"}`; com os dois, a partida volta à fase anterior e o
+      servidor emite `game:status` com `state: playing`, e o ack responde
+      `{"status": "resumed"}`. Fora de partida gera `reason: not_in_match`;
+      partida que não está aguardando confirmação gera `reason: invalid`.
+    messages:
+      - $ref: "#/channels/matchmaking/messages/gameResume"
+  leaveGame:
+    action: receive
+    channel:
+      $ref: "#/channels/matchmaking"
+    summary: Cliente encerra a partida pausada ou encerrada
+    description: |
+      Sem payload. Só vale com a partida pausada ou encerrada; o adversário
+      recebe `game:status` com `state: opponent_left`, a sala é liberada e o ack
+      responde `{"status": "left"}`. Fora de partida gera
+      `reason: not_in_match`; partida ainda em jogo gera `reason: invalid`.
+    messages:
+      - $ref: "#/channels/matchmaking/messages/gameLeave"
   clientDisconnect:
     action: receive
     channel:
@@ -162,6 +199,10 @@ operations:
     channel:
       $ref: "#/channels/matchmaking"
     summary: Servidor muda o estado da partida
+    description: |
+      Chega aos dois jogadores da sala da partida, com `side` de quem recebe;
+      em `countdown` traz `startsAt` e, nas esperas de confirmação, traz
+      `accepted`.
     messages:
       - $ref: "#/channels/matchmaking/messages/gameStatus"
   sendGameSnapshot:
@@ -185,8 +226,11 @@ operations:
     summary: Cliente envia mensagem no chat público
     description: |
       O servidor corta os espaços das bordas do texto. Texto vazio, payload
-      malformado ou conexão sem identidade: o evento é ignorado. Com texto
-      válido, grava no Postgres e emite `chat:message` para todas as conexões.
+      malformado ou conexão sem identidade: o evento é ignorado. Texto acima de
+      1000 caracteres ou envio rápido demais: o servidor emite `chat:error` ao
+      emissor e não grava nada. Com texto válido, grava no Postgres e emite
+      `chat:message` para todas as conexões, exceto para quem bloqueou ou foi
+      bloqueado pelo emissor.
     messages:
       - $ref: "#/channels/chat/messages/chatSend"
   chatPrivateSend:
@@ -231,6 +275,13 @@ operations:
     description: Enviada a todas as conexões do namespace.
     messages:
       - $ref: "#/channels/chat/messages/chatMessage"
+  sendChatError:
+    action: send
+    channel:
+      $ref: "#/channels/chat"
+    summary: Servidor recusa uma mensagem do chat público
+    messages:
+      - $ref: "#/channels/chat/messages/chatError"
   sendChatPrivateMessage:
     action: send
     channel:
@@ -309,8 +360,9 @@ components:
       description: |
         Resposta pelo callback de ack do Socket.IO: `{"status": "waiting"}`
         quando ainda falta adversário, `{"status": "matched"}` após iniciar
-        partida aberta ou por convite. Partidas abertas usam `{}`; por convite,
-        o payload contém `inviteId`.
+        partida aberta ou por convite e `{"status": "reconnected"}` quando a
+        conexão volta para uma partida que continuava de pé. Partidas abertas
+        usam `{}`; por convite, o payload contém `inviteId`.
       contentType: application/json
       payload:
         $ref: "#/components/schemas/QueueJoinPayload"
@@ -330,6 +382,23 @@ components:
     gameRematch:
       name: "game:rematch"
       title: Reiniciar partida
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/EmptyPayload"
+    gameResume:
+      name: "game:resume"
+      title: Retomar a partida pausada
+      description: |
+        Resposta pelo callback de ack do Socket.IO: `{"status": "pending"}`
+        quando falta a confirmação do adversário e `{"status": "resumed"}`
+        quando os dois já confirmaram.
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/EmptyPayload"
+    gameLeave:
+      name: "game:leave"
+      title: Encerrar a partida pausada
+      description: 'Resposta pelo ack do Socket.IO: `{"status": "left"}`.'
       contentType: application/json
       payload:
         $ref: "#/components/schemas/EmptyPayload"
@@ -397,6 +466,12 @@ components:
       contentType: application/json
       payload:
         $ref: "#/components/schemas/ChatPrivateErrorPayload"
+    chatError:
+      name: "chat:error"
+      title: Mensagem do chat público recusada
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ChatErrorPayload"
     chatPrivateTypingRelay:
       name: "chat:private:typing"
       title: Digitando (chegando ao destinatário)
@@ -515,15 +590,13 @@ components:
       title: Input da raquete
       type: object
       required:
-        - offset
-        - sequence
+        - position
       properties:
-        offset:
+        position:
           type: number
-          description: Deslocamento desejado da raquete em relação ao centro.
-        sequence:
-          type: integer
-          description: Número sequencial do input, obrigatório no parser.
+          description: |
+            Posição desejada da raquete no eixo da largura, em relação ao
+            centro da mesa; o servidor ajusta (clamp) ao limite da mesa.
     GameStatus:
       title: Estado da partida
       type: object
@@ -533,26 +606,58 @@ components:
         state:
           type: string
           enum:
+            - countdown
             - playing
+            - rematch_pending
+            - resume_pending
+            - finished
+            - opponent_disconnected
             - opponent_left
           description: |
-            `playing` no início e no restart; `opponent_left` quando o
-            adversário desconecta.
+            `countdown` antes da primeira jogada; `playing` no início, no
+            restart e na retomada; `rematch_pending` esperando confirmação de
+            revanche; `resume_pending` esperando confirmação de retomada;
+            `finished` em reconexão a partida encerrada;
+            `opponent_disconnected` e `opponent_left` na desconexão do
+            adversário.
+        side:
+          type: string
+          enum:
+            - left
+            - right
+          description: |
+            Lado de quem recebe o estado. Acompanha as transições enviadas aos
+            jogadores; os avisos de saída do adversário trazem apenas `state`.
+        startsAt:
+          type: number
+          description: |
+            Só em `countdown`: momento do fim da contagem regressiva, em
+            milissegundos desde 1970.
+        accepted:
+          type: object
+          description: |
+            Só em `rematch_pending` e `resume_pending`: quem já confirmou, por
+            lado.
+          properties:
+            left:
+              type: boolean
+            right:
+              type: boolean
     GameSnapshot:
       title: Quadro da simulação
       type: object
       required:
-        - leftPaddleOffset
-        - rightPaddleOffset
+        - leftPaddlePosition
+        - rightPaddlePosition
         - ball
         - score
         - winner
         - timestamp
       properties:
-        leftPaddleOffset:
+        leftPaddlePosition:
           type: number
           description: Deslocamento da raquete esquerda.
-        rightPaddleOffset:
+        rightPaddlePosition:
           type: number
           description: Deslocamento da raquete direita.
         ball:
@@ -603,13 +708,15 @@ components:
             - not_in_match
             - invalid_invitation
             - accepted_invitation
+            - unauthorized
           description: |
             `already_playing` na fila com `queue:join` duplicado; `invalid`
             fora da fila, com input após o fim ou restart fora de `finished`;
             `malformed` em payload de input inválido; `not_in_match` para input
             ou restart sem partida; `invalid_invitation` para convite ausente,
             não aceito ou de outra pessoa; `accepted_invitation` quando há uma
-            partida aceita e é necessário entrar pelo chat.
+            partida aceita e é necessário entrar pelo chat; `unauthorized`
+            para quem não está autenticado.
         message:
           type: string
           description: Texto legível em português.
@@ -722,6 +829,15 @@ components:
         message:
           type: string
           description: "Não é possível enviar mensagem privada: vocês ainda não são amigos."
+    ChatErrorPayload:
+      title: Mensagem do chat público recusada
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Texto legível em português explicando a recusa.
     ChatPrivateTypingRelayPayload:
       title: Digitando, chegando ao destinatário
       type: object

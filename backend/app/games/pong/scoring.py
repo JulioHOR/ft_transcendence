@@ -9,9 +9,11 @@ def is_goal_on_side(ball_x: float, side: str) -> bool:
 def has_reached_point_limit(score: int) -> bool:
     return score >= POINTS_TO_WIN
 
-def declare_winner(state: SimState, winner: str) -> None:
+
+def declare_winner(state: SimState, winner: Side) -> None:
     state.winner = winner
     stop_ball(state)
+
 
 def score_on_left_goal(state: SimState) -> None:
     state.score_right += 1
@@ -20,12 +22,14 @@ def score_on_left_goal(state: SimState) -> None:
         return
     attach_ball_to_paddle(state, "left")
 
+
 def score_on_right_goal(state: SimState) -> None:
     state.score_left += 1
     if has_reached_point_limit(state.score_left):
         declare_winner(state, "left")
         return
     attach_ball_to_paddle(state, "right")
+
 
 def resolve_goals(state: SimState) -> None:
     if is_match_finished(state):

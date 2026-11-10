@@ -211,6 +211,9 @@ export class WebSocketTransport implements Transport {
 
   /** Encerra a conexão Socket.IO e limpa o listener de estado. */
   disconnect(): void {
+    if (this.state.phase === "waiting") {
+      this.socket?.emit("queue:leave");
+    }
     this.socket?.disconnect();
     this.socket = null;
     this.onStateChange = null;

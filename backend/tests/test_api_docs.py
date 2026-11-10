@@ -68,7 +68,9 @@ def test_spec_documenta_os_contratos_de_erro(client):
         "ChatHistory",
     }
     signup = document["paths"]["/api/auth/signup"]["post"]
-    assert set(signup["responses"]) == {"201", "400", "409", "default"}
+    assert set(signup["responses"]) == {"201", "400", "409", "429", "default"}
+    login = document["paths"]["/api/auth/login"]["post"]
+    assert set(login["responses"]) == {"200", "401", "429", "default"}
     assert signup["requestBody"]["required"] is True
     assert set(signup["requestBody"]["content"]["application/json"]["schema"]["required"]) == {
         "email",
@@ -106,10 +108,25 @@ def test_spec_exige_cookie_de_sessao_nas_rotas_protegidas(client):
         ("/api/profile/avatar/{user_id}", "get"),
         ("/api/games/pong/statistics", "get"),
     ):
-        assert document["paths"][path][method]["security"] == [
+        operation = document["paths"][path][method]
+        assert operation["security"] == [
             {"cookieAuth": []},
             {"apiKeyAuth": []},
         ]
+        assert operation["responses"]["401"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/ErrorResponse"
+        }
+    for path, method in (
+        ("/api/profile", "get"),
+        ("/api/games/pong/statistics", "get"),
+    ):
+        parameters = {
+            parameter["name"]: parameter
+            for parameter in document["paths"][path][method]["parameters"]
+        }
+        assert parameters["id"]["in"] == "query"
+        assert parameters["id"]["required"] is True
+        assert parameters["id"]["schema"] == {"type": "integer"}
 
 
 def test_swagger_ui_servido_localmente(client):
@@ -149,6 +166,8 @@ def test_asyncapi_e_valido_no_arquivo_fonte():
         "queue:leave",
         "paddle:input",
         "game:rematch",
+        "game:resume",
+        "game:leave",
         "disconnect",
         "game:status",
         "game:snapshot",
@@ -160,13 +179,18 @@ def test_asyncapi_e_valido_no_arquivo_fonte():
         "chat:message",
         "chat:private:message",
         "chat:private:error",
+        "chat:error",
+        "chat:game:invite",
+        "chat:game:invite:cancel",
+        "chat:game:invite:respond",
+        "chat:game:invite:update",
         "friends:update",
     }
     received = {
         name for name, operation in document["operations"].items()
         if operation["action"] == "receive"
     }
-    assert len(received) == 9
+    assert len(received) == 14
     for operation in document["operations"].values():
         channel_name = operation["channel"]["$ref"].split("/")[-1]
         channel_messages = set(document["channels"][channel_name]["messages"])
@@ -176,19 +200,37 @@ def test_asyncapi_e_valido_no_arquivo_fonte():
             assert message["$ref"][len(prefix):] in channel_messages
     snapshot = document["components"]["schemas"]["GameSnapshot"]["properties"]
     assert set(snapshot) == {
-        "leftPaddleOffset",
-        "rightPaddleOffset",
+        "leftPaddlePosition",
+        "rightPaddlePosition",
         "ball",
         "score",
         "winner",
         "timestamp",
     }
+    assert document["components"]["schemas"]["GameStatus"]["properties"]["state"]["enum"] == [
+        "countdown",
+        "playing",
+        "rematch_pending",
+        "resume_pending",
+        "finished",
+        "opponent_disconnected",
+        "opponent_left",
+    ]
     assert document["components"]["schemas"]["GameError"]["properties"]["reason"]["enum"] == [
         "already_playing",
         "invalid",
         "malformed",
         "not_in_match",
+        "invalid_invitation",
+        "accepted_invitation",
+        "unauthorized",
     ]
+    paddle_input = document["components"]["schemas"]["PaddleInput"]
+    assert paddle_input["required"] == ["position"]
+    assert set(paddle_input["properties"]) == {"position"}
+    status_properties = document["components"]["schemas"]["GameStatus"]["properties"]
+    assert set(status_properties) == {"state", "side", "startsAt", "accepted"}
+    assert document["components"]["schemas"]["ChatErrorPayload"]["required"] == ["message"]
 
 
 def test_asyncapi_disponivel_por_http(client):

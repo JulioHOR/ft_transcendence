@@ -45,6 +45,7 @@ save_environment_value() {
 
 # Detecta e salva LAN_IP quando não está configurado.
 configure_lan_ip() {
+    save_environment_value "USER_UID" "$(id -u)"
     if [ -z "${LAN_IP:-}" ]; then
         LAN_IP=$(detect_lan_ip)
         if [ -n "${LAN_IP}" ]; then
@@ -102,10 +103,11 @@ create_backend_certificate() {
 
 # Define as permissões dos arquivos de segredo.
 set_secret_permissions() {
-    chmod 644 "${SECRETS_DIR}/db_password.txt" \
+    chmod 700 "${SECRETS_DIR}"
+    chmod 600 "${SECRETS_DIR}/db_password.txt" \
         "${SECRETS_DIR}/flask_secret_key.txt" \
-        "${SECRETS_DIR}/backend.key" \
-        "${SECRETS_DIR}/backend.crt"
+        "${SECRETS_DIR}/backend.key"
+    chmod 644 "${SECRETS_DIR}/backend.crt"
 }
 
 # Executa as etapas do setup na ordem necessária.

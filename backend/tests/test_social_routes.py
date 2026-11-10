@@ -13,6 +13,7 @@ import social.handlers as handlers
 import social.store as store_pkg
 from social.routes import social_bp
 
+
 def image_bytes(image_format="PNG", size=(2, 2)):
     output = BytesIO()
     Image.new("RGB", size, "red").save(output, format=image_format)
@@ -27,7 +28,10 @@ def avatar_url(user_id, ts):
 
 class FakeStore:
     def __init__(self):
-        self.users = {1: {"email": "ana@x.io", "nickname": "ana"}}
+        self.users = {
+            1: {"email": "ana@x.io", "nickname": "ana"},
+            2: {"email": "bia@x.io", "nickname": "bia"},
+        }
         self.avatars = {}
         self.edges = {}
     def get_user_profile(self, user_id):
@@ -80,6 +84,28 @@ class FakeStore:
     def delete_edges(self, a, b):
         self.edges.pop((min(a, b), max(a, b)), None)
 
+    def blocked_user_ids(self, user_id):
+        ids = []
+        for (left_id, right_id), (_requester, status) in self.edges.items():
+            if status != "blocked":
+                continue
+            if left_id == user_id:
+                ids.append(right_id)
+            elif right_id == user_id:
+                ids.append(left_id)
+        return ids
+
+    def blocking_user_ids(self, user_id):
+        return []
+
+    def block_user(self, blocker_id, blocked_id):
+        pair = (min(blocker_id, blocked_id), max(blocker_id, blocked_id))
+        self.edges[pair] = (blocker_id, "blocked")
+
+    def unblock_user(self, blocker_id, blocked_id):
+        pair = (min(blocker_id, blocked_id), max(blocker_id, blocked_id))
+        self.edges.pop(pair, None)
+
 @pytest.fixture
 def store():
     return FakeStore()
@@ -96,6 +122,10 @@ def client(monkeypatch, store):
     monkeypatch.setattr(store_pkg, "accept_edge", fake.accept_edge)
     monkeypatch.setattr(store_pkg, "reject_edge", fake.reject_edge)
     monkeypatch.setattr(store_pkg, "delete_edges", fake.delete_edges)
+    monkeypatch.setattr(store_pkg, "blocked_user_ids", fake.blocked_user_ids)
+    monkeypatch.setattr(store_pkg, "blocking_user_ids", fake.blocking_user_ids)
+    monkeypatch.setattr(store_pkg, "block_user", fake.block_user)
+    monkeypatch.setattr(store_pkg, "unblock_user", fake.unblock_user)
     monkeypatch.setattr(handlers, "_socketio", None)
     app = Flask(__name__)
     app.secret_key = os.urandom(32)
@@ -196,6 +226,14 @@ def test_put_para_os_mesmos_dados_passa_e_mantem_200(client):
     assert response.status_code == 200
     assert response.get_json()["nickname"] == "ana"
 
+def test_put_com_nickname_com_espacos_e_aceito(client):
+    login(client, 1)
+    response = client.put(
+        "/api/profile", json={"email": "ana@x.io", "nickname": " ana "}
+    )
+    assert response.status_code == 200
+    assert response.get_json()["nickname"] == "ana"
+
 def test_put_da_sessao_de_usuario_removido_401(client, monkeypatch):
     login(client, 42)
     def missing(user_id, email, nickname):
@@ -213,9 +251,45 @@ def test_avatar_sem_sessao_401(client):
     )
     assert response.status_code == 401
 
+def test_avatar_de_usuario_sumido_401(client, store, monkeypatch):
+    monkeypatch.setattr(
+        store_pkg, "get_user_profile", lambda user_id: None
+    )
+    login(client, 1)
+    response = client.post(
+        "/api/profile/avatar", json={"avatarDataUrl": "data:image/png;base64,AAAA"}
+    )
+    assert response.status_code == 401
+    assert response.get_json() == {"error": "Você não está logado."}
+    assert store.avatars == {}
+
+    with client.session_transaction() as session:
+        assert "user_id" not in session
+
+
+def test_delete_avatar_de_usuario_sumido_401(client, store, monkeypatch):
+    monkeypatch.setattr(
+        store_pkg, "get_user_profile", lambda user_id: None
+    )
+    login(client, 1)
+    response = client.delete("/api/profile/avatar")
+    assert response.status_code == 401
+    assert response.get_json() == {"error": "Você não está logado."}
+
+
+def test_avatar_svg_400(client, store):
+    login(client, 1)
+    payload = {"avatarDataUrl": "data:image/svg+xml;base64,PHN2Zy8+"}
+    response = client.post("/api/profile/avatar", json=payload)
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "O avatar deve ser PNG, JPEG, GIF ou WebP."}
+    assert store.avatars == {}
+
 def test_avatar_ok_grava_e_devolve_url_versionada(client, store):
     login(client, 1)
-    payload = {"avatarDataUrl": "data:image/png;base64," + base64.b64encode(GRAPH_PNG).decode()}
+    payload = {
+        "avatarDataUrl": "data:image/png;base64," + base64.b64encode(GRAPH_PNG).decode()
+    }
     response = client.post("/api/profile/avatar", json=payload)
     assert response.status_code == 200
     body = response.get_json()
@@ -246,7 +320,10 @@ def test_avatar_invalido_nao_e_gravado(client, store, mime, content):
     assert store.avatars[1] == ("image/png", GRAPH_PNG, AVATAR_TS)
 
 
-@pytest.mark.parametrize("mime,image_format", [("image/jpeg", "JPEG"), ("image/webp", "WEBP")])
+@pytest.mark.parametrize(
+    "mime,image_format",
+    [("image/gif", "GIF"), ("image/jpeg", "JPEG"), ("image/webp", "WEBP")],
+)
 def test_avatar_aceita_formatos_permitidos(client, store, mime, image_format):
     login(client, 1)
     content = image_bytes(image_format)
@@ -303,6 +380,34 @@ def test_baixa_avatar_com_bytes_e_headers(client, store):
     assert response.headers["Cache-Control"] == "no-cache"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert response.headers["Content-Security-Policy"] == "default-src 'none'; sandbox"
+    assert response.headers["Content-Disposition"] == "inline"
+
+def test_banha_e_libera_bloqueio(client, monkeypatch):
+    monkeypatch.setattr(store_pkg, "global_rows", lambda: [])
+    monkeypatch.setattr(store_pkg, "private_rows", lambda me: [])
+    login(client, 1)
+    blocked = client.post("/api/chat/blocks/2")
+    assert blocked.status_code == 200
+    assert blocked.get_json() == {"status": "blocked", "userId": 2}
+    history = client.get("/api/chat/history")
+    assert history.get_json()["blockedUserIds"] == [2]
+
+    unblocked = client.delete("/api/chat/blocks/2")
+    assert unblocked.status_code == 200
+    assert unblocked.get_json() == {"status": "unblocked", "userId": 2}
+    assert client.get("/api/chat/history").get_json()["blockedUserIds"] == []
+
+def test_delete_bloqueio_proprio_400(client):
+    login(client, 1)
+    response = client.delete("/api/chat/blocks/1")
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "Você não pode bloquear sua própria conta."}
+
+def test_delete_bloqueio_desconhecido_404(client):
+    login(client, 1)
+    response = client.delete("/api/chat/blocks/9")
+    assert response.status_code == 404
+    assert response.get_json() == {"error": "Usuário não encontrado."}
 
 def test_baixa_avatar_inexistente_404(client):
     response = client.get("/api/profile/avatar/9")

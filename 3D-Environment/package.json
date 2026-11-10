@@ -37,7 +37,7 @@
     "@colyseus/playground": "^0.18.3",
     "@colyseus/schema": "^5.0.14",
     "@colyseus/tools": "^0.18.1",
-    "colyseus": "^0.18.2",
+    "colyseus": "^0.18.12",
     "express": "^5.2.1"
   },
   "allowScripts": {

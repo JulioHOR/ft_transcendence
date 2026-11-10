@@ -1,5 +1,6 @@
 import { schema, t, type SchemaType } from "@colyseus/schema";
 
+<<<<<<< HEAD
 /**
  * One input frame, consumed by `Room.defineInput()`. Flat primitives only, and
  * deliberately minimal:
@@ -18,15 +19,23 @@ export const MoveInput = schema({
 });
 export type MoveInput = SchemaType<typeof MoveInput>;
 
+=======
+>>>>>>> origin/feature/game-api
 export const Player = schema({
   name: t.string(),
   x: t.number(),
   y: t.number(),
   height: t.number(),
+<<<<<<< HEAD
   vx: t.number(),
   vy: t.number(),
   yaw: t.number(),
   pitch: t.number(),
+=======
+  yaw: t.number(),
+  pitch: t.number(),
+  equipped: t.boolean(),
+>>>>>>> origin/feature/game-api
 });
 export type Player = SchemaType<typeof Player>;
 

@@ -2,60 +2,71 @@ import assert from "assert";
 import { ColyseusTestServer, boot } from "@colyseus/testing";
 
 import appConfig from "../src/app.config.js";
-import {
-  MyRoomState,
-  type MoveInput,
-} from "../src/rooms/schema/MyRoomState.js";
-import { PLAYER_SPEED, TICK_RATE } from "../src/shared/constants.js";
+import type { MyRoomState } from "../src/rooms/schema/MyRoomState.js";
+import { MSG_UPDATE_POSITION } from "../src/shared/messages.js";
 
-describe("testing your Colyseus app", () => {
-  let colyseus: ColyseusTestServer<typeof appConfig>;
+describe("MyRoom", () => {
+	let colyseus: ColyseusTestServer<typeof appConfig>;
 
-  before(async () => (colyseus = await boot(appConfig)));
-  after(async () => colyseus.shutdown());
+	before(async () => (colyseus = await boot(appConfig)));
+	after(async () => colyseus.shutdown());
 
-  beforeEach(async () => {
-    await colyseus.cleanup();
-  });
+	beforeEach(async () => {
+		await colyseus.cleanup();
+	});
 
-  it("advances a player from its buffered input", async () => {
-    const room = await colyseus.createRoom<MyRoomState>("my_room", {});
-    const client1 = await colyseus.connectTo(room);
+	const position = { x: 5, y: 6, height: 1, yaw: 1, pitch: 0.5 };
 
-    const player = room.state.players.get(client1.sessionId);
-    assert.ok(player, "a Player is created on join");
-    const startX = player.x;
+	it("creates a Player on join", async () => {
+		const room = await colyseus.createRoom<MyRoomState>("my_room", {});
+		const client1 = await colyseus.connectTo(room);
 
-    const input = client1.input<MoveInput>({ mode: "reliable" });
-    input.data.moveX = 1;
-    input.data.moveY = 0;
-    input.send();
+		const player = room.state.players.get(client1.sessionId);
+		assert.ok(player, "a Player is created on join");
+		assert.match(player.name, /^dev_\d+$/); // outside production, no cookie means a guest name
+	});
 
-    await room.waitForNextMessage(); // the input reaches the server
-    await room.waitForNextTimestep(); // the step that consumes it runs
+	it("stores the position a client sends", async () => {
+		const room = await colyseus.createRoom<MyRoomState>("my_room", {});
+		const client1 = await colyseus.connectTo(room);
+		const player = room.state.players.get(client1.sessionId);
+		assert.ok(player);
 
-    assert.ok(player.x > startX, "the buffered input advanced the player");
-  });
+		client1.send(MSG_UPDATE_POSITION, position);
+		await room.waitForNextMessage();
 
-  it("clamps input that is out of range", async () => {
-    const room = await colyseus.createRoom<MyRoomState>("my_room", {});
-    const client1 = await colyseus.connectTo(room);
+		assert.strictEqual(player.x, 5);
+		assert.strictEqual(player.y, 6);
+		assert.strictEqual(player.height, 1);
+	});
 
-    const player = room.state.players.get(client1.sessionId);
+	it("ignores values that are not finite numbers", async () => {
+		const room = await colyseus.createRoom<MyRoomState>("my_room", {});
+		const client1 = await colyseus.connectTo(room);
+		const player = room.state.players.get(client1.sessionId);
+		assert.ok(player);
 
-    assert(player, "Failed to get player.");
-    const startX = player.x;
+		client1.send(MSG_UPDATE_POSITION, position);
+		await room.waitForNextMessage();
+		client1.send(MSG_UPDATE_POSITION, { x: NaN, y: "abc", height: Infinity, yaw: 2, pitch: null });
+		await room.waitForNextMessage();
 
-    // A modified client claiming a huge axis value: sanitize clamps it to 1.
-    const input = client1.input<MoveInput>({ mode: "reliable" });
-    input.data.moveX = 100 as any;
-    input.send();
+		assert.strictEqual(player.x, 5); // bad values ignored
+		assert.strictEqual(player.height, 1);
+		assert.strictEqual(player.yaw, 2); // the valid field is applied
+	});
 
-    await room.waitForNextMessage();
-    await room.waitForNextTimestep();
+	it("survives a message with no payload", async () => {
+		const room = await colyseus.createRoom<MyRoomState>("my_room", {});
+		const client1 = await colyseus.connectTo(room);
+		const player = room.state.players.get(client1.sessionId);
+		assert.ok(player);
 
-    // The room steps once per received input, so one input is exactly one step
-    // of travel — at moveX clamped to 1, not the 100 the client asked for.
-    assert.strictEqual(player.x, startX + PLAYER_SPEED * (1 / TICK_RATE));
-  });
+		client1.send(MSG_UPDATE_POSITION);
+		await room.waitForNextMessage();
+		client1.send(MSG_UPDATE_POSITION, position);
+		await room.waitForNextMessage();
+
+		assert.strictEqual(player.x, 5);
+	});
 });

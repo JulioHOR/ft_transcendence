@@ -41,6 +41,167 @@ Julio
 
   A first `Dockerfile` in this folder. It is only a placeholder for now: it
   does not copy the project or start the game yet.
+## Game client split into modules, server cleanup
+
+**Date:** 2026-11-08 · **Author:** Fred
+
+**Commits:** `clean up: new files for index.ts refactoring, part 1`,
+`cleanup: move scene, camera and floor setup into sceneSetup.ts`,
+`cleanup: move model loading into assets and level modules`,
+`cleanup: add remoteplayer to handle remote players scene objects`,
+`cleanup: move local player movement and input out of index`,
+`fix: ignore non-numeric position and signal data from clients`,
+`cleanup: remove the unused server-side input and prediciton path`,
+`clean up: removed the functions and variables for movement prediction on server`,
+`refactor: share message names between client and server unified in the message.ts to prevent listener names missmatches`
+
+- **`client/index.ts` went from 676 lines to about 170**
+
+  The file did everything in one 450-line `main()`. It is now split by job:
+  `config.ts` (sizes and offsets), `sceneSetup.ts` (engine, camera, light,
+  floor, pointer lock), `assets.ts` (loads the character, gun and walking
+  clips, now in parallel), `level.ts` (building and its collisions),
+  `input.ts` (held keys), `gun.ts`, `nameTag.ts`, `localPlayer.ts` (your own
+  movement, gravity, jumping and collisions, one method per step) and
+  `remotePlayer.ts` (one class per other player). `index.ts` only connects to
+  the room and runs the render loop. Behaviour is the same, except that your
+  own invisible character no longer plays an idle animation, and your own
+  update now always runs before the others each frame.
+
+- **Players leaving no longer leak memory**
+
+  Every player that left used to leave a name tag material, its texture and
+  the character's skeleton behind in the scene (textures grew by one per
+  leave). `RemotePlayer.dispose()` now removes the instantiated entries, the
+  walking clips, the head with its gun, and the name tag with its material and
+  texture. After five joins and leaves the scene counts stayed flat.
+
+- **The server ignores bad position numbers**
+
+  `updatePosition` stored `x` and `y` as they came. A modified client could
+  send `NaN`, `Infinity` or a string and that went to every other player, and a
+  missing payload threw. Each field now needs `Number.isFinite`, a missing
+  payload is ignored, and `signal` ignores messages without a string `to`. The
+  client is still trusted for where it is (Babylon resolves collisions in the
+  browser); the server only refuses values that are not numbers.
+
+- **The unused input path is gone from the server**
+
+  The Colyseus template's input buffer, fixed-timestep `step()`, `MoveInput`,
+  `vx`/`vy` and `shared/movement.ts` were never fed by the client, which sends
+  positions instead. They and the client's reconciler are removed, and the
+  movement constants moved to `client/config.ts`. Players now start at the
+  origin instead of a ring around the middle of the old 500 by 500 arena. The
+  tests were rewritten around the real messages (join, position stored, bad
+  values ignored, empty payload).
+
+- **Message names live in one file**
+
+  `shared/messages.ts` holds `updatePosition`, `setEquipped` and `signal`. A
+  name misspelled on one side was never handled and nothing reported it; now it
+  fails to compile. `voice.ts` keeps its own `"signal"` strings.
+
+- **Template leftovers removed**
+
+  The Colyseus `/hi` and `/api/hello` routes were reachable in production
+  through `/game/`. They are deleted, with the unused `animations/` folder,
+  `linux-char.glb`, the `loadtest` stub and its dependency, and the PM2
+  `ecosystem.config.cjs`.
+
+- **The room stays up**
+
+  `my_room` is created when the server starts (`beforeListen`) and is not
+  disposed when empty, so there is always a room to join.
+
+- **Next: spawn points and several rooms**
+
+  Players start at the origin for now. The plan is a list of spawn points per
+  room, chosen on join by skipping points that have a player on them, with the
+  client starting from the position the server chose. Rooms are created from a
+  server-side config by name, and clients may only pass the name.
+
+## Gun toggle, dashboard login in the game, game in Docker
+
+**Date:** 2026-11-05 · **Author:** Fred
+
+**Commits:** `feat: gun toggle, dashboard login and docker service for the game`
+
+- **Key 1 shows and hides the AK, for everyone**
+
+  `Player` has a new `equipped` boolean. Pressing 1 (with the mouse locked,
+  holding the key counts once) shows or hides your own gun at once and sends
+  `setEquipped` with the value you want, not a toggle, so client and server
+  can't drift apart. The server checks it's a real boolean and stores it.
+  Other players' guns follow `equipped` through `callbacks.listen`, and a
+  player who joins late sees the right state. Your own gun ignores the server
+  echo, otherwise pressing 1 twice quickly could flash it back on. Guns are
+  hidden with `setEnabled` on the gun's pivot, which also takes them out of
+  raycasts, and they start disabled in `createGun`. The old `inputMap` and the
+  observer that was added every frame are gone.
+
+- **Your name comes from the dashboard login**
+
+  The client no longer sends a name. The new static `onAuth` in `MyRoom`
+  (logic in `src/rooms/auth.ts`) takes the browser's dashboard session cookie
+  and asks the backend `GET /api/me` who it belongs to. The answer
+  (`{ id, nickname }`) becomes `client.auth`, and the name tag uses the
+  nickname. No session means the join is refused. Flask stays the only one that
+  understands sessions: the game holds no secret and never reads the database.
+  The `id` is kept on the server for later features (friends, stats, invites)
+  but isn't synced to clients.
+
+- **Without Docker, you play as a guest**
+
+  When `NODE_ENV` isn't `production` and there is no cookie, or the backend
+  can't be reached, you join as `dev_1234` with a negative id, so `npm start`
+  works on its own. Production stays strict.
+
+- **Same account twice: the newest connection wins**
+
+  When an account joins a room it is already in (another tab, another PC), the
+  older connection is closed with code `4100` (`CLOSE_LOGGED_IN_ELSEWHERE` in
+  `src/shared/constants.ts`) and its page says why. Colyseus uses 4000–4099
+  itself, and 4001 is its "server shutdown". Every close code except 4000 goes
+  to `onDrop`, which holds the seat for 30 seconds, so `onDrop` lets 4100
+  through to `onLeave` straight away. Otherwise the kicked player would stand
+  in the room for half a minute.
+
+- **The game runs in docker compose, behind the dashboard's nginx at `/game/`**
+
+  - New `Dockerfile` (two stages: build with everything, then run with
+    production dependencies only, as the `node` user) and `.dockerignore`. The
+    build image needs `git`, because `npm ci` fetches `uWebSockets.js` from
+    GitHub.
+  - New `game` service in `docker-compose.yml`, with no published port. It
+    gets the backend's certificate as a secret, and `NODE_EXTRA_CA_CERTS`
+    makes Node trust it for the `/api/me` call.
+  - nginx sends `/game/` to `game:2567` (the Colyseus Vite plugin fixes the
+    port) and redirects `/game` to `/game/`, since the relative model paths
+    need the slash. When `proxy_pass` uses a variable, nginx stops stripping
+    the prefix, so a `rewrite` does it.
+  - The production build uses `base: "/game/"`, the SDK connects through
+    `import.meta.env.BASE_URL` (`/` in dev), and in production the game server
+    serves the built client itself with `express.static`, since nothing else
+    does.
+
+- **Next steps**
+
+  - Run the real flow with `make up`. Log in on the dashboard, open
+    `https://localhost/game/` and check your nickname shows. Open a second tab
+    with the same login: the first one should be kicked. Log out and reload:
+    the join should be refused. If something fails,
+    `make logs SERVICE=game` shows a `dashboard auth failed:` line with the
+    reason. This is the first time the real `https://backend` call runs; tests
+    only covered it with a fake backend.
+  - Add a link to the game in the dashboard: a plain `<a href="/game/">`, not
+    a router `<Link>`, because the game isn't part of the React app.
+  - The backend allows 120 requests a minute per IP, and every `/api/me` check
+    comes from the game container's IP. That's fine with 8 players a room. If
+    it ever matters, forward the player's IP (`context.ip`) as
+    `X-Forwarded-For` on that call. The backend's `ProxyFix` already trusts one
+    hop.
+  - Traffic between nginx and the game is plain HTTP inside the Docker
+    network, while the backend uses TLS. Confirm the team is fine with that.
 
 ## Wall climbing, voice cleanup on disconnect
 

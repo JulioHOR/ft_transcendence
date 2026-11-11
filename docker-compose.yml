@@ -76,4 +76,21 @@ services:
       - backend_tls_certificate
     depends_on:
       - backend
+      - game
+    restart: unless-stopped
+
+  game:
+    build:
+      context: ./3D-Environment
+      dockerfile: Dockerfile
+    networks:
+      - ft_transcendence
+    secrets:
+      - backend_tls_certificate
+    environment:
+      NODE_ENV: production
+      BACKEND_INTERNAL_PORT: ${BACKEND_INTERNAL_PORT}
+      NODE_EXTRA_CA_CERTS: /run/secrets/backend_tls_certificate
+    depends_on:
+      - backend
     restart: unless-stopped

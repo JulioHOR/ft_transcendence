@@ -20,6 +20,12 @@ class ProfileUpdateSchema(Schema):
     )
 
 
+class CharacterSchema(Schema):
+    character = fields.String(
+        metadata={"description": "Identificador do personagem escolhido para o Babylon."}
+    )
+
+
 class FriendSchema(Schema):
     id = fields.Integer(metadata={"description": "Identificador do outro usuário."})
     nickname = fields.String(metadata={"description": "Apelido público no momento da leitura."})

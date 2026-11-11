@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS account (
     email           TEXT NOT NULL,
     nickname        TEXT NOT NULL,
     password_hash   TEXT NOT NULL,
+    character       TEXT NOT NULL DEFAULT 'character',
     session_version INTEGER NOT NULL DEFAULT 0,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),

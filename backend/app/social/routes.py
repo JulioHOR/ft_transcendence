@@ -16,6 +16,7 @@ from .handlers import conversation_id
 from .schemas import (
     ChatBlockSchema,
     ChatHistorySchema,
+    CharacterSchema,
     FriendSchema,
     ProfileSchema,
     ProfileUpdateSchema,
@@ -77,6 +78,28 @@ PROFILE_AVATAR_REQUEST_BODY = {
                 },
             },
             "example": {"avatarDataUrl": "data:image/png;base64,iVBORw0KGgo="},
+        }
+    },
+}
+
+CHARACTER_REQUEST_BODY = {
+    "description": "Identificador do personagem escolhido para a integração com o Babylon.",
+    "required": True,
+    "content": {
+        "application/json": {
+            "schema": {
+                "type": "object",
+                "required": ["character"],
+                "properties": {
+                    "character": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100,
+                        "description": "Nome ou identificador do personagem.",
+                    },
+                },
+            },
+            "example": {"character": "character"},
         }
     },
 }
@@ -272,6 +295,50 @@ def update_profile():
         "nickname": nickname,
         "avatarUrl": store.avatar_url(user_id, avatar_ts),
     }
+
+@social_bp.put("/api/profile/character")
+@social_bp.response(200, CharacterSchema, description="Personagem escolhido salvo.")
+@social_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sessão ausente, expirada ou inválida.",
+)
+@social_bp.alt_response(
+    400,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="O campo character está ausente, vazio ou fora do limite.",
+)
+@social_bp.doc(
+    summary="Escolher personagem do Babylon",
+    description=(
+        "Exige o cookie de sessão e salva o identificador do personagem escolhido "
+        "pelo usuário para a integração com o Babylon."
+    ),
+    requestBody=CHARACTER_REQUEST_BODY,
+    security=[{"cookieAuth": []}],
+)
+def update_character():
+    user_id = _session_user_id()
+    if user_id is None:
+        return _unauthorized()
+    character = _json_body().get("character")
+    if not isinstance(character, str):
+        return jsonify({"error": "Informe o campo character como texto."}), 400
+    character = character.strip()
+    if not character:
+        return jsonify({"error": "O campo character não pode ser vazio."}), 400
+    if len(character) > 100:
+        return jsonify(
+            {"error": "O campo character deve ter no máximo 100 caracteres."}
+        ), 400
+    try:
+        character = store.set_character(user_id, character)
+    except LookupError:
+        session.clear()
+        return _unauthorized()
+    return {"character": character}
 
 @social_bp.post("/api/profile/avatar")
 @social_bp.response(200, ProfileSchema, description="Foto gravada e endereço novo devolvido.")

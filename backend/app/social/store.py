@@ -154,6 +154,21 @@ def update_profile(
         return (*row, None if avatar_row is None else avatar_row[0])
 
 
+def set_character(user_id: int, character: str) -> str:
+    with db_cursor() as cur:
+        cur.execute(
+            "UPDATE account "
+            "SET character = %s "
+            "WHERE account.id = %s "
+            "RETURNING account.character;",
+            (character, user_id),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError("usuário não existe")
+        return row[0]
+
+
 def set_avatar(user_id: int, content_type: str, data: bytes) -> datetime.datetime:
     with db_cursor() as cur:
         cur.execute(

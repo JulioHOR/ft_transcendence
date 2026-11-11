@@ -296,6 +296,34 @@ def update_profile():
         "avatarUrl": store.avatar_url(user_id, avatar_ts),
     }
 
+@social_bp.get("/api/profile/character")
+@social_bp.response(200, CharacterSchema, description="Personagem escolhido pelo usuário.")
+@social_bp.alt_response(
+    401,
+    schema=ErrorResponseSchema,
+    success=True,
+    description="Sessão ausente, expirada ou inválida.",
+)
+@social_bp.doc(
+    summary="Ler personagem do Babylon",
+    description=(
+        "Exige o cookie de sessão e retorna o identificador do personagem escolhido "
+        "pelo usuário para a integração com o Babylon."
+    ),
+    security=[{"cookieAuth": []}],
+)
+def get_character():
+    user_id = _session_user_id()
+    if user_id is None:
+        return _unauthorized()
+    try:
+        character = store.get_character(user_id)
+    except LookupError:
+        session.clear()
+        return _unauthorized()
+    return {"character": character}
+
+
 @social_bp.put("/api/profile/character")
 @social_bp.response(200, CharacterSchema, description="Personagem escolhido salvo.")
 @social_bp.alt_response(

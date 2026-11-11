@@ -169,6 +169,20 @@ def set_character(user_id: int, character: str) -> str:
         return row[0]
 
 
+def get_character(user_id: int) -> str:
+    with db_cursor() as cur:
+        cur.execute(
+            "SELECT account.character "
+            "FROM account "
+            "WHERE account.id = %s;",
+            (user_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise LookupError("usuário não existe")
+        return row[0]
+
+
 def set_avatar(user_id: int, content_type: str, data: bytes) -> datetime.datetime:
     with db_cursor() as cur:
         cur.execute(

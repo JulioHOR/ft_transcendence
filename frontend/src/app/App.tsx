@@ -9,6 +9,7 @@ import { AuthProvider } from "./AuthProvider";
 import { RequireAuth } from "./RequireAuth";
 import { ProfilePage } from "../pages/ProfilePage";
 import { ChatPage } from "../pages/ChatPage";
+import { GameEnvPage } from "../pages/GameEnvPage";
 
 import { FriendsProvider } from "./FriendsProvider";
 import { ChatProvider } from "./ChatProvider";
@@ -49,6 +50,7 @@ function AppRoutes() {
           element={protectedPage(<ProfilePage />)}
         />
         <Route path="/chat" element={protectedPage(<ChatPage />)} />
+        <Route path="/environment3d" element={protectedPage(<GameEnvPage />)} />
         <Route path="/friends" element={protectedPage(<FriendsPage />)} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

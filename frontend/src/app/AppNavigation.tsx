@@ -129,6 +129,7 @@ const navItems = [
   { label: "Conversas", to: "/chat" },
   { label: "Amigos", to: "/friends" },
   { label: "Pong", to: "/pong" },
+  { label: "Ambiente 3D", to: "/environment3d" },
 ] as const;
 
 /** Retorna as rotas disponíveis conforme o estado da sessão. */

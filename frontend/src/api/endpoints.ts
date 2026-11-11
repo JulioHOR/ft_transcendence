@@ -11,3 +11,5 @@ export const chatHistoryUrl = "/api/chat/history";
 export const friendsUrl = "/api/friends";
 
 export const pongStatisticsUrl = "/api/games/pong/statistics";
+
+export const gameStartUrl = "/api/profile/character";

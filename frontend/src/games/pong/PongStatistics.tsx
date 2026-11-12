@@ -42,7 +42,7 @@ import type {
   SummaryItemProps,
 } from "./statisticsProps";
 
-/** Exibe o desempenho e o histórico de Pong no perfil. */
+/** Displays Pong performance and history on the profile. */
 export function PongStatistics({ userId }: PongStatisticsProps) {
   const { statistics, error } = usePongStatistics(userId);
 
@@ -60,7 +60,7 @@ export function PongStatistics({ userId }: PongStatisticsProps) {
   );
 }
 
-/** Busca os dados de partidas do perfil. */
+/** Fetches match data for the profile. */
 function usePongStatistics(userId: number) {
   const [statistics, setStatistics] = useState<PongStatisticsData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +82,7 @@ function usePongStatistics(userId: number) {
   return { statistics, error };
 }
 
-/** Organiza resultados, nível, conquistas e partidas recentes. */
+/** Organizes results, level, achievements, and recent matches. */
 function StatisticsContent({ statistics }: StatisticsContentProps) {
   return (
     <Stack spacing={3}>
@@ -95,7 +95,7 @@ function StatisticsContent({ statistics }: StatisticsContentProps) {
   );
 }
 
-/** Resume partidas, vitórias, derrotas e posição no ranking. */
+/** Summarizes matches, wins, losses, and leaderboard position. */
 function StatisticsSummary({ statistics }: StatisticsSummaryProps) {
   const values = [
     { label: "Partidas", value: statistics.matchesPlayed },
@@ -122,7 +122,7 @@ function StatisticsSummary({ statistics }: StatisticsSummaryProps) {
   );
 }
 
-/** Exibe um indicador do resumo de partidas. */
+/** Displays an indicator in the match summary. */
 function SummaryItem({ label, value }: SummaryItemProps) {
   return (
     <Card variant="outlined">
@@ -138,7 +138,7 @@ function SummaryItem({ label, value }: SummaryItemProps) {
   );
 }
 
-/** Exibe o nível e o avanço até o próximo nível. */
+/** Displays the level and progress toward the next level. */
 function LevelProgress({ statistics }: LevelProgressProps) {
   const progress =
     (statistics.netWinsInCurrentLevel / statistics.winsForNextLevel) * 100;
@@ -158,7 +158,7 @@ function LevelProgress({ statistics }: LevelProgressProps) {
   );
 }
 
-/** Resume o nível atual e o avanço até o próximo. */
+/** Summarizes the current level and progress toward the next one. */
 function LevelProgressDetails({ statistics }: LevelProgressDetailsProps) {
   return (
     <Stack direction="row" sx={levelProgressRowSx}>
@@ -181,7 +181,7 @@ const levelProgressRowSx = {
   columnGap: 2,
 };
 
-/** Exibe as conquistas em uma grade de distintivos. */
+/** Displays achievements in a grid of badges. */
 function AchievementList({ achievements }: AchievementListProps) {
   return (
     <Stack spacing={1}>
@@ -201,7 +201,7 @@ function AchievementList({ achievements }: AchievementListProps) {
   );
 }
 
-/** Exibe o objetivo e o progresso de uma conquista. */
+/** Displays an achievement's goal and progress. */
 function AchievementCard({ achievement }: AchievementCardProps) {
   const completed = achievement.progress === achievement.target;
   return (
@@ -217,7 +217,7 @@ function AchievementCard({ achievement }: AchievementCardProps) {
   );
 }
 
-/** Conteúdo visual de um cartão de conquista. */
+/** Visual content of an achievement card. */
 function AchievementCardContent(props: AchievementCardContentProps) {
   const progress =
     (props.achievement.progress / props.achievement.target) * 100;
@@ -250,7 +250,7 @@ const achievementIcons: Record<string, AppIconName> = {
   Professional: "professional",
 };
 
-/** Lista as partidas recentes com adversário, resultado e placar. */
+/** Lists recent matches with opponent, result, and score. */
 function MatchHistory({ history }: MatchHistoryProps) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -274,7 +274,7 @@ function MatchHistory({ history }: MatchHistoryProps) {
   );
 }
 
-/** Renderiza a tabela de partidas concluídas. */
+/** Renders the completed matches table. */
 function MatchHistoryTable({ history }: MatchHistoryTableProps) {
   return (
     <TableContainer>
@@ -292,7 +292,7 @@ function MatchHistoryTable({ history }: MatchHistoryTableProps) {
   );
 }
 
-/** Exibe os resultados das partidas nas linhas da tabela. */
+/** Displays match results in the table rows. */
 function MatchHistoryRows({ history }: MatchHistoryRowsProps) {
   return (
     <TableBody>
@@ -320,7 +320,7 @@ const tableSx = {
   "& th, & td": { px: 0 },
 };
 
-/** Exibe a classificação geral e as regras de desempate. */
+/** Displays the overall leaderboard and tie-breaking rules. */
 function Leaderboard({ entries }: LeaderboardProps) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -345,7 +345,7 @@ function Leaderboard({ entries }: LeaderboardProps) {
   );
 }
 
-/** Explica os critérios usados na classificação. */
+/** Explains the criteria used for the leaderboard. */
 function LeaderboardDescription() {
   return (
     <Typography variant="body2" color="text.secondary">
@@ -355,7 +355,7 @@ function LeaderboardDescription() {
   );
 }
 
-/** Renderiza a tabela de classificação. */
+/** Renders the leaderboard table. */
 function LeaderboardTable({ entries }: LeaderboardTableProps) {
   return (
     <TableContainer>
@@ -374,7 +374,7 @@ function LeaderboardTable({ entries }: LeaderboardTableProps) {
   );
 }
 
-/** Exibe o título e o controle de expansão de uma tabela. */
+/** Displays a table's title and expand control. */
 function ExpandableTableHeading({
   title,
   expanded,
@@ -397,7 +397,7 @@ function ExpandableTableHeading({
   );
 }
 
-/** Exibe posição e resultados dos jogadores nas linhas da tabela. */
+/** Displays player positions and results in the table rows. */
 function LeaderboardRows({ entries }: LeaderboardRowsProps) {
   return (
     <TableBody>

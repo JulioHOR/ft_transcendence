@@ -15,7 +15,7 @@ import {
 
 type ChatApi = ReturnType<typeof useChat>;
 
-/** Aba privada ativa, se houver. */
+/** Active private tab, if any. */
 function findPrivateTab(
   activeTabId: string,
   tabs: PrivateChatTab[],
@@ -24,7 +24,7 @@ function findPrivateTab(
   return tabs.find((tab) => tab.conversationId === activeTabId) ?? null;
 }
 
-/** Marca lido e notifica o outro usuário. */
+/** Marks the conversation as read and notifies the other user. */
 function markPrivateRead(activeTabId: string, chat: ChatApi): void {
   if (activeTabId === GLOBAL_CHAT_TAB_ID) return;
   chat.markConversationRead(activeTabId);
@@ -35,7 +35,7 @@ function markPrivateRead(activeTabId: string, chat: ChatApi): void {
   chat.notifyPrivateRead(tab.otherUserId, last.id);
 }
 
-/** Emite typing na aba privada ativa. */
+/** Emits a typing event in the active private tab. */
 function emitTyping(
   activeTabId: string,
   tabs: PrivateChatTab[],
@@ -48,7 +48,7 @@ function emitTyping(
   chat.sendPrivateTyping(tab.otherUserId, isTyping);
 }
 
-/** Abre aba a partir da query. */
+/** Opens a tab from the query. */
 function useOpenTabFromQuery(
   currentUserId: number | undefined,
   friends: Friend[],
@@ -71,7 +71,7 @@ function useOpenTabFromQuery(
   }, [currentUserId, friends, searchParams, setActiveTabId, chatRef]);
 }
 
-/** Sincroniza aba visível / leitura. */
+/** Synchronizes the visible tab and read state. */
 function useSyncViewing(activeTabId: string, chat: ChatApi): void {
   const count = chat.privateMessagesByConversation[activeTabId]?.length ?? 0;
   const chatRef = useLatestRef(chat);
@@ -83,7 +83,7 @@ function useSyncViewing(activeTabId: string, chat: ChatApi): void {
   }, [activeTabId, count, chatRef]);
 }
 
-/** Volta ao global se a aba privada foi fechada. */
+/** Returns to the global tab if the private tab was closed. */
 function useActiveTabFallback(
   activeTabId: string,
   tabs: PrivateChatTab[],
@@ -97,7 +97,7 @@ function useActiveTabFallback(
   }, [activeTabId, tabs, setActiveTabId]);
 }
 
-/** Pode enviar na aba ativa. */
+/** Whether sending is allowed in the active tab. */
 function canSendOnTab(
   activeTabId: string,
   privateTab: PrivateChatTab | null,
@@ -114,7 +114,7 @@ function canSendOnTab(
   );
 }
 
-/** Draft com typing debounce. */
+/** Draft with debounced typing events. */
 function setDraftWithTyping(
   value: string,
   activeTabId: string,
@@ -136,7 +136,7 @@ function setDraftWithTyping(
   }, 1200);
 }
 
-/** Envia draft da aba ativa. */
+/** Sends the draft from the active tab. */
 function submitDraft(
   draft: string,
   activeTabId: string,
@@ -173,7 +173,7 @@ type SessionHandlersArgs = {
   canSend: boolean;
 };
 
-/** Selecionar e fechar abas. */
+/** Selects and closes tabs. */
 function tabSessionActions(
   activeTabId: string,
   chat: ChatApi,
@@ -192,7 +192,7 @@ function tabSessionActions(
   };
 }
 
-/** Draft e envio com typing debounce. */
+/** Draft and sending with debounced typing events. */
 function draftSessionActions(
   args: SessionHandlersArgs,
 ): Pick<ChatSession, "setDraft" | "submitDraft"> {
@@ -214,7 +214,7 @@ function draftSessionActions(
   };
 }
 
-/** Campos derivados da sessão (sem handlers). */
+/** Fields derived from the session (without handlers). */
 function chatSessionSnapshot(
   activeTabId: string,
   chat: ChatApi,
@@ -239,7 +239,7 @@ function chatSessionSnapshot(
   };
 }
 
-/** Ações e bloqueios associados à conversa privada ativa. */
+/** Actions and blocks associated with the active private conversation. */
 function chatActionsSnapshot(
   chat: ChatApi,
   privateTab: PrivateChatTab | null,
@@ -261,7 +261,7 @@ function chatActionsSnapshot(
   };
 }
 
-/** Estado de bloqueio da conversa ativa. */
+/** Block state for the active conversation. */
 function chatRestrictionSnapshot(
   chat: ChatApi,
   privateTab: PrivateChatTab | null,
@@ -272,7 +272,7 @@ function chatRestrictionSnapshot(
   };
 }
 
-/** Convites e ações disponíveis no chat. */
+/** Invitations and actions available in the chat. */
 function chatInvitationActions(chat: ChatApi) {
   return {
     gameInvitations: chat.gameInvitations,
@@ -285,7 +285,7 @@ function chatInvitationActions(chat: ChatApi) {
   };
 }
 
-/** Estado local de aba e draft da página. */
+/** Local tab and page draft state. */
 function useChatTabState(
   currentUserId: number | undefined,
   chat: ChatApi,
@@ -302,7 +302,7 @@ function useChatTabState(
   return { ...tabState, ...permissions };
 }
 
-/** Guarda a aba, o rascunho e o temporizador do chat. */
+/** Stores the tab, draft, and chat timer. */
 function useChatTabData(
   currentUserId: number | undefined,
   chat: ChatApi,
@@ -323,12 +323,12 @@ function useChatTabData(
   };
 }
 
-/** Verifica se a conversa ativa inclui um usuário da lista. */
+/** Checks whether the active conversation includes a user from the list. */
 function isUserBlocked(userIds: number[], privateTab: PrivateChatTab | null) {
   return privateTab != null && userIds.includes(privateTab.otherUserId);
 }
 
-/** Resolve o contato ativo e as permissões de envio. */
+/** Resolves the active contact and sending permissions. */
 function chatTabPermissions(
   activeTabId: string,
   tabs: PrivateChatTab[],
@@ -349,7 +349,7 @@ function chatTabPermissions(
   };
 }
 
-/** Sessão da página de chat. */
+/** Chat page session. */
 export function useChatSession(currentUserId: number | undefined): ChatSession {
   const chat = useChat();
   const { friends } = useFriends();

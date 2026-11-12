@@ -47,14 +47,14 @@ import type {
   TableRailProps,
   TrailPointProps,
 } from "./props";
-/** Retorna a posição da raquete indicada no snapshot. */
+/** Returns the paddle position specified in the snapshot. */
 function getSnapshotPaddlePosition(snapshot: GameSnapshot, side: Side): number {
   return side === "left"
     ? snapshot.leftPaddlePosition
     : snapshot.rightPaddlePosition;
 }
 
-/** Mesa isométrica com acabamento simples de madeira e feltro. */
+/** Isometric table with a simple wood and felt finish. */
 function TableSurface() {
   return (
     <>
@@ -76,7 +76,7 @@ function TableSurface() {
   );
 }
 
-/** Renderiza trilhos, acabamento e suporte da mesa. */
+/** Renders the table rails, finish, and support. */
 function TableFrame() {
   return (
     <>
@@ -89,7 +89,7 @@ function TableFrame() {
   );
 }
 
-/** Renderiza um trilho estrutural da mesa. */
+/** Renders a structural table rail. */
 function TableRail({ position, size }: TableRailProps) {
   return (
     <mesh position={position} castShadow receiveShadow>
@@ -104,7 +104,7 @@ function TableRail({ position, size }: TableRailProps) {
   );
 }
 
-/** Renderiza as linhas luminosas internas da borda. */
+/** Renders the illuminated lines inside the edge. */
 function TableEdgeGlow() {
   return (
     <>
@@ -122,7 +122,7 @@ function TableEdgeGlow() {
   );
 }
 
-/** Renderiza o apoio inferior da mesa. */
+/** Renders the table's lower support. */
 function TableSupport() {
   return (
     <group>
@@ -134,7 +134,7 @@ function TableSupport() {
   );
 }
 
-/** Renderiza a rede central da mesa. */
+/** Renders the center net of the table. */
 function TableNet() {
   return (
     <mesh position={[0, TABLE_SURFACE_Y + 0.025, 0]} castShadow>
@@ -144,7 +144,7 @@ function TableNet() {
   );
 }
 
-/** Renderiza a raquete de um dos lados. */
+/** Renders the paddle on one side. */
 function Paddle({ side, position }: PaddleProps) {
   const sideDirection = side === "left" ? -1 : 1;
   const paddleX = getPaddleX(side) + (sideDirection * PADDLE_SIZE[0]) / 2;
@@ -163,7 +163,7 @@ function Paddle({ side, position }: PaddleProps) {
   );
 }
 
-/** Adiciona ou remove pontos do rastro conforme a velocidade. */
+/** Adds or removes trail points based on the speed. */
 function addTrailPoint(
   distance: number,
   previous: BallPoint,
@@ -176,7 +176,7 @@ function addTrailPoint(
   setTrail((current) => (current.length === 0 ? current : []));
 }
 
-/** Atualiza o efeito visual quando a bola muda de direção. */
+/** Updates the visual effect when the ball changes direction. */
 function setImpact(
   changedDirection: boolean,
   z: number,
@@ -191,7 +191,7 @@ function setImpact(
   };
 }
 
-/** Mantém o rastro, velocidade e impacto usados pela apresentação da bola. */
+/** Maintains the trail, speed, and impact used to present the ball. */
 function useBallFeedback(x: number, z: number, paddlePosition: number) {
   const previous = useRef({ x, z, directionX: 0 });
   const impact = useRef<Impact>({ strength: 0, angle: 0 });
@@ -220,7 +220,7 @@ function useBallFeedback(x: number, z: number, paddlePosition: number) {
   return { trail, impact, speed };
 }
 
-/** Renderiza o rastro proporcional à velocidade atual. */
+/** Renders a trail proportional to the current speed. */
 function BallTrail({ trail, speed }: BallTrailProps) {
   const speedFactor = getTrailSpeedFactor(speed);
   const visibleTrail = Math.ceil(speedFactor * trail.length);
@@ -240,7 +240,7 @@ function BallTrail({ trail, speed }: BallTrailProps) {
   );
 }
 
-/** Converte a velocidade em intensidade visual do rastro. */
+/** Converts speed into the trail's visual intensity. */
 function getTrailSpeedFactor(speed: number): number {
   return Math.min(
     1,
@@ -251,7 +251,7 @@ function getTrailSpeedFactor(speed: number): number {
   );
 }
 
-/** Renderiza um ponto do rastro com opacidade decrescente. */
+/** Renders a trail point with decreasing opacity. */
 function TrailPoint({ point, index, speedFactor, color }: TrailPointProps) {
   return (
     <mesh
@@ -268,7 +268,7 @@ function TrailPoint({ point, index, speedFactor, color }: TrailPointProps) {
   );
 }
 
-/** Renderiza o anel visual do impacto na raquete. */
+/** Renders the visual ring for an impact on the paddle. */
 function ImpactFlash({ impact }: ImpactFlashProps) {
   const flash = useRef<Mesh>(null);
 
@@ -286,7 +286,7 @@ function ImpactFlash({ impact }: ImpactFlashProps) {
   );
 }
 
-/** Atualiza escala e opacidade do impacto em cada frame. */
+/** Updates the impact's scale and opacity on each frame. */
 function updateImpactFlash(mesh: Mesh, impact: Impact) {
   mesh.visible = impact.strength > 0.01;
   mesh.rotation.x = -Math.PI / 2;
@@ -295,7 +295,7 @@ function updateImpactFlash(mesh: Mesh, impact: Impact) {
   (mesh.material as MeshBasicMaterial).opacity = impact.strength * 0.8;
 }
 
-/** Renderiza a bola e seus efeitos de movimento. */
+/** Renders the ball and its motion effects. */
 function Ball({ snapshot }: BallProps) {
   const paddlePosition =
     snapshot.ball.x < 0
@@ -322,7 +322,7 @@ function Ball({ snapshot }: BallProps) {
   );
 }
 
-/** Renderiza o corpo e o anel da bola. */
+/** Renders the ball body and ring. */
 function BallBody({ snapshot, impact }: BallBodyProps) {
   return (
     <group position={[snapshot.ball.x, BALL_Y, snapshot.ball.z]}>
@@ -333,7 +333,7 @@ function BallBody({ snapshot, impact }: BallBodyProps) {
   );
 }
 
-/** Renderiza a esfera luminosa da bola. */
+/** Renders the ball's glowing sphere. */
 function BallSphere() {
   return (
     <mesh castShadow>
@@ -349,7 +349,7 @@ function BallSphere() {
   );
 }
 
-/** Renderiza o anel decorativo da bola. */
+/** Renders the ball's decorative ring. */
 function BallRing() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]}>
@@ -363,18 +363,18 @@ function BallRing() {
   );
 }
 
-/** Lê a cor de fundo definida pelo tema Material UI ativo. */
+/** Reads the background color defined by the active Material UI theme. */
 function usePongBackgroundColor(): string {
   const { palette } = useTheme();
   return palette.background.default;
 }
 
-/** Define a cor de fundo da cena. */
+/** Sets the scene's background color. */
 function SceneBackground() {
   return <color attach="background" args={[usePongBackgroundColor()]} />;
 }
 
-/** Renderiza todos os elementos 3D da partida. */
+/** Renders all 3D elements of the match. */
 export function PongScene({ snapshot }: PongSceneProps) {
   return (
     <>
@@ -394,7 +394,7 @@ export function PongScene({ snapshot }: PongSceneProps) {
   );
 }
 
-/** Configura a iluminação usada pela mesa e pelos objetos. */
+/** Configures the lighting used by the table and objects. */
 function SceneLighting() {
   return (
     <>

@@ -1,6 +1,6 @@
 import { createTheme, type PaletteMode } from "@mui/material/styles";
 
-/** Define as cores da paleta para o modo selecionado. */
+/** Defines the palette colors for the selected mode. */
 function paletteForMode(mode: PaletteMode) {
   const dark = mode === "dark";
   return {
@@ -19,7 +19,7 @@ function paletteForMode(mode: PaletteMode) {
   };
 }
 
-/** Opções visuais compartilhadas pelos temas claro e escuro. */
+/** Visual options shared by the light and dark themes. */
 const sharedThemeOptions = {
   shape: { borderRadius: 10 },
   typography: {
@@ -39,7 +39,7 @@ const sharedThemeOptions = {
   },
 };
 
-/** Cria um tema do Material UI com base no modo de paleta fornecido (claro ou escuro). */
+/** Creates a Material UI theme based on the provided palette mode (light or dark). */
 export function createAppTheme(mode: PaletteMode) {
   return createTheme({ ...sharedThemeOptions, palette: paletteForMode(mode) });
 }

@@ -4,7 +4,7 @@ import Typography from "@mui/material/Typography";
 import { PageContainer } from "../ui/PageContainer";
 
 /**
- * Página exibida quando a rota não corresponde a nenhum caminho conhecido.
+ * Page displayed when the route does not match any known path.
  */
 export function NotFoundPage() {
   return (

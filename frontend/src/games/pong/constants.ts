@@ -1,17 +1,17 @@
 import type { MatchState } from "./protocol";
 import { TABLE } from "./protocol";
 
-/** Lados possíveis da mesa usados para carregar e exibir jogadores. */
+/** Possible table sides used to load and display players. */
 export const GAME_SIDES = ["left", "right"] as const;
 
-/** Títulos das fases que não possuem uma tela específica. */
+/** Titles for phases that do not have a dedicated screen. */
 export const BASIC_PHASE_TITLES: Partial<Record<MatchState["phase"], string>> = {
   connecting: "Conectando…",
   waiting: "Aguardando oponente",
   opponent_left: "Partida encerrada",
 };
 
-/** Parâmetros fixos usados para enquadrar a mesa na câmera. */
+/** Fixed parameters used to frame the table in the camera. */
 export const PONG_CAMERA = {
   viewHalfX: TABLE.halfLength * 1.2,
   viewHalfZ: TABLE.halfWidth * 1.35,
@@ -24,7 +24,7 @@ export const PONG_CAMERA = {
   depth: 0.64,
 } as const;
 
-/** Camada de placar e instruções sobre a cena 3D. */
+/** Scoreboard and instructions layer over the 3D scene. */
 export const PONG_STAGE_OVERLAY_SX = {
   position: "absolute",
   inset: 0,
@@ -37,7 +37,7 @@ export const PONG_STAGE_OVERLAY_SX = {
   pointerEvents: "none",
 } as const;
 
-/** Área reservada para manter o placar acima da mesa em qualquer viewport. */
+/** Area reserved to keep the scoreboard above the table in any viewport. */
 export const PONG_CANVAS_SX = {
   position: "absolute",
   inset: 0,
@@ -45,7 +45,7 @@ export const PONG_CANVAS_SX = {
   bottom: { xs: 48, sm: 56 },
 } as const;
 
-/** Fundo comum dos estados exibidos sobre a mesa. */
+/** Shared background for states displayed over the table. */
 export const PONG_MODAL_BACKDROP_SX = {
   position: "absolute",
   inset: 0,
@@ -57,7 +57,7 @@ export const PONG_MODAL_BACKDROP_SX = {
   backdropFilter: "blur(2px)",
 } as const;
 
-/** Cartão específico do modal de pausa. */
+/** Card specific to the pause modal. */
 export const RESUME_CARD_SX = {
   width: "min(100%, 440px)",
   borderColor: "primary.main",
@@ -66,10 +66,10 @@ export const RESUME_CARD_SX = {
   p: { xs: 2.5, sm: 4 },
 } as const;
 
-/** Posição vertical da superfície da mesa no mundo 3D. */
+/** Vertical position of the table surface in the 3D world. */
 export const TABLE_SURFACE_Y = -0.5;
 
-/** Dimensões e acabamento visual da mesa e dos seus elementos. */
+/** Dimensions and visual finish of the table and its elements. */
 export const PADDLE_SIZE: [number, number, number] = [0.18, 0.24, 1.6];
 export const PADDLE_Y = TABLE_SURFACE_Y + PADDLE_SIZE[1] / 2;
 export const BALL_Y = TABLE_SURFACE_Y + TABLE.ballRadius;
@@ -96,7 +96,7 @@ type TableBox = {
   size: [number, number, number];
 };
 
-/** Trilhos estruturais que contornam a superfície da mesa. */
+/** Structural rails surrounding the table surface. */
 export const TABLE_RAILS: TableBox[] = [
   {
     position: [0, TABLE_SURFACE_Y + TABLE_RAIL_HEIGHT / 2, -TABLE.halfWidth - 0.1],
@@ -116,7 +116,7 @@ export const TABLE_RAILS: TableBox[] = [
   },
 ];
 
-/** Linhas luminosas decorativas aplicadas junto às bordas da mesa. */
+/** Decorative light strips placed along the table edges. */
 export const TABLE_EDGE_LINES: TableBox[] = [
   {
     position: [0, TABLE_SURFACE_Y + 0.02, -TABLE.halfWidth + 0.08],
@@ -136,12 +136,12 @@ export const TABLE_EDGE_LINES: TableBox[] = [
   },
 ];
 
-/** Velocidade local usada para mover a raquete. */
+/** Local speed used to move the paddle. */
 export const PADDLE_SPEED = 8;
 
-/** Teclas aceitas para mover a raquete para cima e para baixo. */
+/** Keys accepted to move the paddle up and down. */
 export const MOVE_UP_CODES = new Set(["KeyW", "ArrowUp"]);
 export const MOVE_DOWN_CODES = new Set(["KeyS", "ArrowDown"]);
 
-/** Quantidade de registros exibidos inicialmente nas tabelas de estatísticas. */
+/** Number of records initially displayed in the statistics tables. */
 export const PONG_STATS_PAGE_SIZE = 7;

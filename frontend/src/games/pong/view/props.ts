@@ -2,93 +2,93 @@ import type { MutableRefObject, ReactNode } from "react";
 import type { Profile } from "../../../api/types";
 import type { GameSnapshot, MatchState, Side, Transport } from "../protocol";
 
-/** Perfil mínimo usado no placar da partida. */
+/** Minimal profile used in the match scoreboard. */
 export type PlayerProfile = Pick<Profile, "nickname" | "avatarUrl">;
 
-/** Perfis associados aos lados da mesa. */
+/** Profiles associated with the table sides. */
 export type PlayerProfiles = Record<Side, PlayerProfile | null>;
 
-/** Props da tela de estado sobreposta ao jogo. */
+/** Props for the status screen overlaid on the game. */
 export type StatusScreenProps = {
   title: string;
   titleColor?: string;
   children?: ReactNode;
 };
 
-/** Props da contagem regressiva da partida. */
+/** Props for the match countdown. */
 export type CountdownScreenProps = {
   playerSide: Side | null;
   startsAt: number | null;
 };
 
-/** Props do número exibido na contagem regressiva. */
+/** Props for the number displayed in the countdown. */
 export type CountdownNumberProps = { seconds: number };
 
-/** Props do botão de rematch. */
+/** Props for the rematch button. */
 export type RematchButtonProps = {
   accepted: boolean;
   onRequestRematch: () => void;
 };
 
-/** Props das ações exibidas ao final da partida. */
+/** Props for the actions displayed at the end of the match. */
 export type ResultActionsProps = {
   accepted: boolean;
   onRequestRematch: () => void;
   onRequestLeave: () => void;
 };
 
-/** Props do botão que encerra a partida. */
+/** Props for the button that ends the match. */
 export type LeaveMatchButtonProps = {
   onLeave: () => void;
   equalWidth?: boolean;
 };
 
-/** Props da tela de resultado. */
+/** Props for the result screen. */
 export type ResultScreenProps = {
   state: MatchState;
   onRequestRematch: () => void;
   onRequestLeave: () => void;
 };
 
-/** Props dos detalhes do resultado. */
+/** Props for the result details. */
 export type ResultDetailsProps = { state: MatchState };
 
-/** Props de uma pontuação individual. */
+/** Props for an individual score. */
 export type ScorePlayerProps = { label: string; score: number };
 
-/** Estado dos indicadores de confirmação. */
+/** State of the confirmation indicators. */
 export type AcceptanceFlags = {
   playerAccepted: boolean;
   opponentAccepted: boolean;
 };
 
-/** Props dos indicadores de confirmação. */
+/** Props for the confirmation indicators. */
 export type AcceptanceStatusProps = {
   flags: AcceptanceFlags;
   pendingLabel?: string;
 };
 
-/** Props de um indicador individual de confirmação. */
+/** Props for an individual confirmation indicator. */
 export type ConfirmationChipProps = {
   accepted: boolean;
   label: string;
 };
 
-/** Props do modal de retomada. */
+/** Props for the resume modal. */
 export type ResumeScreenProps = {
   state: MatchState;
   onRequestResume: () => void;
   onRequestLeave: () => void;
 };
 
-/** Props das ações do modal de retomada. */
+/** Props for the resume modal actions. */
 export type ResumeActionsProps = {
   flags: AcceptanceFlags;
   onRequestResume: () => void;
   onRequestLeave: () => void;
 };
 
-/** Props do palco 3D e seus controles visuais. */
+/** Props for the 3D stage and its visual controls. */
 export type PongStageProps = {
   snapshot: GameSnapshot;
   playerSide: MatchState["playerSide"];
@@ -96,25 +96,25 @@ export type PongStageProps = {
   phase: MatchState["phase"];
 };
 
-/** Props do Canvas que renderiza a mesa. */
+/** Props for the Canvas that renders the table. */
 export type PongCanvasProps = { snapshot: GameSnapshot };
 
-/** Props do painel de estado que mantém o jogo ao fundo. */
+/** Props for the status panel that keeps the game in the background. */
 export type PhaseStageProps = {
   children: ReactNode;
 };
 
-/** Props do cartão que contém os estados da partida. */
+/** Props for the card containing the match states. */
 export type PhaseBackdropProps = { children: ReactNode };
 
-/** Props do conteúdo do painel de placar. */
+/** Props for the scoreboard panel content. */
 export type PlayerScoreboardProps = {
   score: GameSnapshot["score"];
   profiles: PlayerProfiles;
   phase: MatchState["phase"];
 };
 
-/** Props do cartão de um jogador no placar. */
+/** Props for a player's scoreboard card. */
 export type PlayerScoreCardProps = {
   side: Side;
   profile: PlayerProfile | null;
@@ -122,7 +122,7 @@ export type PlayerScoreCardProps = {
   phase: MatchState["phase"];
 };
 
-/** Props da seleção de fase da partida. */
+/** Props for selecting the match phase. */
 export type PhaseViewProps = {
   state: MatchState;
   profiles: PlayerProfiles;
@@ -131,43 +131,43 @@ export type PhaseViewProps = {
   onRequestLeave: () => void;
 };
 
-/** Props da fase básica da partida. */
+/** Props for the basic match phase. */
 export type BasicPhaseViewProps = {
   state: MatchState;
   profiles: PlayerProfiles;
 };
 
-/** Props da fase em andamento. */
+/** Props for the in-progress phase. */
 export type PlayingPhaseProps = BasicPhaseViewProps;
 
-/** Props de uma fase com mensagem de estado. */
+/** Props for a phase with a status message. */
 export type StatusPhaseProps = BasicPhaseViewProps & { title: string };
 
-/** Props da fase de contagem regressiva. */
+/** Props for the countdown phase. */
 export type CountdownPhaseProps = BasicPhaseViewProps;
 
-/** Props do componente principal do jogo. */
+/** Props for the main game component. */
 export type PongAppProps = { transport: Transport };
 
-/** Props de um trilho da mesa. */
+/** Props for a table rail. */
 export type TableRailProps = {
   position: [number, number, number];
   size: [number, number, number];
 };
 
-/** Props de uma raquete. */
+/** Props for a paddle. */
 export type PaddleProps = { side: Side; position: number };
 
-/** Ponto usado no rastro da bola. */
+/** Point used in the ball trail. */
 export type BallPoint = { x: number; z: number };
 
-/** Estado visual do impacto da bola. */
+/** Visual state of the ball impact. */
 export type Impact = { strength: number; angle: number };
 
-/** Props do rastro da bola. */
+/** Props for the ball trail. */
 export type BallTrailProps = { trail: BallPoint[]; speed: number };
 
-/** Props de um ponto do rastro. */
+/** Props for a trail point. */
 export type TrailPointProps = {
   point: BallPoint;
   index: number;
@@ -175,24 +175,24 @@ export type TrailPointProps = {
   color: string;
 };
 
-/** Props do efeito visual de impacto. */
+/** Props for the visual impact effect. */
 export type ImpactFlashProps = {
   impact: MutableRefObject<Impact>;
 };
 
-/** Props do componente visual da bola. */
+/** Props for the visual ball component. */
 export type BallProps = { snapshot: GameSnapshot };
 
-/** Props do corpo visual da bola. */
+/** Props for the visual ball body. */
 export type BallBodyProps = {
   snapshot: GameSnapshot;
   impact?: MutableRefObject<Impact>;
 };
 
-/** Props da cena completa do Pong. */
+/** Props for the complete Pong scene. */
 export type PongSceneProps = { snapshot: GameSnapshot };
 
-/** Opções do hook de entrada da raquete. */
+/** Options for the paddle input hook. */
 export type UsePaddleInputOptions = {
   enabled: boolean;
   paddlePosition: number;

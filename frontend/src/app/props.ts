@@ -3,19 +3,19 @@ import type { Dispatch, SetStateAction } from "react";
 import type { ChatMessage, ChatTransport, GameInvitation } from "../api/chat";
 import type { PrivateChatTab } from "../chat/privateChat";
 
-/** Props do provedor de autenticação. */
+/** Props for the authentication provider. */
 export type AuthProviderProps = { children: ReactNode };
 
-/** Props do provedor de chat. */
+/** Props for the chat provider. */
 export type ChatProviderProps = { children: ReactNode };
 
-/** Props do provedor de amigos. */
+/** Props for the friends provider. */
 export type FriendsProviderProps = { children: ReactNode };
 
-/** Props do guard de autenticação. */
+/** Props for the authentication guard. */
 export type RequireAuthProps = { children: ReactNode };
 
-/** Props de um link da navegação. */
+/** Props for a navigation link. */
 export type NavItemProps = {
   to: string;
   label: string;
@@ -24,7 +24,7 @@ export type NavItemProps = {
   pendingFriends?: number;
 };
 
-/** Estado necessário para exibir a navegação principal. */
+/** State required to display the main navigation. */
 export type NavigationProps = {
   unread: number;
   pendingFriends: number;
@@ -35,34 +35,34 @@ export type NavigationProps = {
   signOut: () => void;
 };
 
-/** Props do seletor compacto de navegação. */
+/** Props for the compact navigation selector. */
 export type MobileNavigationProps = NavigationProps;
 
-/** Props usadas pelos links horizontais da navegação. */
+/** Props used by the horizontal navigation links. */
 export type NavItemsProps = Pick<
   NavigationProps,
   "unread" | "pendingFriends" | "pathname" | "signedIn"
 >;
 
-/** Props usadas para montar as opções do seletor compacto. */
+/** Props used to build the compact selector options. */
 export type MobilePageOptionsProps = Pick<
   NavigationProps,
   "unread" | "pendingFriends" | "mode" | "signedIn"
 >;
 
-/** Estado de contagem de um item de navegação. */
+/** Count state for a navigation item. */
 export type NavItemUnreadProps = Pick<
   NavigationProps,
   "unread" | "pendingFriends"
 >;
 
-/** Referência mutável do transporte de chat. */
+/** Mutable reference to the chat transport. */
 export type ChatTransportRef = { current: ChatTransport | null };
 
-/** Referência da conversa visualizada. */
+/** Reference to the viewed conversation. */
 export type ChatViewingRef = { current: string | null };
 
-/** Setters compartilhados pelos handlers do provedor de chat. */
+/** Setters shared by the chat provider handlers. */
 export type ChatSetters = {
   setGlobal: Dispatch<SetStateAction<ChatMessage[]>>;
   setPrivate: Dispatch<SetStateAction<Record<string, ChatMessage[]>>>;
@@ -76,7 +76,7 @@ export type ChatSetters = {
   setGameInvitations: Dispatch<SetStateAction<GameInvitation[]>>;
 };
 
-/** Estado interno usado pelo provedor de chat. */
+/** Internal state used by the chat provider. */
 export type ChatProviderState = {
   globalMessages: ChatMessage[];
   privateMessagesByConversation: Record<string, ChatMessage[]>;

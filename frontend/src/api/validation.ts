@@ -1,29 +1,29 @@
-/** Mesmo formato básico de e-mail exigido pelo backend. */
+/** Same basic email format required by the backend. */
 export const EMAIL_PATTERN = "[^@\\s]+@[^@\\s]+\\.[^@\\s]+";
 
-/** Limites compartilhados para apelidos de usuário. */
+/** Shared limits for user nicknames. */
 export const NICKNAME_MIN_LENGTH = 3;
 export const NICKNAME_MAX_LENGTH = 20;
 export const NICKNAME_PATTERN = "[A-Za-z0-9_]+";
 
-/** Tamanho mínimo da senha no cadastro. */
+/** Minimum password length for registration. */
 export const PASSWORD_MIN_LENGTH = 8;
 
-/** Tipos aceitos para o arquivo de avatar. */
+/** Accepted MIME types for the avatar file. */
 export const AVATAR_ACCEPTED_TYPES = [
   "image/png",
   "image/jpeg",
   "image/webp",
 ];
 
-/** Mensagem exibida quando o avatar excede o tamanho permitido. */
+/** Message displayed when the avatar exceeds the allowed size. */
 export const AVATAR_TOO_LARGE = "imagem muito grande (máx. 600KB)";
 
-/** Tamanho máximo aceito para o arquivo de avatar. */
+/** Maximum accepted size for the avatar file. */
 export const MAX_AVATAR_FILE_SIZE = 599_900;
 
-/** Maior dimensão permitida para a imagem do avatar. */
+/** Maximum allowed dimension for the avatar image. */
 export const MAX_AVATAR_DIMENSION = 4096;
 
-/** Quantidade máxima de caracteres permitida em uma mensagem. */
+/** Maximum number of characters allowed in a message. */
 export const MAX_CHAT_MESSAGE_LENGTH = 1000;

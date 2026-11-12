@@ -19,21 +19,21 @@ import { LegalFooter } from "./LegalFooter";
 import { LegalPage } from "../pages/LegalPage";
 
 /**
- * Carregamento preguiçoso do Jogo.
- * Carrega o módulo do jogo somente quando acessado via rota.
+ * Lazy loading for the game.
+ * Loads the game module only when its route is accessed.
  */
 const PongPage = lazy(async () => {
   const module = await import("../pages/PongPage");
   return { default: module.PongPage };
 });
 
-/** Envolve a página com o guard de autenticação. */
+/** Wraps the page with the authentication guard. */
 function protectedPage(page: ReactNode) {
   return <RequireAuth>{page}</RequireAuth>;
 }
 
 /**
- * Define as rotas da aplicação.
+ * Defines the application routes.
  */
 function AppRoutes() {
   return (
@@ -58,7 +58,7 @@ function AppRoutes() {
   );
 }
 
-/** Estado exibido enquanto uma página é carregada sob demanda. */
+/** State displayed while a page is being lazy-loaded. */
 function LoadingFallback() {
   return (
     <Box sx={{ p: 4, color: "text.secondary" }}>
@@ -68,8 +68,8 @@ function LoadingFallback() {
 }
 
 /**
- * Componente principal da aplicação.
- * Ponto de partida de toda a aplicação.
+ * Main application component.
+ * Entry point for the entire application.
  */
 export default function App() {
   return (
@@ -83,7 +83,7 @@ export default function App() {
   );
 }
 
-/** Estrutura principal compartilhada pelas páginas da aplicação. */
+/** Main structure shared by the application pages. */
 function AppShell() {
   return (
     <BrowserRouter>
@@ -92,7 +92,7 @@ function AppShell() {
   );
 }
 
-/** Ajusta a altura do aplicativo conforme a página ativa. */
+/** Adjusts the application height based on the active page. */
 function AppShellContent() {
   const { pathname } = useLocation();
   const fixedHeight = pathname === "/chat" || pathname === "/pong";

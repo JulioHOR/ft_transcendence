@@ -1,7 +1,7 @@
 import Button from "@mui/material/Button";
 import type { ActionButtonProps } from "./props";
 
-/** Botão Material UI com as variantes visuais usadas no aplicativo. */
+/** Material UI button with the visual variants used by the application. */
 export function ActionButton({
   appearance = "secondary",
   ...props

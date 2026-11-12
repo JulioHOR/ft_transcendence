@@ -1,6 +1,6 @@
 import type { Transport } from "./protocol";
 
-/** Opções para montar a instância visual do Pong. */
+/** Options for mounting a visual Pong instance. */
 export type CreatePongGameOptions = {
   root: HTMLElement;
   transport: Transport;

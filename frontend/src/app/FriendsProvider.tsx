@@ -4,7 +4,7 @@ import { useAuth } from "./auth-session";
 import { FriendsContext } from "./friends-session";
 import type { FriendsProviderProps } from "./props";
 
-/** Conecta/desconecta o socket de friends conforme a sessão. */
+/** Connects or disconnects the friends socket based on the session. */
 function useFriendsConnection(
   userId: number | null,
   ready: boolean,
@@ -26,7 +26,7 @@ function useFriendsConnection(
   }, [ready, userId, setFriends]);
 }
 
-/** Provedor da lista de friends/presença. */
+/** Provider for the friends/presence list. */
 export function FriendsProvider({ children }: FriendsProviderProps) {
   const { user, ready } = useAuth();
   const [friends, setFriends] = useState<Friend[]>([]);

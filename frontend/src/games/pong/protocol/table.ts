@@ -1,35 +1,35 @@
 import type { Side } from "./types";
 
 /**
- * Dimensões da mesa em unidades do mundo 3D (Three.js, Y para cima).
+ * Table dimensions in 3D world units (Three.js, Y points upward).
  *
- * Orientação usada em todo o módulo:
- * - X: comprimento da mesa (gol ↔ gol)
- * - Z: largura da mesa (movimento das paddles)
- * - Y: altura (quase fixa na física; só no desenho 3D)
+ * Orientation used throughout this module:
+ * - X: table length (goal to goal)
+ * - Z: table width (paddle movement)
+ * - Y: height (nearly fixed in physics; used only for 3D rendering)
  */
 export const TABLE = {
-  /** Metade do comprimento da mesa. */
+  /** Half the table length. */
   halfLength: 10,
-  /** Metade da largura da mesa. */
+  /** Half the table width. */
   halfWidth: 5,
-  /** Posição da face da paddle no eixo X (comprimento). */
+  /** Position of the paddle face on the X axis (length). */
   paddleX: 9,
-  /** Metade da altura da paddle. */
+  /** Half the paddle height. */
   paddleHalfDepth: 0.8,
-  /** Raio da bola. */
+  /** Ball radius. */
   ballRadius: 0.35,
 } as const;
 
 export const inputLimit = TABLE.halfWidth - TABLE.paddleHalfDepth;
 
-/** Quantidade de pontos necessária para vencer a partida. */
+/** Number of points required to win the match. */
 export const POINTS_TO_WIN = 3;
 
 /**
- * Retorna a coordenada X (comprimento) da face da paddle.
+ * Returns the X coordinate (length) of the paddle face.
  *
- * @param side - Lado da mesa
+ * @param side - Table side
  */
 export function getPaddleX(side: Side): number {
   return (side === "left" ? -1 : 1) * TABLE.paddleX;

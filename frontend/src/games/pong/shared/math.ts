@@ -1,9 +1,9 @@
 /**
- * Calcula o tempo decorrido entre dois frames, em segundos.
- * Retorna `0` no primeiro frame (`lastFrameTime === 0`).
+ * Calculates the elapsed time between two frames, in seconds.
+ * Returns `0` on the first frame (`lastFrameTime === 0`).
  *
- * @param now - Timestamp atual em milissegundos
- * @param lastFrameTime - Timestamp do frame anterior em milissegundos
+ * @param now - Current timestamp in milliseconds
+ * @param lastFrameTime - Previous frame timestamp in milliseconds
  */
 export function computeDeltaSeconds(
   now: number,
@@ -14,11 +14,11 @@ export function computeDeltaSeconds(
 }
 
 /**
- * Restringe um valor ao intervalo fechado `[min, max]`.
+ * Clamps a value to the closed interval `[min, max]`.
  *
- * @param value - Valor a limitar
- * @param min - Limite inferior
- * @param max - Limite superior
+ * @param value - Value to clamp
+ * @param min - Lower bound
+ * @param max - Upper bound
  */
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));

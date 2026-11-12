@@ -63,7 +63,7 @@ const legalDocuments: Record<"privacy" | "terms", LegalDocument> = {
   },
 };
 
-/** Exibe a política de privacidade ou os termos de serviço. */
+/** Displays the privacy policy or terms of service. */
 export function LegalPage({ document }: LegalPageProps) {
   const content = legalDocuments[document];
   return (

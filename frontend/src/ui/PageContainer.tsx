@@ -1,7 +1,7 @@
 import Box from "@mui/material/Box";
 import type { PageContainerProps } from "./props";
 
-/** Centraliza as páginas e define espaçamento e largura do conteúdo. */
+/** Centers pages and sets the content spacing and width. */
 export function PageContainer({
   children,
   fillHeight = false,

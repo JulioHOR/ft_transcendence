@@ -24,7 +24,7 @@ import type {
   StatusScreenProps,
 } from "./props";
 
-/** Componente para exibir uma tela de status. */
+/** Component for displaying a status screen. */
 export function StatusScreen({
   title,
   titleColor,
@@ -50,7 +50,7 @@ export function StatusScreen({
   );
 }
 
-/** Hook para calcular os segundos restantes na contagem regressiva. */
+/** Hook for calculating the seconds remaining in the countdown. */
 function useCountdownSeconds(startsAt: number | null): number {
   const [seconds, setSeconds] = useState(5);
 
@@ -66,14 +66,14 @@ function useCountdownSeconds(startsAt: number | null): number {
   return seconds;
 }
 
-/** Converte o lado da partida em uma descrição exibida ao jogador. */
+/** Converts the match side into a description shown to the player. */
 function sideLabel(side: Side | null): string {
   if (side === "left") return "esquerda";
   if (side === "right") return "direita";
   return "?";
 }
 
-/** Componente para exibir a tela de contagem regressiva. */
+/** Component for displaying the countdown screen. */
 export function CountdownScreen({
   playerSide,
   startsAt,
@@ -89,7 +89,7 @@ export function CountdownScreen({
   );
 }
 
-/** Exibe o número atual da contagem regressiva. */
+/** Displays the current countdown number. */
 function CountdownNumber({ seconds }: CountdownNumberProps) {
   return (
     <Typography
@@ -107,7 +107,7 @@ function CountdownNumber({ seconds }: CountdownNumberProps) {
   );
 }
 
-/** Componente para exibir o botão de rematch. */
+/** Component for displaying the rematch button. */
 function RematchButton({ accepted, onRequestRematch }: RematchButtonProps) {
   return (
     <ActionButton
@@ -122,12 +122,12 @@ function RematchButton({ accepted, onRequestRematch }: RematchButtonProps) {
   );
 }
 
-/** Retorna o lado oposto ao jogador informado. */
+/** Returns the side opposite the specified player. */
 function opponentSide(playerSide: Side): Side {
   return playerSide === "left" ? "right" : "left";
 }
 
-/** Retorna os status de aceitação do rematch para o jogador e o oponente. */
+/** Returns the rematch acceptance status for the player and opponent. */
 function acceptanceFlags(
   playerSide: Side | null,
   rematchAccepted: AcceptanceBySide,
@@ -141,12 +141,12 @@ function acceptanceFlags(
   };
 }
 
-/** Calcula o título do resultado para o jogador atual. */
+/** Calculates the result title for the current player. */
 function resultTitle(playerSide: Side | null, winner: Side | null): string {
   return playerSide !== null && winner === playerSide ? "Vitória" : "Derrota";
 }
 
-/** Exibe a ação para encerrar a partida atual. */
+/** Displays the action to end the current match. */
 export function LeaveMatchButton({
   onLeave,
   equalWidth = false,
@@ -163,7 +163,7 @@ export function LeaveMatchButton({
   );
 }
 
-/** Componente para exibir a tela de resultado da partida. */
+/** Component for displaying the match result screen. */
 export function ResultScreen({
   state,
   onRequestRematch,
@@ -187,7 +187,7 @@ export function ResultScreen({
   );
 }
 
-/** Organiza as ações principais do resultado em uma única linha responsiva. */
+/** Arranges the main result actions in a single responsive row. */
 function ResultActions({
   accepted,
   onRequestRematch,
@@ -208,7 +208,7 @@ function ResultActions({
   );
 }
 
-/** Exibe placares e confirmações do resultado. */
+/** Displays the scores and result confirmations. */
 function ResultDetails({ state }: ResultDetailsProps) {
   const side = state.playerSide;
   const { score } = state.snapshot;
@@ -233,7 +233,7 @@ function ResultDetails({ state }: ResultDetailsProps) {
   );
 }
 
-/** Exibe uma pontuação com seu rótulo. */
+/** Displays a score with its label. */
 function ScorePlayer(props: ScorePlayerProps) {
   return (
     <Stack spacing={0.5} sx={{ alignItems: "center" }}>
@@ -245,7 +245,7 @@ function ScorePlayer(props: ScorePlayerProps) {
   );
 }
 
-/** Exibe o estado de confirmação dos dois jogadores. */
+/** Displays the confirmation status of both players. */
 function AcceptanceStatus({
   flags,
   pendingLabel = "Você não confirmou",
@@ -270,7 +270,7 @@ function AcceptanceStatus({
   );
 }
 
-/** Exibe uma confirmação individual em formato de chip. */
+/** Displays an individual confirmation as a chip. */
 function ConfirmationChip({ accepted, label }: ConfirmationChipProps) {
   return (
     <Chip
@@ -282,7 +282,7 @@ function ConfirmationChip({ accepted, label }: ConfirmationChipProps) {
   );
 }
 
-/** Mantém a mesa visível e apresenta a pausa como modal sobre o jogo. */
+/** Keeps the table visible and presents the pause as a modal over the game. */
 export function ResumeModal({
   state,
   onRequestResume,
@@ -301,7 +301,7 @@ export function ResumeModal({
   );
 }
 
-/** Renderiza o conteúdo do modal de pausa. */
+/** Renders the pause modal content. */
 function ResumeContent({
   state,
   onRequestResume,
@@ -325,7 +325,7 @@ function ResumeContent({
   );
 }
 
-/** Renderiza as ações disponíveis no modal de pausa. */
+/** Renders the actions available in the pause modal. */
 function ResumeActions({
   flags,
   onRequestResume,

@@ -3,7 +3,7 @@ import { apiFetch } from "./api";
 import { chatHistoryUrl, socketPath } from "./endpoints";
 import { errorMessage } from "./http";
 
-/** Mensagem do chat global ou de uma conversa privada. */
+/** Message from the global chat or a private conversation. */
 export type ChatMessage = {
   id: string;
   userId: number;
@@ -15,7 +15,7 @@ export type ChatMessage = {
   conversationId?: string;
 };
 
-/** Conversa privada retornada pelo histórico. */
+/** Private conversation returned by the history. */
 export type PrivateConversationHistory = {
   conversationId: string;
   otherUserId: number;
@@ -31,7 +31,7 @@ export type ChatHistory = {
   blockingUserIds: number[];
 };
 
-/** Convite de partida emitido dentro de uma conversa privada. */
+/** Match invitation sent within a private conversation. */
 export type GameInvitation = {
   inviteId: string;
   senderId: number;
@@ -41,7 +41,7 @@ export type GameInvitation = {
   status: "pending" | "accepted" | "declined" | "cancelled" | "started";
 };
 
-/** Evento de digitação no chat privado. */
+/** Typing event in the private chat. */
 export type PrivateTypingEvent = {
   userId: number;
   nickname: string;
@@ -49,14 +49,14 @@ export type PrivateTypingEvent = {
   isTyping: boolean;
 };
 
-/** Evento de leitura no chat privado. */
+/** Read event in the private chat. */
 export type PrivateReadEvent = {
   userId: number;
   conversationId: string;
   lastMessageId: string;
 };
 
-/** Transporte Socket.IO do chat. */
+/** Socket.IO chat transport. */
 export type ChatTransport = {
   connect(): Promise<void>;
   disconnect(): void;
@@ -76,6 +76,7 @@ export type ChatTransport = {
   onGameInviteUpdate(handler: (invitation: GameInvitation) => void): void;
 };
 
+/** Handlers for chat events. */
 type ChatHandlers = {
   onGlobal: ((message: ChatMessage) => void) | null;
   onPrivate: ((message: ChatMessage) => void) | null;
@@ -86,7 +87,7 @@ type ChatHandlers = {
   onGameInviteUpdate: ((invitation: GameInvitation) => void) | null;
 };
 
-/** Monta o id da conversa privada a partir do par de users. */
+/** Builds the private conversation ID from a pair of users. */
 export function buildPrivateConversationId(
   userId: number,
   otherUserId: number,
@@ -94,7 +95,7 @@ export function buildPrivateConversationId(
   return [userId, otherUserId].sort((left, right) => left - right).join(":");
 }
 
-/** Busca o histórico de chat no servidor. */
+/** Fetches the chat history from the server. */
 export async function fetchChatHistory(): Promise<ChatHistory> {
   const response = await apiFetch(chatHistoryUrl);
   if (!response.ok) {
@@ -103,7 +104,7 @@ export async function fetchChatHistory(): Promise<ChatHistory> {
   return response.json() as Promise<ChatHistory>;
 }
 
-/** Espera o socket conectar ou falhar. */
+/** Waits for the socket to connect or fail. */
 function waitForConnection(socket: Socket): Promise<void> {
   return new Promise((resolve, reject) => {
     socket.once("connect", () => resolve());
@@ -111,6 +112,7 @@ function waitForConnection(socket: Socket): Promise<void> {
   });
 }
 
+/** Attaches event listeners to the socket. */
 function attachSocketListeners(socket: Socket, handlers: ChatHandlers): void {
   socket.on("chat:message", (message: ChatMessage) =>
     handlers.onGlobal?.(message),
@@ -133,6 +135,7 @@ function attachSocketListeners(socket: Socket, handlers: ChatHandlers): void {
   attachChatPresenceListeners(socket, handlers);
 }
 
+/** Attaches typing and read event listeners to the socket. */
 function attachChatPresenceListeners(
   socket: Socket,
   handlers: ChatHandlers,
@@ -145,7 +148,7 @@ function attachChatPresenceListeners(
   });
 }
 
-/** Métodos de envio do transporte. */
+/** Transport sending methods. */
 function chatSendApi(
   getSocket: () => Socket | null,
 ): Pick<
@@ -166,7 +169,7 @@ function chatSendApi(
   };
 }
 
-/** Envio e resposta a convites de partida. */
+/** Sending and responding to match invitations. */
 function chatGameInviteSendApi(
   getSocket: () => Socket | null,
 ): Pick<
@@ -183,7 +186,7 @@ function chatGameInviteSendApi(
   };
 }
 
-/** Handlers de mensagem e erro. */
+/** Message and error handlers. */
 function chatMessageHandlers(
   handlers: ChatHandlers,
 ): Pick<
@@ -203,7 +206,7 @@ function chatMessageHandlers(
   };
 }
 
-/** Handlers de typing e read. */
+/** Typing and read handlers. */
 function chatPresenceHandlers(
   handlers: ChatHandlers,
 ): Pick<ChatTransport, "onPrivateTyping" | "onPrivateRead"> {
@@ -217,7 +220,7 @@ function chatPresenceHandlers(
   };
 }
 
-/** Registra os eventos de convite de partida. */
+/** Registers match invitation events. */
 function chatGameInviteHandlers(
   handlers: ChatHandlers,
 ): Pick<ChatTransport, "onGameInvite" | "onGameInviteUpdate"> {
@@ -231,7 +234,7 @@ function chatGameInviteHandlers(
   };
 }
 
-/** Abre a conexão do transporte. */
+/** Opens the transport connection. */
 async function connectTransport(
   handlers: ChatHandlers,
   setSocket: (socket: Socket) => void,
@@ -242,7 +245,7 @@ async function connectTransport(
   await waitForConnection(socket);
 }
 
-/** Cria um transporte de chat via Socket.IO. */
+/** Creates a chat transport via Socket.IO. */
 export function createChatTransport(): ChatTransport {
   let socket: Socket | null = null;
   const handlers = createChatHandlers();
@@ -263,7 +266,7 @@ export function createChatTransport(): ChatTransport {
   };
 }
 
-/** Cria handlers inicialmente sem inscrição. */
+/** Creates handlers that are initially unsubscribed. */
 function createChatHandlers(): ChatHandlers {
   return {
     onGlobal: null,
@@ -276,17 +279,17 @@ function createChatHandlers(): ChatHandlers {
   };
 }
 
-/** Bloque mensagens privadas enviadas por um usuário. */
+/** Blocks private messages sent by a user. */
 export async function blockChatUser(userId: number): Promise<void> {
   await updateChatBlock(userId, "POST");
 }
 
-/** Permite novamente mensagens privadas de um usuário. */
+/** Allows private messages from a user again. */
 export async function unblockChatUser(userId: number): Promise<void> {
   await updateChatBlock(userId, "DELETE");
 }
 
-/** Aplica ou remove o bloqueio de mensagens de um usuário. */
+/** Applies or removes a user's message block. */
 async function updateChatBlock(userId: number, method: "POST" | "DELETE") {
   const response = await apiFetch(`/api/chat/blocks/${userId}`, {
     method,

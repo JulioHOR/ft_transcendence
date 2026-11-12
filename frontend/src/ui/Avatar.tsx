@@ -6,7 +6,7 @@ import type { AvatarProps, AvatarSize, LinkedAvatarProps } from "./props";
 
 export type { AvatarSize } from "./props";
 
-/** Dimensões em pixels para cada tamanho de avatar suportado. */
+/** Pixel dimensions for each supported avatar size. */
 const sizePx: Record<AvatarSize, number> = {
   sm: 32,
   md: 40,
@@ -14,7 +14,7 @@ const sizePx: Record<AvatarSize, number> = {
   xl: 96,
 };
 
-/** Avatar circular; com userId vira link para o perfil. */
+/** Circular avatar; becomes a profile link when userId is provided. */
 export function Avatar(props: AvatarProps) {
   const size = sizePx[props.size ?? "md"];
   const image = (
@@ -37,7 +37,7 @@ export function Avatar(props: AvatarProps) {
   );
 }
 
-/** Envolve o avatar em um link para o perfil. */
+/** Wraps the avatar in a link to the profile. */
 function LinkedAvatar({ userId, label, children }: LinkedAvatarProps) {
   return (
     <MuiLink

@@ -1,7 +1,7 @@
 import type { SubmitEvent } from "react";
 import type { Profile, User } from "../api/types";
 
-/** Props do formulário de edição de um campo do perfil. */
+/** Props for the profile field edit form. */
 export type ProfileFieldFormProps = {
   field: "email" | "nickname";
   label: string;
@@ -10,7 +10,7 @@ export type ProfileFieldFormProps = {
   onSaved: (user: User, message?: string) => void;
 };
 
-/** Callbacks locais do formulário de perfil. */
+/** Local callbacks for the profile form. */
 export type ProfileFieldCallbacks = {
   setValue: (value: string) => void;
   setError: (value: string | null) => void;
@@ -18,7 +18,7 @@ export type ProfileFieldCallbacks = {
   setPending: (value: boolean) => void;
 };
 
-/** Props do layout completo de um campo de perfil. */
+/** Props for the complete layout of a profile field. */
 export type ProfileFieldFormLayoutProps = ProfileFieldFormProps & {
   value: string;
   error: string | null;
@@ -29,24 +29,24 @@ export type ProfileFieldFormLayoutProps = ProfileFieldFormProps & {
   onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
 };
 
-/** Props do botão de seleção de avatar. */
+/** Props for the avatar selection button. */
 export type AvatarFileButtonProps = {
   pending: boolean;
   onFile: (file: File | undefined) => void;
 };
 
-/** Props do botão de remoção de avatar. */
+/** Props for the avatar removal button. */
 export type AvatarRemoveButtonProps = {
   pending: boolean;
   onRemove: () => void;
 };
 
-/** Props do campo de arquivo de avatar. */
+/** Props for the avatar file field. */
 export type AvatarFileInputProps = {
   onFile: (file: File | undefined) => void;
 };
 
-/** Props do avatar editável. */
+/** Props for the editable avatar. */
 export type EditableAvatarProps = {
   avatarUrl: string | null | undefined;
   nickname: string;
@@ -54,61 +54,61 @@ export type EditableAvatarProps = {
   onFile: (file: File | undefined) => void;
 };
 
-/** Props do conteúdo do editor de avatar. */
+/** Props for the avatar editor content. */
 export type AvatarEditorContentProps = EditableAvatarProps & {
   error: string | null;
   onRemove: () => void;
 };
 
-/** Props das ações do editor de avatar. */
+/** Props for the avatar editor actions. */
 export type AvatarEditorActionsProps = Omit<AvatarEditorContentProps, "error">;
 
-/** Props do editor de avatar. */
+/** Props for the avatar editor. */
 export type AvatarEditorProps = {
   avatarUrl: string | null | undefined;
   nickname: string;
   onSaved: (profile: Profile) => void;
 };
 
-/** Props do corpo do próprio perfil. */
+/** Props for the current user's profile body. */
 export type OwnProfileBodyProps = {
   user: User;
   onSaved: (user: User) => void;
 };
 
-/** Props dos campos do próprio perfil. */
+/** Props for the current user's profile fields. */
 export type ProfileFieldsProps = {
   user: User;
   onSaved: (user: User, message?: string) => void;
 };
 
-/** Props do conteúdo carregado do próprio perfil. */
+/** Props for the loaded content of the current user's profile. */
 export type OwnProfileLoadedProps = {
   user: User | null;
   error: string | null;
   onSaved: (user: User, message?: string) => void;
 };
 
-/** Props do conteúdo do próprio perfil. */
+/** Props for the current user's profile content. */
 export type OwnProfileContentProps = OwnProfileLoadedProps;
 
-/** Props do perfil público de outro usuário. */
+/** Props for another user's public profile. */
 export type OtherProfileContentProps = { profile: Profile };
 
-/** Props da ação de amizade no perfil público. */
+/** Props for the friend action on the public profile. */
 export type OtherProfileFriendActionProps = OtherProfileContentProps;
 
-/** Props do botão de amizade no perfil público. */
+/** Props for the friend button on the public profile. */
 export type OtherProfileFriendButtonProps = {
   profile: Profile;
   incoming: boolean;
 };
 
-/** Props do estado de carregamento do perfil público. */
+/** Props for the public profile loading state. */
 export type OtherProfileContentStateProps = {
   profile: Profile | null;
   error: string | null;
 };
 
-/** Props da página pública de perfil. */
+/** Props for the public profile page. */
 export type OtherProfilePageProps = { userId: number };

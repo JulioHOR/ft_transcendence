@@ -3,22 +3,22 @@ import { PongApp } from "./view/PongApp";
 import type { CreatePongGameOptions } from "./props";
 
 /**
- * Controle de montagem do Pong em um elemento DOM.
+ * Controls mounting Pong into a DOM element.
  */
 export type PongGameHandle = {
-  /** Monta e inicia a renderização. */
+  /** Mounts and starts rendering. */
   start(): void;
-  /** Pausa a renderização. */
+  /** Pauses rendering. */
   stop(): void;
-  /** Desmonta a aplicação do elemento. */
+  /** Unmounts the application from the element. */
   dispose(): void;
 };
 
 /**
- * Renderiza o Pong em um elemento DOM usando o transport informado.
+ * Renders Pong in a DOM element using the provided transport.
  *
- * @param options.root - Elemento onde o jogo será montado
- * @param options.transport - Canal de comunicação da partida
+ * @param options.root - Element where the game will be mounted
+ * @param options.transport - Match communication channel
  */
 export function createPongGame(options: CreatePongGameOptions): PongGameHandle {
   const { root, transport } = options;

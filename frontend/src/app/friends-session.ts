@@ -1,16 +1,16 @@
 import { createContext, useContext } from "react";
 import type { Friend } from "../api/friends";
 
-/** Valor compartilhado da lista de friends/presença. */
+/** Shared friends/presence list value. */
 export type FriendsContextValue = {
   friends: Friend[];
   pendingCount: number;
 };
 
-/** Contexto React da lista de friends. */
+/** React context for the friends list. */
 export const FriendsContext = createContext<FriendsContextValue | null>(null);
 
-/** Hook para ler a lista de friends dentro do FriendsProvider. */
+/** Hook for reading the friends list inside FriendsProvider. */
 export function useFriends(): FriendsContextValue {
   const value = useContext(FriendsContext);
   if (value === null) {

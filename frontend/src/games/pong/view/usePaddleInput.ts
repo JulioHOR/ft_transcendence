@@ -9,14 +9,14 @@ import {
 } from "../constants";
 import type { UsePaddleInputOptions } from "./props";
 
-/** Direções aceitas pelo controle da raquete. */
+/** Directions accepted by the paddle controls. */
 type MoveDirection = "moveUp" | "moveDown";
 
-/** Estado das teclas de movimento. */
+/** State of the movement keys. */
 type PressedKeys = Record<MoveDirection, boolean>;
 /**
- * Converte um código de tecla em direção de movimento,
- * ou `null` se a tecla não controla a paddle.
+ * Converts a key code into a movement direction,
+ * or `null` if the key does not control the paddle.
  */
 function getMoveDirection(code: string): MoveDirection | null {
   if (MOVE_UP_CODES.has(code)) return "moveUp";
@@ -25,19 +25,19 @@ function getMoveDirection(code: string): MoveDirection | null {
 }
 
 /**
- * Limita a posição da paddle no eixo Z (largura) às bordas da mesa.
+ * Clamps the paddle position on the Z axis (width) to the table edges.
  *
- * @param position - Posição candidata no eixo Z (largura)
+ * @param position - Candidate position on the Z axis (width)
  */
 function clampPaddlePosition(position: number): number {
   return clamp(position, -inputLimit, inputLimit);
 }
 
 /**
- * Calcula o deslocamento no eixo Z (largura) para uma direção e intervalo de tempo.
+ * Calculates the displacement on the Z axis (width) for a direction and time interval.
  *
- * @param direction - Direção do movimento
- * @param deltaSeconds - Tempo decorrido, em segundos
+ * @param direction - Movement direction
+ * @param deltaSeconds - Elapsed time in seconds
  */
 function movementDelta(direction: MoveDirection, deltaSeconds: number): number {
   const distance = PADDLE_SPEED * deltaSeconds;
@@ -45,11 +45,11 @@ function movementDelta(direction: MoveDirection, deltaSeconds: number): number {
 }
 
 /**
- * Calcula a próxima posição da paddle no eixo Z (largura) a partir das teclas pressionadas.
+ * Calculates the next paddle position on the Z axis (width) from the pressed keys.
  *
- * @param currentPosition - Posição atual no eixo Z (largura)
- * @param pressed - Estado das teclas de movimento
- * @param deltaSeconds - Tempo decorrido, em segundos
+ * @param currentPosition - Current position on the Z axis (width)
+ * @param pressed - State of the movement keys
+ * @param deltaSeconds - Elapsed time in seconds
  */
 function computeNextPaddlePosition(
   currentPosition: number,
@@ -62,24 +62,24 @@ function computeNextPaddlePosition(
   return clampPaddlePosition(nextPosition);
 }
 
-/** Indica se há alguma tecla de movimento pressionada. */
+/** Indicates whether any movement key is pressed. */
 function hasMovementInput(pressed: PressedKeys): boolean {
   return pressed.moveUp || pressed.moveDown;
 }
 
-/** Referências mutáveis usadas no loop de entrada. */
+/** Mutable references used in the input loop. */
 type InputLoopRefs = {
   paddlePosition: MutableRefObject<number>;
   pressed: MutableRefObject<PressedKeys>;
 };
 
 /**
- * Atualiza a posição local da paddle e envia o input pelo transport.
+ * Updates the local paddle position and sends the input through the transport.
  *
- * @param transport - Canal de comunicação da partida
- * @param refs - Referências do loop de input
- * @param pressed - Estado das teclas
- * @param deltaSeconds - Tempo decorrido, em segundos
+ * @param transport - Match communication channel
+ * @param refs - Input loop references
+ * @param pressed - Key state
+ * @param deltaSeconds - Elapsed time in seconds
  */
 function sendPaddleInput(
   transport: Transport,
@@ -99,13 +99,13 @@ function sendPaddleInput(
 }
 
 /**
- * Processa um frame do loop de input.
+ * Processes one frame of the input loop.
  *
- * @param transport - Canal de comunicação da partida
- * @param refs - Referências do loop de input
- * @param enabled - Se `false`, não envia movimento
- * @param now - Timestamp do frame, em milissegundos
- * @param lastFrameTime - Timestamp do frame anterior
+ * @param transport - Match communication channel
+ * @param refs - Input loop references
+ * @param enabled - If `false`, movement is not sent
+ * @param now - Frame timestamp in milliseconds
+ * @param lastFrameTime - Previous frame timestamp
  */
 function runInputFrame(
   transport: Transport,
@@ -123,9 +123,9 @@ function runInputFrame(
 }
 
 /**
- * Registra os listeners de teclado e retorna a função de remoção.
+ * Registers the keyboard listeners and returns the removal function.
  *
- * @param pressed - Referência com o estado das teclas de movimento
+ * @param pressed - Reference containing the movement key state
  */
 function attachKeyboard(
   pressed: MutableRefObject<PressedKeys>,
@@ -150,7 +150,7 @@ function attachKeyboard(
   };
 }
 
-/** Atualiza o estado da direção associada a uma tecla. */
+/** Updates the state of the direction associated with a key. */
 function setDirectionPressed(
   pressed: MutableRefObject<PressedKeys>,
   code: string,
@@ -161,11 +161,11 @@ function setDirectionPressed(
 }
 
 /**
- * Inicia o loop de frames de input e retorna a função que o interrompe.
+ * Starts the input frame loop and returns the function that stops it.
  *
- * @param transport - Canal de comunicação da partida
- * @param refs - Referências do loop de input
- * @param enabled - Se o envio de movimento está ativo
+ * @param transport - Match communication channel
+ * @param refs - Input loop references
+ * @param enabled - Whether movement sending is enabled
  */
 function startInputLoop(
   transport: Transport,
@@ -175,7 +175,7 @@ function startInputLoop(
   let frameId = 0;
   const lastFrameTime = { current: 0 };
 
-  /** Processa um frame e agenda o próximo. */
+  /** Processes one frame and schedules the next. */
   function tick(now: number): void {
     runInputFrame(transport, refs, enabled, now, lastFrameTime);
     frameId = requestAnimationFrame(tick);
@@ -186,10 +186,10 @@ function startInputLoop(
 }
 
 /**
- * Hook que lê W/S e setas e envia a posição da paddle pelo transport.
+ * Hook that reads W/S and the arrow keys and sends the paddle position through the transport.
  *
- * @param transport - Canal de comunicação da partida
- * @param options.enabled - Se `false`, ignora o movimento (ex.: partida encerrada)
+ * @param transport - Match communication channel
+ * @param options.enabled - If `false`, ignores movement (e.g., when the match has ended)
  */
 export function usePaddleInput(
   transport: Transport,

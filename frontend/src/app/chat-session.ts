@@ -2,13 +2,12 @@ import { createContext, useContext } from "react";
 import type { ChatMessage, GameInvitation } from "../api/chat";
 import type { PrivateChatTab } from "../chat/privateChat";
 
-/** Valor compartilhado do chat no frontend. */
+/** Context value for the chat. */
 export type ChatContextValue = {
   globalMessages: ChatMessage[];
   privateMessagesByConversation: Record<string, ChatMessage[]>;
   privateChatTabs: PrivateChatTab[];
   unreadByConversation: Record<string, number>;
-  /** Nickname de quem está digitando, por conversa. */
   typingByConversation: Record<string, string | null>;
   peerReadByConversation: Record<string, string>;
   blockedUserIds: number[];
@@ -32,10 +31,10 @@ export type ChatContextValue = {
   markConversationRead: (conversationId: string) => void;
 };
 
-/** Contexto React do chat. */
+/** React context for the chat. */
 export const ChatContext = createContext<ChatContextValue | null>(null);
 
-/** Hook para ler o chat dentro do ChatProvider. */
+/** Hook for reading the chat inside ChatProvider. */
 export function useChat(): ChatContextValue {
   const value = useContext(ChatContext);
   if (value == null) {

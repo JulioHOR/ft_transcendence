@@ -13,25 +13,25 @@ import {
 } from "../../games/pong/protocol";
 
 /**
- * Define o estado do servidor para o jogo.
+ * Defines the server state for the game.
  */
 type ServerStatus = {
-  /** Estado atual do servidor. */
+  /** Current server state. */
   state: string;
-  /** Lado do jogador (esquerdo ou direito). */
+  /** Player's side (left or right). */
   side?: Side;
-  /** Momento em que a contagem regressiva começa. */
+  /** Time when the countdown starts. */
   startsAt?: number;
-  /** Indica se o jogador aceitou o rematch. */
+  /** Indicates whether the player accepted the rematch. */
   accepted?: { left: boolean; right: boolean };
-  /** IDs dos dois jogadores. */
+  /** IDs of both players. */
   players?: PlayerIds;
 };
 
 /**
- * Cria o estado de contagem regressiva do jogo com base no status do servidor e no lado atual do jogador.
- * @param status - Estado atual do servidor.
- * @param currentSide - Lado atual do jogador (esquerdo ou direito).
+ * Creates the game countdown state based on the server status and the player's current side.
+ * @param status - Current server state.
+ * @param currentSide - Player's current side (left or right).
  */
 function countdownState(
   status: ServerStatus,
@@ -50,8 +50,8 @@ function countdownState(
 }
 
 /**
- * Transporte Socket.IO do Pong.
- * Conecta ao servidor, sincroniza o estado da partida e envia entrada do jogador.
+ * Pong Socket.IO transport.
+ * Connects to the server, synchronizes the match state, and sends player input.
  */
 export class WebSocketTransport implements Transport {
   private readonly invitationId: string | null;
@@ -64,13 +64,13 @@ export class WebSocketTransport implements Transport {
   private onStateChange: ((state: MatchState) => void) | null = null;
   private state: MatchState = createInitialMatchState();
 
-  /** Aplica um patch parcial ao estado local e notifica o listener. */
+  /** Applies a partial patch to the local state and notifies the listener. */
   private setState(patch: Partial<MatchState>): void {
     this.state = { ...this.state, ...patch };
     this.onStateChange?.(this.state);
   }
 
-  /** Atualiza o estado com um snapshot recebido do servidor. */
+  /** Updates the state with a snapshot received from the server. */
   private onSnapshot(snapshot: GameSnapshot): void {
     if (this.state.phase !== "playing" && this.state.phase !== "finished")
       return;
@@ -80,7 +80,7 @@ export class WebSocketTransport implements Transport {
     });
   }
 
-  /** Interpreta eventos de status do servidor e atualiza a fase da partida. */
+  /** Interprets server status events and updates the match phase. */
   private onStatus(status: ServerStatus): void {
     const playerSide = status.side ?? this.state.playerSide;
     switch (status.state) {
@@ -106,7 +106,7 @@ export class WebSocketTransport implements Transport {
     }
   }
 
-  /** Atualiza status de retorno a partida após alguma saida. */
+  /** Updates the return-to-match status after someone leaves. */
   private onAcceptanceStatus(
     status: ServerStatus,
     playerSide: Side | null,
@@ -125,7 +125,7 @@ export class WebSocketTransport implements Transport {
     });
   }
 
-  /** Marca a partida em erro, exceto quando já finalizada. */
+  /** Marks the match as errored unless it has already finished. */
   private onError(message?: string): void {
     if (
       this.state.phase === "finished" ||
@@ -139,7 +139,7 @@ export class WebSocketTransport implements Transport {
     });
   }
 
-  /** Aguarda o socket conectar ou rejeita em falha de conexão. */
+  /** Waits for the socket to connect or rejects on connection failure. */
   private waitUntilConnected(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.socket?.once("connect", () => resolve());
@@ -147,7 +147,7 @@ export class WebSocketTransport implements Transport {
     });
   }
 
-  /** Entra na fila de matchmaking e devolve o ack do servidor. */
+  /** Joins the matchmaking queue and returns the server acknowledgment. */
   private joinQueue(): Promise<{ status: string }> {
     const socket = this.socket;
     if (socket == null) {
@@ -170,13 +170,13 @@ export class WebSocketTransport implements Transport {
     });
   }
 
-  /** Reingressa na fila após uma reconexão do Socket.IO. */
+  /** Rejoins the queue after a Socket.IO reconnection. */
   private async rejoinAfterReconnect(): Promise<void> {
     const ack = await this.joinQueue();
     if (ack.status === "waiting") this.setState({ phase: "waiting" });
   }
 
-  /** Registra os eventos da conexão do jogo. */
+  /** Registers the game connection events. */
   private bindSocketEvents(socket: Socket): void {
     socket.on("game:snapshot", (snapshot) => this.onSnapshot(snapshot));
     socket.on("game:status", (status) => this.onStatus(status));
@@ -198,7 +198,7 @@ export class WebSocketTransport implements Transport {
     });
   }
 
-  /** Conecta ao servidor Socket.IO e entra na fila de partida. */
+  /** Connects to the Socket.IO server and joins the match queue. */
   async connect(): Promise<void> {
     this.state = createInitialMatchState();
     this.setState({ phase: "connecting" });
@@ -209,7 +209,7 @@ export class WebSocketTransport implements Transport {
     if (ack.status === "waiting") this.setState({ phase: "waiting" });
   }
 
-  /** Encerra a conexão Socket.IO e limpa o listener de estado. */
+  /** Closes the Socket.IO connection and clears the state listener. */
   disconnect(): void {
     if (this.state.phase === "waiting") {
       this.socket?.emit("queue:leave");
@@ -219,34 +219,34 @@ export class WebSocketTransport implements Transport {
     this.onStateChange = null;
   }
 
-  /** Solicita rematch ao servidor. */
+  /** Requests a rematch from the server. */
   requestRematch(): void {
     this.socket?.emit("game:rematch");
   }
 
-  /** Aceita retomar a partida pausada. */
+  /** Accepts resuming the paused match. */
   requestResume(): void {
     this.socket?.emit("game:resume");
   }
 
-  /** Encerra a partida finalizada e atualiza a tela após confirmação do servidor. */
+  /** Ends the finished match and updates the screen after server confirmation. */
   requestLeave(): void {
     this.socket?.emit("game:leave", {}, (ack: { status: string } | null) => {
       if (ack?.status === "left") this.setState({ phase: "opponent_left" });
     });
   }
 
-  /** Envia a entrada da paddle ao servidor. */
+  /** Sends paddle input to the server. */
   sendInput(input: PaddleInput): void {
     this.socket?.emit("paddle:input", input);
   }
 
-  /** Solicita o saque da bola após um ponto. */
+  /** Requests a ball serve after a point. */
   requestServe(): void {
     this.socket?.emit("game:serve");
   }
 
-  /** Registra o listener de atualizações de estado da partida. */
+  /** Registers the listener for match state updates. */
   onState(listener: (state: MatchState) => void): void {
     this.onStateChange = listener;
   }

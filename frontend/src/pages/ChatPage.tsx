@@ -58,7 +58,7 @@ import type {
   TypingFooterProps,
 } from "./chatProps";
 
-/** Texto e aparência usados para cada estado do recibo. */
+/** Text and appearance used for each receipt state. */
 const messageReceiptDisplay: Record<
   MessageReceiptInfo["kind"],
   { label: string; marks: string; color: "success.main" | "text.disabled" }
@@ -67,7 +67,7 @@ const messageReceiptDisplay: Record<
   visualizado: { label: "Lido", marks: "✓✓", color: "success.main" },
 };
 
-/** Recibo da última mensagem própria (entregue / visualizado). */
+/** Receipt for the most recent message sent by the current user (delivered / read). */
 function lastOwnReceipt(
   messages: ChatMessage[],
   currentUserId: number | undefined,
@@ -87,7 +87,7 @@ function lastOwnReceipt(
   return { messageId: lastOwn.id, kind: seen ? "visualizado" : "entregue" };
 }
 
-/** Avatar atual do autor (sessão / friends, com fallback da mensagem). */
+/** Author's current avatar (session / friends, with the message as a fallback). */
 function messageAvatarUrl(
   message: ChatMessage,
   selfId: number | undefined,
@@ -102,7 +102,7 @@ function messageAvatarUrl(
   });
 }
 
-/** Ícone de recibo: ✓ entregue, ✓✓ visualizado. */
+/** Receipt icon: ✓ delivered, ✓✓ read. */
 function MessageReceipt(props: MessageReceiptProps) {
   const display = messageReceiptDisplay[props.kind];
   return (
@@ -122,7 +122,7 @@ function MessageReceipt(props: MessageReceiptProps) {
   );
 }
 
-/** Texto e recibo de uma mensagem, com link para o perfil do autor. */
+/** Message text and receipt, with a link to the author's profile. */
 function MessageContent(props: MessageContentProps) {
   return (
     <Typography
@@ -144,7 +144,7 @@ function MessageContent(props: MessageContentProps) {
   );
 }
 
-/** Exibe avatar, conteúdo e recibo de uma mensagem. */
+/** Displays a message's avatar, content, and receipt. */
 function MessageItem(props: MessageItemProps) {
   return (
     <ListItem
@@ -163,7 +163,7 @@ function MessageItem(props: MessageItemProps) {
   );
 }
 
-/** Itens da lista de mensagens. */
+/** Items in the message list. */
 function MessageListItems(props: MessageListItemsProps) {
   return props.messages.map((message) => (
     <MessageItem
@@ -184,7 +184,7 @@ function MessageListItems(props: MessageListItemsProps) {
   ));
 }
 
-/** Rodapé do quadro: alguém está digitando. */
+/** Frame footer: someone is typing. */
 function TypingFooter({ nickname }: TypingFooterProps) {
   if (nickname == null) return null;
   return (
@@ -204,7 +204,7 @@ function TypingFooter({ nickname }: TypingFooterProps) {
   );
 }
 
-/** Recibo da aba privada, ou null no global. */
+/** Receipt for the private tab, or null for the global tab. */
 function privateTabReceipt(
   session: ChatSession,
   messages: ChatMessage[],
@@ -218,7 +218,7 @@ function privateTabReceipt(
   );
 }
 
-/** Quadro de mensagens com “digitando…” no rodapé. */
+/** Message frame with “typing…” in the footer. */
 function EmptyChatMessages() {
   return (
     <ListItem component="li" sx={{ justifyContent: "center", py: 3 }}>
@@ -227,7 +227,7 @@ function EmptyChatMessages() {
   );
 }
 
-/** Exibe as mensagens ou o estado vazio da conversa. */
+/** Displays the messages or the conversation's empty state. */
 function MessageRows(props: MessageRowsProps) {
   if (props.messages.length === 0) return <EmptyChatMessages />;
   return (
@@ -241,7 +241,7 @@ function MessageRows(props: MessageRowsProps) {
   );
 }
 
-/** Área rolável que contém a lista de mensagens. */
+/** Scrollable area containing the message list. */
 function MessageScroll(props: MessageRowsProps) {
   return (
     <List
@@ -253,7 +253,7 @@ function MessageScroll(props: MessageRowsProps) {
   );
 }
 
-/** Estrutura visual da lista e do indicador de digitação. */
+/** Visual structure of the list and typing indicator. */
 function MessageListFrame(props: MessageListFrameProps) {
   return (
     <Paper
@@ -273,7 +273,7 @@ function MessageListFrame(props: MessageListFrameProps) {
   );
 }
 
-/** Calcula o recibo e monta o quadro da conversa ativa. */
+/** Calculates the receipt and builds the active conversation frame. */
 function MessageListPanel(props: MessageListPanelProps) {
   const receipt = privateTabReceipt(
     props.session,
@@ -289,14 +289,14 @@ function MessageListPanel(props: MessageListPanelProps) {
   );
 }
 
-/** Seleciona as mensagens da aba ativa e prepara o quadro. */
+/** Selects the active tab's messages and prepares the frame. */
 function MessageList(props: MessageListProps) {
   const messages = activeTabMessages(props.session);
   return <MessageListPanel {...props} messages={messages} />;
 }
 
-/** Propriedades visuais e ações compartilhadas pelas abas do chat. */
-/** Estilo compartilhado das abas geral e privadas. */
+/** Visual properties and actions shared by the chat tabs. */
+/** Shared style for the global and private tabs. */
 const chatTabSx = {
   height: 40,
   borderRadius: 1,
@@ -311,7 +311,7 @@ const chatTabSx = {
   },
 };
 
-/** Renderiza uma aba de conversa com fechamento opcional. */
+/** Renders a conversation tab with optional closing. */
 function ChatTab(props: ChatTabProps) {
   return (
     <Chip
@@ -327,7 +327,7 @@ function ChatTab(props: ChatTabProps) {
   );
 }
 
-/** Renderiza as abas privadas abertas na sessão de chat. */
+/** Renders the private tabs opened in the chat session. */
 function PrivateTabs({ session }: ChatSessionProps) {
   return (
     <>
@@ -350,7 +350,7 @@ function PrivateTabs({ session }: ChatSessionProps) {
   );
 }
 
-/** Barra de abas: conversa geral e conversas privadas abertas. */
+/** Tab bar: global conversation and open private conversations. */
 function ChatTabBar({ session }: ChatSessionProps) {
   return (
     <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
@@ -365,7 +365,7 @@ function ChatTabBar({ session }: ChatSessionProps) {
   );
 }
 
-/** Campo de texto do composer. */
+/** Composer text field. */
 function ChatDraftInput({ session }: ChatSessionProps) {
   return (
     <AppTextField
@@ -389,7 +389,7 @@ function ChatDraftInput({ session }: ChatSessionProps) {
   );
 }
 
-/** Exibe o limite e o tamanho atual da mensagem. */
+/** Displays the message limit and current length. */
 function MessageLengthCounter({ value }: MessageLengthCounterProps) {
   return (
     <InputAdornment position="end">
@@ -400,9 +400,9 @@ function MessageLengthCounter({ value }: MessageLengthCounterProps) {
   );
 }
 
-/** Formulário de envio na aba ativa. */
+/** Send form for the active tab. */
 function ChatComposer({ session }: ChatComposerProps) {
-  /** Envia o rascunho atual sem recarregar a página. */
+  /** Sends the current draft without reloading the page. */
   function onSubmit(event: SubmitEvent<HTMLFormElement>): void {
     event.preventDefault();
     session.submitDraft();
@@ -427,13 +427,13 @@ function ChatComposer({ session }: ChatComposerProps) {
   );
 }
 
-/** Mensagens da aba ativa (global ou conversa privada). */
+/** Messages from the active tab (global or private conversation). */
 function activeTabMessages(session: ChatSession): ChatMessage[] {
   if (session.activeTabId === GLOBAL_CHAT_TAB_ID) return session.globalMessages;
   return session.privateMessagesByConversation[session.activeTabId] ?? [];
 }
 
-/** Aviso quando a amizade encerrou e o envio está bloqueado. */
+/** Notice shown when the friendship has ended and sending is blocked. */
 function PrivateMessageAccessNotice({
   session,
 }: PrivateMessageAccessNoticeProps) {
@@ -450,7 +450,7 @@ function PrivateMessageAccessNotice({
   );
 }
 
-/** Ações disponíveis na conversa privada ativa. */
+/** Actions available in the active private conversation. */
 function PrivateChatActions({ session, friends }: PrivateChatActionsProps) {
   const tab = activePrivateTab(session);
   if (tab == null) return null;
@@ -469,7 +469,7 @@ function PrivateChatActions({ session, friends }: PrivateChatActionsProps) {
   );
 }
 
-/** Ação de convite para jogar com o contato. */
+/** Action to invite the contact to play. */
 function GameInviteButton({
   session,
   userId,
@@ -486,7 +486,7 @@ function GameInviteButton({
   );
 }
 
-/** Ação para bloquear ou desbloquear mensagens do contato. */
+/** Action to block or unblock messages from the contact. */
 function ChatBlockButton({ session, userId }: ChatBlockButtonProps) {
   if (session.blockedByOtherUser) return null;
   const blocked = session.blockedByCurrentUser;
@@ -502,14 +502,14 @@ function ChatBlockButton({ session, userId }: ChatBlockButtonProps) {
   );
 }
 
-/** Indica se há convite não encerrado para o contato. */
+/** Indicates whether the contact has an invitation that has not ended. */
 function hasActiveInvitationFor(session: ChatSession, userId: number) {
   return session.gameInvitations.some((invitation) =>
     isActiveInvitationFor(invitation, userId),
   );
 }
 
-/** Retorna a conversa privada selecionada. */
+/** Returns the selected private conversation. */
 function activePrivateTab(session: ChatSession) {
   if (session.activeTabId === GLOBAL_CHAT_TAB_ID) return null;
   return (
@@ -519,7 +519,7 @@ function activePrivateTab(session: ChatSession) {
   );
 }
 
-/** Informa se já há convite ativo para o contato. */
+/** Indicates whether there is already an active invitation for the contact. */
 function isActiveInvitationFor(
   invitation: ChatSession["gameInvitations"][number],
   userId: number,
@@ -531,7 +531,7 @@ function isActiveInvitationFor(
   );
 }
 
-/** Exibe convites de partida enviados ou recebidos pelo chat. */
+/** Displays match invitations sent or received through the chat. */
 function GameInvitationNotices({ session }: GameInvitationNoticesProps) {
   const tab = activePrivateTab(session);
   if (tab == null) return null;
@@ -555,7 +555,7 @@ function GameInvitationNotices({ session }: GameInvitationNoticesProps) {
   );
 }
 
-/** Escolhe a notificação de convite correspondente ao estado atual. */
+/** Selects the invitation notification that matches the current state. */
 function GameInvitationNotice({
   invitation,
   session,
@@ -580,7 +580,7 @@ function GameInvitationNotice({
   );
 }
 
-/** Exibe o convite com a ação correspondente. */
+/** Displays the invitation with its corresponding action. */
 function GameInvitationAlert(props: GameInvitationAlertProps) {
   return (
     <Alert
@@ -602,7 +602,7 @@ function GameInvitationAlert(props: GameInvitationAlertProps) {
   );
 }
 
-/** Texto adequado ao estado do convite. */
+/** Text appropriate to the invitation state. */
 function gameInvitationMessage(
   invitation: ChatSession["gameInvitations"][number],
   session: ChatSession,
@@ -625,7 +625,7 @@ function gameInvitationMessage(
     : `${otherNickname} convidou você para jogar Pong.`;
 }
 
-/** Ações disponíveis conforme o convite foi enviado, recebido ou aceito. */
+/** Actions available depending on whether the invitation was sent, received, or accepted. */
 function GameInvitationActions({
   invitation,
   session,
@@ -648,7 +648,7 @@ function GameInvitationActions({
   return <RespondInvitationActions invitation={invitation} session={session} />;
 }
 
-/** Aceita ou recusa um convite recebido. */
+/** Accepts or declines a received invitation. */
 function RespondInvitationActions({
   invitation,
   session,
@@ -670,7 +670,7 @@ function RespondInvitationActions({
   );
 }
 
-/** Ações para entrar na partida aceita ou cancelar o convite. */
+/** Actions to join the accepted match or cancel the invitation. */
 function AcceptedInvitationActions({
   invitation,
   session,
@@ -694,7 +694,7 @@ function AcceptedInvitationActions({
   );
 }
 
-/** Conteúdo da página (abas, lista, composer). */
+/** Page content (tabs, list, composer). */
 function ChatContent(props: ChatContentProps) {
   const { session } = props;
   const isPrivate = session.activeTabId !== GLOBAL_CHAT_TAB_ID;
@@ -716,7 +716,7 @@ function ChatContent(props: ChatContentProps) {
   );
 }
 
-/** Página de chat global e conversas privadas. */
+/** Global chat page and private conversations. */
 export function ChatPage() {
   const { user } = useAuth();
   const { friends } = useFriends();

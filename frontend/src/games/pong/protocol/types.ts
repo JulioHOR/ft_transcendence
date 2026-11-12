@@ -1,18 +1,18 @@
-/** Lado da mesa ocupado por um jogador. */
+/** Table side occupied by a player. */
 export type Side = "left" | "right";
 
-/** IDs dos jogadores associados aos lados da mesa. */
+/** Player IDs associated with the table sides. */
 export type PlayerIds = Record<Side, number | null>;
 
-/** Representa a entrada do jogador para controlar a raquete. */
+/** Represents player input for controlling the paddle. */
 export type PaddleInput = {
-  /** A posição da raquete na mesa. */
+  /** Paddle position on the table. */
   position: number;
 };
 
 /**
- * Representa o estado do jogo em um determinado momento.
- * Contém informações sobre a posição das raquetes, bola, pontuação e vencedor.
+ * Represents the game state at a given moment.
+ * Contains paddle positions, ball position, score, and winner information.
  */
 export type GameSnapshot = {
   leftPaddlePosition: number;
@@ -24,7 +24,7 @@ export type GameSnapshot = {
   timestamp: number;
 };
 
-/** Representa o estado atual da partida. */
+/** Represents the current match state. */
 export type MatchPhase =
   | "connecting"
   | "waiting"
@@ -36,30 +36,30 @@ export type MatchPhase =
   | "opponent_disconnected"
   | "error";
 
-/** Indica a confirmação de cada lado da partida. */
+/** Indicates each side's confirmation status. */
 export type AcceptanceBySide = { left: boolean; right: boolean };
 
 /**
- * Representa o estado atual de uma partida de Pong.
- * Contém informações sobre a fase do jogo, o lado do jogador, o estado da contagem regressiva,
- * o estado do rematch, o snapshot do jogo e mensagens de erro.
+ * Represents the current state of a Pong match.
+ * Contains the game phase, player side, countdown state,
+ * rematch state, game snapshot, and error messages.
  */
 export type MatchState = {
-  /** Fase atual da partida (conectando, esperando, contagem regressiva, jogando, finalizado, adversário saiu ou erro). */
+  /** Current match phase (connecting, waiting, countdown, playing, finished, opponent left, or error). */
   phase: MatchPhase;
-  /** Lado atual do jogador (esquerdo ou direito). */
+  /** Current player's side (left or right). */
   playerSide: Side | null;
-  /** IDs dos jogadores em cada lado da mesa. */
+  /** Player IDs on each side of the table. */
   playerIds: PlayerIds;
-  /** Indica o momento em que a contagem regressiva do jogo começou. */
+  /** Indicates when the game countdown began. */
   startsAt: number | null;
-  /** Indica se o jogador aceitou o rematch. */
+  /** Indicates whether the player accepted the rematch. */
   rematchAccepted: AcceptanceBySide;
-  /** Indica se cada lado aceitou retomar a partida. */
+  /** Indicates whether each side accepted resuming the match. */
   resumeAccepted: AcceptanceBySide;
-  /** Snapshot atual do jogo, contendo informações sobre a posição das raquetes, bola, pontuação e vencedor. */
+  /** Current game snapshot, containing paddle positions, ball position, score, and winner information. */
   snapshot: GameSnapshot;
-  /** Mensagem de erro, em caso de algum problema durante a partida. */
+  /** Error message in case a problem occurs during the match. */
   errorMessage: string | null;
 };
 
@@ -73,7 +73,7 @@ export const EMPTY_SNAPSHOT: GameSnapshot = {
   timestamp: 0,
 };
 
-/** Cria o estado inicial de uma partida. */
+/** Creates the initial state for a match. */
 export function createInitialMatchState(): MatchState {
   return {
     phase: "connecting",
@@ -87,22 +87,22 @@ export function createInitialMatchState(): MatchState {
   };
 }
 
-/** Interface para o transporte de dados da partida. */
+/** Interface for the match data transport. */
 export interface Transport {
-  /** Conecta ao servidor. */
+  /** Connects to the server. */
   connect(): Promise<void>;
-  /** Desconecta do servidor. */
+  /** Disconnects from the server. */
   disconnect(): void;
-  /** Solicita um rematch. */
+  /** Requests a rematch. */
   requestRematch(): void;
-  /** Aceita retomar uma partida pausada. */
+  /** Accepts resuming a paused match. */
   requestResume(): void;
-  /** Encerra uma partida finalizada e libera os jogadores do matchmaking. */
+  /** Ends a finished match and releases the players from matchmaking. */
   requestLeave(): void;
-  /** Envia a entrada do jogador. */
+  /** Sends player input. */
   sendInput(input: PaddleInput): void;
-  /** Solicita o saque quando a bola está presa à raquete. */
+  /** Requests a serve when the ball is attached to the paddle. */
   requestServe(): void;
-  /** Registra um listener para atualizações de estado. */
+  /** Registers a listener for state updates. */
   onState(listener: (state: MatchState) => void): void;
 }

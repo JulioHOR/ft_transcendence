@@ -2,7 +2,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { EmptyStateProps } from "./props";
 
-/** Estado vazio padronizado para listas e áreas de conteúdo. */
+/** Standardized empty state for lists and content areas. */
 export function EmptyState({ children, action }: EmptyStateProps) {
   return (
     <Stack

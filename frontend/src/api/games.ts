@@ -4,7 +4,7 @@ import { errorMessage } from "./http";
 
 export type GameCharacter = "1" | "2" | "3";
 
-/** Envia o personagem escolhido antes de transferir o navegador para o jogo. */
+/** Sends the selected character before navigating the browser to the game. */
 export async function startGame(character: GameCharacter): Promise<void> {
   const response = await apiFetch(gameStartUrl, {
     method: "PUT",

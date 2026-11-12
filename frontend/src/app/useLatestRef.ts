@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-/** Mantém ref atualizada sem ler `.current` no render. */
+/** Keeps the ref up to date without reading `.current` during render. */
 export function useLatestRef<T>(value: T): { current: T } {
   const valueRef = useRef(value);
   useEffect(() => {

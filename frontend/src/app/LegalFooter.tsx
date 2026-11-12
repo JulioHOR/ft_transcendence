@@ -2,7 +2,7 @@ import Link from "@mui/material/Link";
 import Box from "@mui/material/Box";
 import { Link as RouterLink } from "react-router-dom";
 
-/** Links para os documentos legais da aplicação. */
+/** Links to the application's legal documents. */
 export function LegalFooter() {
   return (
     <Box

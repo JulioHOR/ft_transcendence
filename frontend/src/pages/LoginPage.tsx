@@ -30,7 +30,7 @@ import type {
   LoginFormModel,
 } from "./loginProps";
 
-/** Campo de formulário Material UI. */
+/** Material UI form field. */
 function Field({ minLength, maxLength, pattern, ...props }: FieldProps) {
   return (
     <AppTextField
@@ -40,7 +40,7 @@ function Field({ minLength, maxLength, pattern, ...props }: FieldProps) {
   );
 }
 
-/** Campo de nickname exibido apenas no cadastro. */
+/** Nickname field displayed only during registration. */
 function NicknameField({ form }: LoginFormProps) {
   if (form.mode !== "signup") return null;
   return (
@@ -60,7 +60,7 @@ function NicknameField({ form }: LoginFormProps) {
   );
 }
 
-/** Campo de email. */
+/** Email field. */
 function EmailField({ form }: LoginFormProps) {
   return (
     <Field
@@ -77,7 +77,7 @@ function EmailField({ form }: LoginFormProps) {
   );
 }
 
-/** Campo de senha. */
+/** Password field. */
 function PasswordField({ form }: LoginFormProps) {
   return (
     <Field
@@ -94,7 +94,7 @@ function PasswordField({ form }: LoginFormProps) {
   );
 }
 
-/** Autentica via login ou signup conforme o modo. */
+/** Authenticates via login or signup based on the current mode. */
 async function authenticate(values: FieldValues): Promise<User> {
   if (values.mode === "login") {
     return login({ email: values.email, password: values.password });
@@ -102,7 +102,7 @@ async function authenticate(values: FieldValues): Promise<User> {
   return signup(values);
 }
 
-/** Envia o formulário de autenticação e atualiza a sessão. */
+/** Submits the authentication form and updates the session. */
 async function handleLoginSubmit(
   event: SubmitEvent<HTMLFormElement>,
   form: LoginFormModel,
@@ -128,18 +128,18 @@ async function handleLoginSubmit(
   }
 }
 
-/** Alterna entre login e cadastro e limpa o erro. */
+/** Toggles between login and registration and clears the error. */
 function toggleAuthMode(form: LoginFormModel): void {
   form.setMode(form.mode === "login" ? "signup" : "login");
   form.setError(null);
 }
 
-/** Exibe o erro do formulário, se houver. */
+/** Displays the form error, if any. */
 function FormError({ error }: FormErrorProps) {
   return <ErrorText error={error} />;
 }
 
-/** Botões de submit e alternância de modo. */
+/** Submit and mode-toggle buttons. */
 function AuthActions({ form }: LoginFormProps) {
   return (
     <>
@@ -161,7 +161,7 @@ function AuthActions({ form }: LoginFormProps) {
   );
 }
 
-/** Corpo do formulário (campos + ações). */
+/** Form body (fields + actions). */
 function AuthFormBody({ form, onSubmit }: AuthFormBodyProps) {
   return (
     <Stack
@@ -178,7 +178,7 @@ function AuthFormBody({ form, onSubmit }: AuthFormBodyProps) {
   );
 }
 
-/** Estado local do formulário de login/cadastro. */
+/** Local state for the login / registration form. */
 function useLoginForm(): LoginFormModel {
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
@@ -202,7 +202,7 @@ function useLoginForm(): LoginFormModel {
   };
 }
 
-/** Formulário completo com estado de login/cadastro. */
+/** Complete form with login / registration state. */
 function LoginForm() {
   const form = useLoginForm();
   const navigate = useNavigate();
@@ -216,14 +216,14 @@ function LoginForm() {
   );
 }
 
-/** Centraliza o cartão de autenticação, com recuo em telas pequenas. */
+/** Centers the authentication card, with padding on small screens. */
 const loginPageSx = {
   minHeight: "100%",
   display: "grid",
   placeItems: "center",
   p: { xs: 2, sm: 4 },
 };
-/** Limita a largura e define o espaçamento interno do cartão. */
+/** Limits the width and sets the card's internal spacing. */
 const loginCardSx = {
   width: "100%",
   maxWidth: 500,
@@ -231,7 +231,7 @@ const loginCardSx = {
   borderColor: "divider",
 };
 
-/** Cartão que reúne título, formulário e mensagem de erro. */
+/** Card containing the title, form, and error message. */
 function LoginCard({ form, onSubmit }: LoginCardProps) {
   return (
     <Paper variant="outlined" sx={loginCardSx}>
@@ -247,8 +247,8 @@ function LoginCard({ form, onSubmit }: LoginCardProps) {
 }
 
 /**
- * Página de autenticação.
- * Permite login e cadastro via API real de auth, e redireciona se já houver sessão.
+ * Authentication page.
+ * Supports login and registration through the real auth API, and redirects if a session already exists.
  */
 export function LoginPage() {
   const { user, ready } = useAuth();

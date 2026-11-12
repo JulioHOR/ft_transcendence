@@ -2,25 +2,25 @@ import type { User } from "./types";
 import { apiFetch } from "./api";
 import { errorMessage } from "./http";
 
-/** Credenciais usadas no login. */
+/** Credentials used to log in. */
 export type LoginInput = {
-  /** Email do usuário. */
+  /** User email. */
   email: string;
-  /** Senha do usuário. */
+  /** User password. */
   password: string;
 };
 
-/** Dados necessários para criar uma conta. */
+/** Data required to create an account. */
 export type SignupInput = {
-  /** Email do usuário. */
+  /** User email. */
   email: string;
-  /** Apelido público do usuário. */
+  /** User's public nickname. */
   nickname: string;
-  /** Senha do usuário. */
+  /** User password. */
   password: string;
 };
 
-/** Autentica o usuário com email e senha (cookie de sessão). */
+/** Authenticates the user with email and password (session cookie). */
 export async function login(input: LoginInput): Promise<User> {
   const response = await apiFetch("/api/auth/login", {
     method: "POST",
@@ -37,7 +37,7 @@ export async function login(input: LoginInput): Promise<User> {
   return response.json() as Promise<User>;
 }
 
-/** Cria uma conta e inicia a sessão (cookie de sessão). */
+/** Creates an account and starts the session (session cookie). */
 export async function signup(input: SignupInput): Promise<User> {
   const response = await apiFetch("/api/auth/signup", {
     method: "POST",
@@ -54,7 +54,7 @@ export async function signup(input: SignupInput): Promise<User> {
   return response.json() as Promise<User>;
 }
 
-/** Encerra a sessão atual no servidor. */
+/** Ends the current session on the server. */
 export async function logout(): Promise<void> {
   const response = await apiFetch("/api/auth/logout", {
     method: "POST",
@@ -65,7 +65,7 @@ export async function logout(): Promise<void> {
   }
 }
 
-/** Retorna o usuário da sessão atual, se autenticado. */
+/** Returns the current session's user, if authenticated. */
 export async function me(): Promise<User | null> {
   const res = await apiFetch("/api/me", {
     method: "GET",

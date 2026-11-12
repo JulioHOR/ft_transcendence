@@ -1,7 +1,7 @@
 import Paper from "@mui/material/Paper";
 import type { SectionCardProps } from "./props";
 
-/** Cartão com borda e espaçamento padrão do aplicativo. */
+/** Card with the application's default border and spacing. */
 export function SectionCard({ children, sx, ...props }: SectionCardProps) {
   return (
     <Paper

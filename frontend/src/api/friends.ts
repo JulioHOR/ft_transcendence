@@ -3,7 +3,7 @@ import { apiFetch } from "./api";
 import { friendsUrl, socketPath } from "./endpoints";
 import { errorMessage } from "./http";
 
-/** Amigo exibido na lista de presença. */
+/** Friend displayed in the presence list. */
 export type Friend = {
   id: number;
   nickname: string;
@@ -13,20 +13,20 @@ export type Friend = {
   relation: "outgoing" | "incoming" | "friend";
 };
 
-/** Transporte de presença/friends via Socket.IO. */
+/** Presence/friends transport via Socket.IO. */
 export type FriendsTransport = {
   connect(): Promise<void>;
   disconnect(): void;
   onUpdate(handler: (friends: Friend[]) => void): void;
 };
 
-/** Estado do transporte de friends/presença via Socket.IO. */
+/** State of the friends/presence transport via Socket.IO. */
 type FriendsSocketState = {
   socket: Socket | null;
   updateHandler: ((friends: Friend[]) => void) | null;
 };
 
-/** Espera o socket conectar ou falhar. */
+/** Waits for the socket to connect or fail. */
 function waitForConnection(socket: Socket): Promise<void> {
   return new Promise((resolve, reject) => {
     socket.once("connect", () => resolve());
@@ -34,7 +34,7 @@ function waitForConnection(socket: Socket): Promise<void> {
   });
 }
 
-/** Conecta ao Socket.IO de friends/presença. */
+/** Connects to the friends/presence Socket.IO. */
 async function connectFriends(state: FriendsSocketState): Promise<void> {
   state.socket = io({
     path: socketPath,
@@ -48,14 +48,14 @@ async function connectFriends(state: FriendsSocketState): Promise<void> {
   await waitForConnection(state.socket);
 }
 
-/** Desconecta do Socket.IO de friends/presença. */
+/** Disconnects from the friends/presence Socket.IO. */
 function disconnectFriends(state: FriendsSocketState): void {
   state.socket?.disconnect();
   state.socket = null;
   state.updateHandler = null;
 }
 
-/** Cria um transporte de friends/presença via Socket.IO. */
+/** Creates a friends/presence transport via Socket.IO. */
 export function createFriendsTransport(): FriendsTransport {
   const state: FriendsSocketState = { socket: null, updateHandler: null };
   return {
@@ -67,7 +67,7 @@ export function createFriendsTransport(): FriendsTransport {
   };
 }
 
-/** Adiciona um friend pelo nickname. */
+/** Adds a friend by nickname. */
 export async function addFriend(nickname: string): Promise<Friend> {
   const response = await apiFetch(friendsUrl, {
     method: "POST",
@@ -80,7 +80,7 @@ export async function addFriend(nickname: string): Promise<Friend> {
   return response.json() as Promise<Friend>;
 }
 
-/** Remove um friend pelo id. */
+/** Removes a friend by ID. */
 export async function removeFriend(friendId: number): Promise<void> {
   const response = await apiFetch(`${friendsUrl}/${friendId}`, {
     method: "DELETE",
@@ -90,7 +90,7 @@ export async function removeFriend(friendId: number): Promise<void> {
   }
 }
 
-/** Aceita um convite de amizade. */
+/** Accepts a friend request. */
 export async function acceptFriend(friendId: number): Promise<Friend> {
   const response = await apiFetch(`${friendsUrl}/${friendId}/accept`, {
     method: "POST",
@@ -101,7 +101,7 @@ export async function acceptFriend(friendId: number): Promise<Friend> {
   return response.json() as Promise<Friend>;
 }
 
-/** Recusa um convite de amizade. */
+/** Declines a friend request. */
 export async function rejectFriend(friendId: number): Promise<void> {
   const response = await apiFetch(`${friendsUrl}/${friendId}/reject`, {
     method: "POST",

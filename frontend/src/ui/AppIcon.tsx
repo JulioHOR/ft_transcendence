@@ -19,7 +19,7 @@ const icons = {
   professional: WorkspacePremiumIcon,
 };
 
-/** Exibe um ícone Material padronizado pelo tema do aplicativo. */
+/** Displays a Material icon styled by the application theme. */
 export function AppIcon({ name, ...props }: AppIconProps) {
   const Icon = icons[name];
   return <Icon {...props} />;

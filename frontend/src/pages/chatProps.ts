@@ -3,27 +3,27 @@ import type { ChatMessage } from "../api/chat";
 import type { Friend } from "../api/friends";
 import type { ChatSession } from "../chat/privateChat";
 
-/** Recibo da última mensagem própria. */
+/** Receipt for the most recent message sent by the current user. */
 export type MessageReceiptInfo = {
   messageId: string;
   kind: "entregue" | "visualizado";
 };
 
-/** Props do indicador de recibo de mensagem. */
+/** Props for the message receipt indicator. */
 export type MessageReceiptProps = { kind: MessageReceiptInfo["kind"] };
 
-/** Props do conteúdo de uma mensagem. */
+/** Props for a message's content. */
 export type MessageContentProps = {
   message: ChatMessage;
   receipt: MessageReceiptInfo["kind"] | null;
 };
 
-/** Props de uma linha de mensagem. */
+/** Props for a message row. */
 export type MessageItemProps = MessageContentProps & {
   avatarUrl: string | null;
 };
 
-/** Props da lista de mensagens. */
+/** Props for the message list. */
 export type MessageListItemsProps = {
   messages: ChatMessage[];
   currentUserId: number | undefined;
@@ -32,10 +32,10 @@ export type MessageListItemsProps = {
   receipt: MessageReceiptInfo | null;
 };
 
-/** Props do indicador de digitação. */
+/** Props for the typing indicator. */
 export type TypingFooterProps = { nickname: string | null };
 
-/** Props compartilhadas pela lista e sua área rolável. */
+/** Props shared by the list and its scrollable area. */
 export type MessageRowsProps = {
   messages: ChatMessage[];
   session: ChatSession;
@@ -44,13 +44,13 @@ export type MessageRowsProps = {
   receipt: MessageReceiptInfo | null;
 };
 
-/** Props da moldura visual da lista de mensagens. */
+/** Props for the visual frame of the message list. */
 export type MessageListFrameProps = {
   children: ReactNode;
   nickname: string | null;
 };
 
-/** Props do painel de mensagens. */
+/** Props for the message panel. */
 export type MessageListPanelProps = {
   session: ChatSession;
   messages: ChatMessage[];
@@ -59,7 +59,7 @@ export type MessageListPanelProps = {
   isPrivate: boolean;
 };
 
-/** Props da lista de mensagens da aba ativa. */
+/** Props for the active tab's message list. */
 export type MessageListProps = {
   session: ChatSession;
   selfAvatarUrl: string | null | undefined;
@@ -67,7 +67,7 @@ export type MessageListProps = {
   isPrivate: boolean;
 };
 
-/** Props visuais e ações compartilhadas pelas abas do chat. */
+/** Visual props and actions shared by the chat tabs. */
 export type ChatTabProps = {
   label: ReactNode;
   ariaLabel: string;
@@ -76,60 +76,60 @@ export type ChatTabProps = {
   onClose?: () => void;
 };
 
-/** Props de componentes que exibem uma sessão de chat. */
+/** Props for components that display a chat session. */
 export type ChatSessionProps = { session: ChatSession };
 
-/** Props do contador de caracteres. */
+/** Props for the character counter. */
 export type MessageLengthCounterProps = { value: number };
 
-/** Props do conteúdo do composer. */
+/** Props for the composer content. */
 export type ChatComposerProps = ChatSessionProps;
 
-/** Props do aviso de acesso à conversa privada. */
+/** Props for the private conversation access notice. */
 export type PrivateMessageAccessNoticeProps = ChatSessionProps;
 
-/** Props das ações da conversa privada. */
+/** Props for the private conversation actions. */
 export type PrivateChatActionsProps = {
   session: ChatSession;
   friends: Friend[];
 };
 
-/** Props do convite para jogar. */
+/** Props for the play invitation. */
 export type GameInviteButtonProps = {
   session: ChatSession;
   userId: number;
   disabled: boolean;
 };
 
-/** Props da ação de bloquear um contato. */
+/** Props for the contact blocking action. */
 export type ChatBlockButtonProps = {
   session: ChatSession;
   userId: number;
 };
 
-/** Props dos avisos de convite da conversa ativa. */
+/** Props for invitation notices in the active conversation. */
 export type GameInvitationNoticesProps = ChatSessionProps;
 
-/** Props de um aviso de convite. */
+/** Props for an invitation notice. */
 export type GameInvitationNoticeProps = {
   invitation: ChatSession["gameInvitations"][number];
   session: ChatSession;
 };
 
-/** Props visuais de um alerta de convite. */
+/** Visual props for an invitation alert. */
 export type GameInvitationAlertProps = {
   accepted: boolean;
   action?: ReactNode;
   message: string;
 };
 
-/** Props das ações de um convite. */
+/** Props for invitation actions. */
 export type GameInvitationActionsProps = GameInvitationNoticeProps & {
   accepted: boolean;
   sentByCurrentUser: boolean;
 };
 
-/** Props da página de chat. */
+/** Props for the chat page. */
 export type ChatContentProps = {
   session: ChatSession;
   selfAvatarUrl: string | null | undefined;

@@ -6,17 +6,17 @@ import {
 } from "../api/chat";
 import type { Friend } from "../api/friends";
 
-/** Identificador da aba do chat global. */
+/** Identifier for the global chat tab. */
 export const GLOBAL_CHAT_TAB_ID = "global";
 
-/** Aba de conversa privada. */
+/** Private conversation tab. */
 export type PrivateChatTab = {
   otherUserId: number;
   otherNickname: string;
   conversationId: string;
 };
 
-/** Estado e ações da página de chat. */
+/** Chat page state and actions. */
 export type ChatSession = {
   activeTabId: string;
   privateChatTabs: PrivateChatTab[];
@@ -44,7 +44,7 @@ export type ChatSession = {
   unblockUser: (userId: number) => void;
 };
 
-/** Monta o path /chat com query da conversa privada. */
+/** Builds the /chat path with the private conversation query. */
 export function buildPrivateChatPath(
   otherUserId: number,
   otherNickname: string,
@@ -56,14 +56,14 @@ export function buildPrivateChatPath(
   return `/chat?${params.toString()}`;
 }
 
-/** Indica se o userId é friend aceito. */
+/** Indicates whether the userId belongs to an accepted friend. */
 export function isAcceptedFriend(friends: Friend[], userId: number): boolean {
   return friends.some(
     (friend) => friend.id === userId && friend.relation === "friend",
   );
 }
 
-/** Monta a aba privada a partir da query da URL. */
+/** Builds the private tab from the URL query. */
 export function privateChatTabFromQuery(
   currentUserId: number,
   otherUserIdRaw: string | null,
@@ -78,7 +78,7 @@ export function privateChatTabFromQuery(
   };
 }
 
-/** Inclui a aba na lista se ainda não existir. */
+/** Adds the tab to the list if it does not already exist. */
 export function upsertPrivateChatTab(
   current: PrivateChatTab[],
   tab: PrivateChatTab,
@@ -89,7 +89,7 @@ export function upsertPrivateChatTab(
   return [...current, tab];
 }
 
-/** Converte o histórico HTTP em mensagens e abas. */
+/** Converts the HTTP history into messages and tabs. */
 export function historyToClientState(history: ChatHistory): {
   privateMessagesByConversation: Record<string, ChatMessage[]>;
   privateChatTabs: PrivateChatTab[];
@@ -108,7 +108,7 @@ export function historyToClientState(history: ChatHistory): {
   return { privateMessagesByConversation, privateChatTabs };
 }
 
-/** Acrescenta uma mensagem privada no registro. */
+/** Appends a private message to the record. */
 export function appendPrivateMessage(
   current: Record<string, ChatMessage[]>,
   message: ChatMessage,

@@ -54,7 +54,8 @@ import {
   RIGHT_PADDLE_COLOR,
   TABLE_SURFACE_Y,
 } from "../constants";
-/** Carrega os perfis dos dois jogadores da partida. */
+
+/** Loads the profiles of both players in the match. */
 async function loadPlayerProfiles(ids: PlayerIds): Promise<PlayerProfiles> {
   const profiles = await Promise.all(
     GAME_SIDES.map(async (side) => {
@@ -71,7 +72,7 @@ async function loadPlayerProfiles(ids: PlayerIds): Promise<PlayerProfiles> {
   return Object.fromEntries(profiles) as PlayerProfiles;
 }
 
-/** Mantém os perfis exibidos no placar sincronizados com os IDs recebidos. */
+/** Keeps the profiles shown on the scoreboard synchronized with the received IDs. */
 function usePlayerProfiles(
   ids: PlayerIds,
   phase: MatchState["phase"],
@@ -95,7 +96,7 @@ function usePlayerProfiles(
   return profiles;
 }
 
-/** Hook para gerenciar o estado da partida. */
+/** Hook for managing the match state. */
 function useMatchState(transport: Transport): MatchState {
   const [state, setState] = useState(createInitialMatchState);
 
@@ -114,7 +115,7 @@ function useMatchState(transport: Transport): MatchState {
 
   return state;
 }
-/** Calcula a distância da câmera para enquadrar a mesa. */
+/** Calculates the camera distance needed to frame the table. */
 function calculateCameraDistance(
   verticalHalfSize: number,
   horizontalHalfSize: number,
@@ -130,7 +131,7 @@ function calculateCameraDistance(
   return requiredDistance * PONG_CAMERA.margin;
 }
 
-/** Aumenta o campo de visão em telas largas para preservar a proporção da mesa. */
+/** Increases the field of view on wide screens to preserve the table's proportions. */
 function getCameraFov(aspect: number): number {
   return Math.min(
     PONG_CAMERA.maxFov,
@@ -140,7 +141,7 @@ function getCameraFov(aspect: number): number {
   );
 }
 
-/** Ajusta a câmera para enquadrar a mesa na tela. */
+/** Adjusts the camera to frame the table on screen. */
 function positionTableCamera(
   camera: PerspectiveCamera,
   distance: number,
@@ -176,12 +177,10 @@ function frameTableCamera(
 }
 
 /**
- * Mantém a câmera de perspectiva ajustada para enquadrar a mesa dentro do Canvas.
+ * Keeps the perspective camera adjusted to frame the table inside the Canvas.
  *
- * O ajuste é reaplicado quando a câmera ou as dimensões do Canvas mudam,
- * garantindo o enquadramento após redimensionamentos da tela.
- *
- * @returns `null`, pois o componente executa apenas lógica de configuração.
+ * The adjustment is reapplied when the camera or Canvas dimensions change,
+ * ensuring the table remains framed after the screen is resized.
  */
 function FitTableCamera() {
   const { camera, size } = useThree();
@@ -194,14 +193,14 @@ function FitTableCamera() {
   return null;
 }
 
-/** Libera os recursos gráficos sem forçar a perda do contexto ao sair da rota. */
+/** Releases graphics resources without forcing context loss when leaving the route. */
 function createPongRenderer(defaults: WebGLRendererParameters) {
   const renderer = new WebGLRenderer(defaults);
   renderer.forceContextLoss = () => {};
   return renderer;
 }
 
-/** Componente para exibir a cena do jogo com a pontuação. */
+/** Component for displaying the game scene with the score. */
 function PongStage({ snapshot, playerSide, profiles, phase }: PongStageProps) {
   return (
     <Box
@@ -227,7 +226,7 @@ function PongStage({ snapshot, playerSide, profiles, phase }: PongStageProps) {
   );
 }
 
-/** Renderiza o Canvas separado da camada DOM de placar e instruções. */
+/** Renders the Canvas separately from the DOM layer containing the scoreboard and instructions. */
 function PongCanvas({ snapshot }: PongCanvasProps) {
   return (
     <Box sx={{ position: "absolute", inset: 0 }}>
@@ -243,7 +242,7 @@ function PongCanvas({ snapshot }: PongCanvasProps) {
   );
 }
 
-/** Retorna a instrução de controle adequada ao estado do saque. */
+/** Returns the control instruction appropriate to the serve state. */
 function getServeMessage(snapshot: GameSnapshot, playerSide: Side | null) {
   if (snapshot.serveSide === null) return "W/S ou ↑/↓ para mover a raquete";
   return snapshot.serveSide === playerSide
@@ -251,12 +250,12 @@ function getServeMessage(snapshot: GameSnapshot, playerSide: Side | null) {
     : "Aguardando o saque do oponente • W/S ou ↑/↓ para mover";
 }
 
-/** Mantém a cena visível enquanto apresenta um estado da partida. */
+/** Keeps the scene visible while displaying a match state. */
 function PhaseStage({ children }: PhaseStageProps) {
   return <PhaseBackdrop>{children}</PhaseBackdrop>;
 }
 
-/** Aplica o cartão visual comum às telas sobrepostas. */
+/** Applies the shared visual card to the overlay screens. */
 function PhaseBackdrop({ children }: PhaseBackdropProps) {
   return (
     <Stack sx={PONG_MODAL_BACKDROP_SX}>
@@ -279,7 +278,7 @@ function PhaseBackdrop({ children }: PhaseBackdropProps) {
   );
 }
 
-/** Exibe os dois jogadores e seus placares no topo da mesa. */
+/** Displays both players and their scores at the top of the table. */
 function PlayerScoreboard({ score, profiles, phase }: PlayerScoreboardProps) {
   return (
     <Stack
@@ -302,7 +301,7 @@ function PlayerScoreboard({ score, profiles, phase }: PlayerScoreboardProps) {
   );
 }
 
-/** Exibe avatar, nome e placar de um lado da mesa. */
+/** Displays the avatar, name, and score for one side of the table. */
 function PlayerScoreCard({
   side,
   profile,
@@ -331,7 +330,7 @@ function PlayerScoreCard({
 
 const playerNameSx = { maxWidth: 160, fontWeight: 700, pt: 0.5 } as const;
 
-/** Retorna o estilo compartilhado dos cartões dos jogadores. */
+/** Returns the shared style for the player cards. */
 function playerCardSx(side: Side) {
   const color = side === "left" ? LEFT_PADDLE_COLOR : RIGHT_PADDLE_COLOR;
   return {
@@ -344,11 +343,8 @@ function playerCardSx(side: Side) {
 }
 
 /**
- * Renderiza a visualização da fase atual da partida,
- * exibindo a tela apropriada com base no estado do jogo.
- * @param state - Estado atual da partida.
- * @param onRequestRematch - Função chamada quando o jogador solicita um rematch.
- * @returns Componente React representando a fase atual da partida.
+ * Renders the view for the current match phase,
+ * displaying the appropriate screen based on the game state.
  */
 function PhaseView(props: PhaseViewProps): ReactNode {
   const SpecialScreen = specialScreens[props.state.phase];
@@ -381,7 +377,7 @@ const specialScreens: Partial<
   ),
 };
 
-/** Exibe o modal de pausa sobre a cena atual. */
+/** Displays the pause modal over the current scene. */
 function PausedPhase({
   state,
   onRequestResume,
@@ -396,7 +392,7 @@ function PausedPhase({
   );
 }
 
-/** Seleciona a visualização básica da fase atual. */
+/** Selects the basic view for the current phase. */
 function BasicPhaseView({ state, profiles }: BasicPhaseViewProps): ReactNode {
   if (state.phase === "playing") {
     return null;
@@ -413,14 +409,14 @@ function BasicPhaseView({ state, profiles }: BasicPhaseViewProps): ReactNode {
   );
 }
 
-/** Retorna o título usado pelas fases básicas. */
+/** Returns the title used by the basic phases. */
 function basicPhaseTitle(state: MatchState): string {
   return (
     BASIC_PHASE_TITLES[state.phase] ?? state.errorMessage ?? "Algo deu errado"
   );
 }
 
-/** Exibe uma mensagem de estado sobre a mesa. */
+/** Displays a status message over the table. */
 function StatusPhase({ title }: StatusPhaseProps) {
   return (
     <PhaseStage>
@@ -429,7 +425,7 @@ function StatusPhase({ title }: StatusPhaseProps) {
   );
 }
 
-/** Exibe a contagem regressiva sobre a mesa. */
+/** Displays the countdown over the table. */
 function CountdownPhase({ state }: CountdownPhaseProps) {
   return (
     <PhaseStage>
@@ -442,9 +438,7 @@ function CountdownPhase({ state }: CountdownPhaseProps) {
 }
 
 /**
- * Componente principal do jogo.
- * @param transport - Instância de transporte para comunicação com o servidor.
- * @returns Componente React representando o jogo.
+ * Main game component.
  */
 export function PongApp({ transport }: PongAppProps) {
   const state = useMatchState(transport);
@@ -467,7 +461,7 @@ const PONG_APP_SX = {
   minHeight: 0,
 } as const;
 
-/** Mantém a cena 3D estável enquanto alterna as telas da partida. */
+/** Keeps the 3D scene stable while switching between match screens. */
 function PongMatch({ state, profiles, transport }: PongMatchProps) {
   return (
     <Box sx={PONG_APP_SX}>
@@ -488,7 +482,7 @@ function PongMatch({ state, profiles, transport }: PongMatchProps) {
   );
 }
 
-/** Conecta o estado da partida ao controle local das raquetes. */
+/** Connects the match state to local paddle controls. */
 function useGameControls(transport: Transport, state: MatchState): void {
   const paddlePosition =
     state.playerSide === "right"

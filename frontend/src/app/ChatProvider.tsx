@@ -27,7 +27,7 @@ import type {
   ChatViewingRef,
 } from "./props";
 
-/** Remove a contagem de não lidas de uma conversa. */
+/** Clears a conversation's unread count. */
 function dropUnread(
   current: Record<string, number>,
   conversationId: string,
@@ -38,7 +38,7 @@ function dropUnread(
   return next;
 }
 
-/** Aplica mensagem privada recebida ao vivo. */
+/** Applies a privately received live message. */
 function applyPrivateMessage(
   message: ChatMessage,
   userId: number,
@@ -63,7 +63,7 @@ function applyPrivateMessage(
   }));
 }
 
-/** Typing e recibos de leitura no socket privado. */
+/** Typing and read receipts on the private socket. */
 function bindPrivateSignals(
   transport: ChatTransport,
   setters: ChatSetters,
@@ -82,7 +82,7 @@ function bindPrivateSignals(
   });
 }
 
-/** Liga handlers do socket. */
+/** Attaches the socket handlers. */
 function bindTransport(
   transport: ChatTransport,
   userId: number,
@@ -100,7 +100,7 @@ function bindTransport(
   bindPrivateSignals(transport, setters);
 }
 
-/** Liga os eventos de convite aos handlers do contexto. */
+/** Connects invitation events to the context handlers. */
 function bindGameInvitationEvents(
   transport: ChatTransport,
   userId: number,
@@ -112,7 +112,7 @@ function bindGameInvitationEvents(
   transport.onGameInviteUpdate(handleInvitation);
 }
 
-/** Cria um handler que evita processar o mesmo convite duas vezes. */
+/** Creates a handler that prevents processing the same invitation twice. */
 function createInvitationHandler(
   userId: number,
   viewingRef: ChatViewingRef,
@@ -129,7 +129,7 @@ function createInvitationHandler(
     );
 }
 
-/** Abre a conversa e marca convites recebidos como não lidos. */
+/** Opens the conversation and marks received invitations as unread. */
 function receiveGameInvitation(
   invitation: GameInvitation,
   userId: number,
@@ -155,7 +155,7 @@ function receiveGameInvitation(
   updateGameInvitation(setters, invitation);
 }
 
-/** Indica se o convite é ativo e ainda não foi visto. */
+/** Indicates whether the invitation is active and has not been seen yet. */
 function isNewInvitation(
   invitation: GameInvitation,
   seenInvitationIds: Set<string>,
@@ -166,7 +166,7 @@ function isNewInvitation(
   return active && !seenInvitationIds.has(invitation.inviteId);
 }
 
-/** Cria a aba privada correspondente ao convite. */
+/** Creates the private tab corresponding to the invitation. */
 function openInvitationConversation(
   invitation: GameInvitation,
   userId: number,
@@ -188,7 +188,7 @@ function openInvitationConversation(
   return conversationId;
 }
 
-/** Marca o convite recebido como não lido quando sua conversa não está aberta. */
+/** Marks the received invitation as unread when its conversation is not open. */
 function markInvitationUnread(
   invitation: GameInvitation,
   userId: number,
@@ -208,7 +208,7 @@ function markInvitationUnread(
   }));
 }
 
-/** Atualiza o convite e remove avisos de resultado após alguns segundos. */
+/** Updates the invitation and removes result notices after a few seconds. */
 function updateGameInvitation(
   setters: ChatSetters,
   invitation: GameInvitation,
@@ -231,7 +231,7 @@ function updateGameInvitation(
   }
 }
 
-/** Atualiza um convite recebido por chat ou pelo servidor. */
+/** Updates an invitation received through chat or from the server. */
 function upsertGameInvitation(
   current: GameInvitation[],
   invitation: GameInvitation,
@@ -242,7 +242,7 @@ function upsertGameInvitation(
   ];
 }
 
-/** Limpa estado ao sair. */
+/** Clears state on unmount. */
 function clearState(setters: ChatSetters): void {
   setters.setGlobal([]);
   setters.setPrivate({});
@@ -256,7 +256,7 @@ function clearState(setters: ChatSetters): void {
   setters.setError(null);
 }
 
-/** Carrega histórico HTTP. */
+/** Loads the HTTP history. */
 function loadHistory(cancelled: () => boolean, setters: ChatSetters): void {
   void fetchChatHistory()
     .then((history) => {
@@ -282,7 +282,7 @@ function loadHistory(cancelled: () => boolean, setters: ChatSetters): void {
     });
 }
 
-/** Abre transporte e devolve cleanup. */
+/** Opens the transport and returns a cleanup function. */
 function openChatTransport(
   userId: number,
   transportRef: ChatTransportRef,
@@ -302,7 +302,7 @@ function openChatTransport(
   };
 }
 
-/** Conecta o socket e encaminha falhas ao estado do chat. */
+/** Connects the socket and forwards failures to the chat state. */
 function connectChatTransport(
   transport: ChatTransport,
   cancelled: () => boolean,
@@ -320,7 +320,7 @@ function connectChatTransport(
   });
 }
 
-/** Conecta histórico + socket (mesmo papel do useFriendsConnection). */
+/** Connects the history and socket (the same role as useFriendsConnection). */
 function useChatConnection(
   userId: number | null,
   ready: boolean,
@@ -343,7 +343,7 @@ function useChatConnection(
   }, [ready, userId, transportRef, viewingRef, settersRef]);
 }
 
-/** Envio via socket. */
+/** Sending via socket. */
 function transportSendActions(
   transportRef: ChatTransportRef,
 ): Pick<
@@ -364,7 +364,7 @@ function transportSendActions(
   };
 }
 
-/** Ações de convite de partida no chat. */
+/** Match invitation actions in the chat. */
 function gameInviteActions(
   transportRef: ChatTransportRef,
 ): Pick<
@@ -379,7 +379,7 @@ function gameInviteActions(
   };
 }
 
-/** Atualiza o bloqueio local depois da resposta do servidor. */
+/** Updates the local block after the server responds. */
 function chatBlockActions(
   setters: ChatSetters,
 ): Pick<ChatContextValue, "blockUser" | "unblockUser"> {
@@ -389,7 +389,7 @@ function chatBlockActions(
   };
 }
 
-/** Persiste o bloqueio e atualiza o estado da conversa. */
+/** Persists the block and updates the conversation state. */
 function updateChatBlock(
   userId: number,
   blocked: boolean,
@@ -415,7 +415,7 @@ function updateChatBlock(
     );
 }
 
-/** Atualiza a lista local de usuários bloqueados. */
+/** Updates the local list of blocked users. */
 function updateBlockedUserIds(
   current: number[],
   userId: number,
@@ -425,7 +425,7 @@ function updateBlockedUserIds(
   return current.includes(userId) ? current : [...current, userId];
 }
 
-/** Abas e leitura local. */
+/** Tabs and local read state. */
 type TabViewActions = Pick<
   ChatContextValue,
   | "openPrivateTab"
@@ -434,7 +434,7 @@ type TabViewActions = Pick<
   | "markConversationRead"
 >;
 
-/** Cria as ações de abertura, fechamento e leitura das abas. */
+/** Creates the tab open, close, and read actions. */
 function tabViewActions(
   viewingRef: ChatViewingRef,
   setters: ChatSetters,
@@ -454,7 +454,7 @@ function tabViewActions(
   };
 }
 
-/** Mensagens e abas privadas. */
+/** Messages and private tabs. */
 function useChatListsState() {
   const [globalMessages, setGlobal] = useState<ChatMessage[]>([]);
   const [privateMessagesByConversation, setPrivate] = useState<
@@ -471,7 +471,7 @@ function useChatListsState() {
   };
 }
 
-/** Não lidas, typing, leitura e erro. */
+/** Unread state, typing, read state, and errors. */
 function useChatMetaState() {
   const [unreadByConversation, setUnread] = useState<Record<string, number>>(
     {},
@@ -495,7 +495,7 @@ function useChatMetaState() {
   };
 }
 
-/** Estado de bloqueios e convites de partida. */
+/** State for blocks and match invitations. */
 function useChatRestrictionState() {
   const [blockedUserIds, setBlockedUsers] = useState<number[]>([]);
   const [blockingUserIds, setBlockingUsers] = useState<number[]>([]);
@@ -510,7 +510,7 @@ function useChatRestrictionState() {
   };
 }
 
-/** Monta setters a partir dos hooks de estado. */
+/** Builds setters from the state hooks. */
 function chatSettersFrom(
   lists: ReturnType<typeof useChatListsState>,
   meta: ReturnType<typeof useChatMetaState>,
@@ -530,7 +530,7 @@ function chatSettersFrom(
   };
 }
 
-/** Estado React do provedor de chat. */
+/** React state for the chat provider. */
 function useChatProviderState(): ChatProviderState {
   const lists = useChatListsState();
   const chatMeta = useChatMetaState();
@@ -555,7 +555,7 @@ function useChatProviderState(): ChatProviderState {
   };
 }
 
-/** Valor exposto no contexto. */
+/** Value exposed through the context. */
 function buildChatContextValue(state: ChatProviderState): ChatContextValue {
   const unreadTotal = Object.values(state.unreadByConversation).reduce(
     (total, count) => total + count,
@@ -581,7 +581,7 @@ function buildChatContextValue(state: ChatProviderState): ChatContextValue {
   };
 }
 
-/** Provedor do histórico e socket de chat. */
+/** Provider for the chat history and socket. */
 export function ChatProvider({ children }: ChatProviderProps) {
   const { user, ready } = useAuth();
   const state = useChatProviderState();

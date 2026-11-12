@@ -7,7 +7,7 @@ import { AuthContext } from "./auth-session";
 import { logUnexpectedError } from "../api/http";
 import type { AuthProviderProps } from "./props";
 
-/** Junta o usuário da sessão com o avatar do perfil. */
+/** Combines the session user with the profile avatar. */
 async function loadSessionUser(): Promise<User | null> {
   const user = await me();
   if (user == null) return null;
@@ -20,8 +20,8 @@ async function loadSessionUser(): Promise<User | null> {
 }
 
 /**
- * Provedor da sessão de autenticação.
- * Ao montar, consulta /api/me e o avatar do perfil.
+ * Authentication session provider.
+ * On mount, fetches /api/me and the profile avatar.
  */
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);

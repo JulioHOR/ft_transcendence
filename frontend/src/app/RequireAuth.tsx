@@ -6,8 +6,8 @@ import { useAuth } from "./auth-session";
 import type { RequireAuthProps } from "./props";
 
 /**
- * Guard de rota.
- * Aguarda a sessão ficar pronta e redireciona para /login quando não houver usuário.
+ * Route guard.
+ * Waits for the session to be ready and redirects to /login if there is no user.
  */
 export function RequireAuth({ children }: RequireAuthProps) {
   const { user, ready } = useAuth();

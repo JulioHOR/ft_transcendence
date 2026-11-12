@@ -26,7 +26,7 @@ import type {
   NavItemsProps,
 } from "./props";
 
-/** Link da navegação com estado ativo e badge opcional. */
+/** Navigation link with an active state and optional badge. */
 function NavItem(props: NavItemProps) {
   const selected = navRouteSelected(props.to, props.pathname);
   return (
@@ -45,7 +45,7 @@ function NavItem(props: NavItemProps) {
   );
 }
 
-/** Indica se a rota atual corresponde ao link da navegação. */
+/** Indicates whether the current route matches the navigation link. */
 function navRouteSelected(to: string, pathname: string): boolean {
   return (
     pathname === to ||
@@ -54,7 +54,7 @@ function navRouteSelected(to: string, pathname: string): boolean {
   );
 }
 
-/** Monta a barra de navegação da aplicação. */
+/** Builds the application navigation bar. */
 export function AppNavigation() {
   const menuProps = useNavigationProps();
   return (
@@ -69,7 +69,7 @@ export function AppNavigation() {
   );
 }
 
-/** Reúne os dados usados pelos menus para desktop e celular. */
+/** Gathers the data used by the desktop and mobile menus. */
 function useNavigationProps(): NavigationProps {
   const { unreadTotal } = useChat();
   const { pendingCount } = useFriends();
@@ -87,7 +87,7 @@ function useNavigationProps(): NavigationProps {
   };
 }
 
-/** Encerra a sessão e devolve o usuário à tela de entrada. */
+/** Ends the session and returns the user to the login screen. */
 function useSignOut() {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
@@ -106,14 +106,14 @@ function useSignOut() {
   };
 }
 
-/** Estilo da barra estrutural do navbar. */
+/** Structural style for the navigation bar. */
 const toolbarFrameSx = {
   px: 0,
   borderBottom: 1,
   borderColor: "divider",
 };
 
-/** Largura e recuo compartilhados com o conteúdo das páginas. */
+/** Width and padding shared with the page content. */
 const toolbarSx = {
   display: "flex",
   width: "100%",
@@ -122,7 +122,7 @@ const toolbarSx = {
   px: { xs: 2, sm: 0 },
 };
 
-/** Links exibidos na navegação principal. */
+/** Links displayed in the main navigation. */
 const navItems = [
   { label: "Entrar", to: "/login" },
   { label: "Perfil", to: "/profile" },
@@ -132,14 +132,14 @@ const navItems = [
   { label: "Ambiente 3D", to: "/environment3d" },
 ] as const;
 
-/** Retorna as rotas disponíveis conforme o estado da sessão. */
+/** Returns the available routes based on the session state. */
 function availableNavItems(signedIn: boolean) {
   return signedIn
     ? navItems.filter((item) => item.to !== "/login")
     : [navItems[0]];
 }
 
-/** Renderiza os links da navegação e o contador de conversas não lidas. */
+/** Renders the navigation links and unread conversation counter. */
 function NavItems({
   unread,
   pendingFriends,
@@ -161,14 +161,14 @@ function NavItems({
   );
 }
 
-/** Estilo dos links horizontais em telas maiores. */
+/** Style for horizontal links on larger screens. */
 const navItemsSx = {
   display: "flex",
   alignItems: "center",
   gap: 0.5,
 };
 
-/** Exibe links e alternância de tema no layout para telas maiores. */
+/** Displays links and the theme toggle in the large-screen layout. */
 function DesktopNavigation(props: NavigationProps) {
   return (
     <Box sx={desktopNavigationSx}>
@@ -185,7 +185,7 @@ function DesktopNavigation(props: NavigationProps) {
   );
 }
 
-/** Seletor responsivo de rotas, com o item atual já selecionado. */
+/** Responsive route selector with the current item already selected. */
 function MobilePageSelect(props: MobileNavigationProps) {
   const navigate = useNavigate();
   const availableItems = availableNavItems(props.signedIn);
@@ -208,7 +208,7 @@ function MobilePageSelect(props: MobileNavigationProps) {
   );
 }
 
-/** Executa a opção selecionada no menu compacto. */
+/** Runs the selected option from the compact menu. */
 function selectMobilePage(
   selected: string,
   props: MobileNavigationProps,
@@ -219,7 +219,7 @@ function selectMobilePage(
   else navigate(selected);
 }
 
-/** Opções de navegação e tema do seletor para telas pequenas. */
+/** Navigation and theme options for the small-screen selector. */
 function mobilePageOptions(props: MobilePageOptionsProps) {
   return [
     ...availableNavItems(props.signedIn).map((item) => (
@@ -240,14 +240,14 @@ function mobilePageOptions(props: MobilePageOptionsProps) {
   ];
 }
 
-/** Quantidade não lida exibida no menu. */
+/** Unread count displayed in the menu. */
 function navItemUnread(path: string, props: NavItemUnreadProps): number {
   if (path === "/chat") return props.unread;
   if (path === "/friends") return props.pendingFriends;
   return 0;
 }
 
-/** Layouts responsivos da navegação principal. */
+/** Responsive layouts for the main navigation. */
 const desktopNavigationSx = {
   display: { xs: "none", sm: "flex" },
   width: "100%",

@@ -2,7 +2,7 @@ import { errorMessage } from "./http";
 import { apiFetch } from "./api";
 import { pongStatisticsUrl } from "./endpoints";
 
-/** Progresso de uma conquista do Pong. */
+/** Progress for a Pong achievement. */
 export type PongAchievement = {
   name: string;
   description: string;
@@ -10,7 +10,7 @@ export type PongAchievement = {
   target: number;
 };
 
-/** Partida concluída exibida no histórico. */
+/** Completed match displayed in the history. */
 export type PongMatchHistory = {
   opponentId: number;
   opponentNickname: string;
@@ -19,7 +19,7 @@ export type PongMatchHistory = {
   opponentScore: number;
 };
 
-/** Jogador exibido na classificação. */
+/** Player displayed in the leaderboard. */
 export type PongLeaderboardEntry = {
   userId: number;
   nickname: string;
@@ -28,7 +28,7 @@ export type PongLeaderboardEntry = {
   ranking: number;
 };
 
-/** Estatísticas e progresso persistidos das partidas de Pong. */
+/** Persisted statistics and progress for Pong matches. */
 export type PongStatistics = {
   matchesPlayed: number;
   wins: number;
@@ -43,7 +43,7 @@ export type PongStatistics = {
   leaderboard: PongLeaderboardEntry[];
 };
 
-/** Carrega o histórico, as estatísticas e a classificação do usuário. */
+/** Loads the user's history, statistics, and leaderboard. */
 export async function getPongStatistics(
   userId: number,
 ): Promise<PongStatistics> {

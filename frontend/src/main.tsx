@@ -6,7 +6,8 @@ import { ToasterProvider } from "./ui/Toaster";
 import { logUnexpectedError } from "./api/http";
 import { setConsoleFunction } from "three";
 
-// R3F 9.x ainda cria Clock internamente; remover ao migrar para a versão que usa Timer.
+// R3F 9.x still creates THREE.Clock internally, which Three.js marks as deprecated.
+// R3F 10 prereleases declare support for Three.js >= 0.185, but are not stable releases yet.
 setConsoleFunction((method, message, ...details) => {
   if (
     method === "warn" &&
@@ -30,7 +31,7 @@ window.addEventListener("unhandledrejection", (event) => {
   logUnexpectedError("Promessa rejeitada sem tratamento", event.reason);
 });
 
-// Renderiza o componente principal da aplicação dentro do elemento com id "root" no HTML.
+// Renders the main application component inside the HTML element with id "root".
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ColorModeProvider>

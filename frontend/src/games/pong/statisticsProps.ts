@@ -1,64 +1,64 @@
 import type { PongStatistics as PongStatisticsData } from "../../api/pongStatistics";
 
-/** Props da seção de estatísticas do Pong. */
+/** Props for the Pong statistics section. */
 export type PongStatisticsProps = { userId: number };
 
-/** Props do conteúdo completo das estatísticas. */
+/** Props for the complete statistics content. */
 export type StatisticsContentProps = { statistics: PongStatisticsData };
 
-/** Props do resumo de estatísticas. */
+/** Props for the statistics summary. */
 export type StatisticsSummaryProps = StatisticsContentProps;
 
-/** Props do progresso de nível. */
+/** Props for level progress. */
 export type LevelProgressProps = StatisticsContentProps;
 
-/** Props dos detalhes do progresso de nível. */
+/** Props for the level progress details. */
 export type LevelProgressDetailsProps = StatisticsContentProps;
 
-/** Props de um indicador do resumo de partidas. */
+/** Props for a match summary indicator. */
 export type SummaryItemProps = {
   label: string;
   value: number | string;
 };
 
-/** Props da lista de conquistas. */
+/** Props for the achievements list. */
 export type AchievementListProps = {
   achievements: PongStatisticsData["achievements"];
 };
 
-/** Props de um cartão de conquista. */
+/** Props for an achievement card. */
 export type AchievementCardProps = {
   achievement: PongStatisticsData["achievements"][number];
 };
 
-/** Props do conteúdo de um cartão de conquista. */
+/** Props for an achievement card's content. */
 export type AchievementCardContentProps = AchievementCardProps & {
   completed: boolean;
 };
 
-/** Props do histórico de partidas. */
+/** Props for the match history. */
 export type MatchHistoryProps = {
   history: PongStatisticsData["history"];
 };
 
-/** Props da tabela de histórico. */
+/** Props for the history table. */
 export type MatchHistoryTableProps = MatchHistoryProps;
 
-/** Props das linhas do histórico. */
+/** Props for the history rows. */
 export type MatchHistoryRowsProps = MatchHistoryProps;
 
-/** Props da classificação. */
+/** Props for the leaderboard. */
 export type LeaderboardProps = {
   entries: PongStatisticsData["leaderboard"];
 };
 
-/** Props da tabela de classificação. */
+/** Props for the leaderboard table. */
 export type LeaderboardTableProps = LeaderboardProps;
 
-/** Props das linhas da classificação. */
+/** Props for the leaderboard rows. */
 export type LeaderboardRowsProps = LeaderboardProps;
 
-/** Props do cabeçalho expansível de uma tabela. */
+/** Props for an expandable table header. */
 export type ExpandableTableHeadingProps = {
   title: string;
   expanded: boolean;

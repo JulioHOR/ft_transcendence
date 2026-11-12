@@ -10,14 +10,14 @@ import {
 } from "./validation";
 import type { Profile, User } from "./types";
 
-/** URL de exibição do avatar (fallback para o default). */
+/** Avatar display URL (falls back to the default). */
 export function resolveAvatarUrl(avatarUrl: string | null | undefined): string {
   return avatarUrl && avatarUrl.length > 0 ? avatarUrl : defaultAvatarUrl;
 }
 
 /**
- * Avatar atual do usuário: sessão / friends primeiro, depois fallback da mensagem.
- * Assim o histórico acompanha a foto nova sem reload.
+ * The user's current avatar: session/friends first, then the message fallback.
+ * This lets the history reflect the new photo without a reload.
  */
 export function liveAvatarUrl(
   userId: number,
@@ -36,7 +36,7 @@ export function liveAvatarUrl(
   return sources.fallback ?? null;
 }
 
-/** Lê o perfil de qualquer usuário por id. */
+/** Reads any user's profile by ID. */
 export async function getProfileById(userId: number): Promise<Profile> {
   const response = await apiFetch(`${profileUrl}?id=${userId}`);
   if (!response.ok) {
@@ -51,7 +51,7 @@ export async function getProfileById(userId: number): Promise<Profile> {
   };
 }
 
-/** Lê o perfil do usuário autenticado. */
+/** Reads the authenticated user's profile. */
 export async function getProfile(): Promise<User> {
   const user = await me();
   if (user == null) throw new Error("Sua sessão expirou. Entre novamente.");
@@ -67,7 +67,7 @@ export async function getProfile(): Promise<User> {
   }
 }
 
-/** Atualiza os dados de acesso ou o apelido do usuário autenticado. */
+/** Updates the authenticated user's credentials or nickname. */
 export async function updateProfile(
   profile: Pick<User, "email" | "nickname">,
 ): Promise<User> {
@@ -90,7 +90,7 @@ export async function updateProfile(
   };
 }
 
-/** Envia o avatar (data URL) do usuário autenticado. */
+/** Uploads the authenticated user's avatar (data URL). */
 export async function uploadAvatar(avatarDataUrl: string): Promise<Profile> {
   const response = await apiFetch(profileAvatarUrl, {
     method: "POST",
@@ -105,7 +105,7 @@ export async function uploadAvatar(avatarDataUrl: string): Promise<Profile> {
   return response.json() as Promise<Profile>;
 }
 
-/** Remove a foto do perfil do usuário autenticado. */
+/** Removes the authenticated user's profile photo. */
 export async function deleteAvatar(): Promise<Profile> {
   const response = await apiFetch(profileAvatarUrl, {
     method: "DELETE",
@@ -116,13 +116,13 @@ export async function deleteAvatar(): Promise<Profile> {
   return response.json() as Promise<Profile>;
 }
 
-/** Lê um arquivo de imagem e devolve data URL. */
+/** Reads an image file and returns a data URL. */
 export async function readImageAsDataUrl(file: File): Promise<string> {
   await validateImageFile(file);
   return readFileAsDataUrl(file);
 }
 
-/** Valida formato, tamanho e dimensões do arquivo de avatar. */
+/** Validates the avatar file's format, size, and dimensions. */
 async function validateImageFile(file: File): Promise<void> {
   if (!AVATAR_ACCEPTED_TYPES.includes(file.type)) {
     throw new Error("Escolha uma imagem PNG, JPEG ou WebP.");
@@ -142,7 +142,7 @@ async function validateImageFile(file: File): Promise<void> {
   }
 }
 
-/** Lê o arquivo selecionado como data URL. */
+/** Reads the selected file as a data URL. */
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

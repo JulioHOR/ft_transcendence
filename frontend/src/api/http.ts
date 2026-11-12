@@ -1,6 +1,6 @@
 /**
- * Extrai uma mensagem de erro segura a partir de uma Response HTTP.
- * Se o body for inválido, nulo ou sem campo error em texto, devolve o fallback.
+ * Extracts a safe error message from an HTTP Response.
+ * If the body is invalid, null, or has no string `error` field, returns the fallback.
  */
 export async function errorMessage(
   res: Response,
@@ -24,12 +24,12 @@ export async function errorMessage(
   return fallback;
 }
 
-/** Registra uma falha inesperada com identificação do aplicativo. */
+/** Logs an unexpected failure with the application identifier. */
 export function logUnexpectedError(context: string, failure: unknown): void {
   console.info(`[ft_transcendence] ${context}`, failure);
 }
 
-/** Retorna uma mensagem útil e registra falhas técnicas inesperadas. */
+/** Returns a useful message and logs unexpected technical failures. */
 export function friendlyError(
   failure: unknown,
   fallback: string,

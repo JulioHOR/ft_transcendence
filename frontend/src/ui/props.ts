@@ -5,13 +5,13 @@ import type { SvgIconProps } from "@mui/material/SvgIcon";
 import type { TextFieldProps } from "@mui/material/TextField";
 import type { Toast } from "./toaster-context";
 
-/** Props do botão padronizado. */
+/** Props for the standardized button. */
 export type ActionButtonProps = ButtonProps & {
-  /** Variante visual usada pelo tema da aplicação. */
+  /** Visual variant used by the application theme. */
   appearance?: "primary" | "secondary" | "quiet";
 };
 
-/** Nome de um ícone compartilhado do aplicativo. */
+/** Name of a shared application icon. */
 export type AppIconName =
   | "block"
   | "sports"
@@ -21,69 +21,69 @@ export type AppIconName =
   | "competitor"
   | "professional";
 
-/** Props do ícone Material padronizado. */
+/** Props for the standardized Material icon. */
 export type AppIconProps = SvgIconProps & { name: AppIconName };
 
-/** Props do campo de texto padronizado. */
+/** Props for the standardized text field. */
 export type AppTextFieldProps = TextFieldProps;
 
-/** Tamanhos suportados do avatar. */
+/** Supported avatar sizes. */
 export type AvatarSize = "sm" | "md" | "lg" | "xl";
 
-/** Props do avatar, com link opcional para o perfil. */
+/** Props for the avatar, with an optional profile link. */
 export type AvatarProps = {
   avatarUrl: string | null | undefined;
   alt: string;
   size?: AvatarSize;
   userId?: number;
-  /** Cor da borda visual do avatar. */
+  /** Visual color of the avatar border. */
   borderColor?: string;
 };
 
-/** Props do link que envolve um avatar. */
+/** Props for the link wrapping an avatar. */
 export type LinkedAvatarProps = {
   userId: number;
   label: string;
   children: ReactNode;
 };
 
-/** Props do provedor de tema. */
+/** Props for the theme provider. */
 export type ColorModeProviderProps = { children: ReactNode };
 
-/** Props do estado vazio de uma área de conteúdo. */
+/** Props for the empty state of a content area. */
 export type EmptyStateProps = {
   children: ReactNode;
   action?: ReactNode;
 };
 
-/** Props da mensagem de erro exibida por toast. */
+/** Props for the error message displayed in a toast. */
 export type ErrorTextProps = {
   error: string | null;
   onDismiss?: () => void;
 };
 
-/** Props do contêiner compartilhado das páginas. */
+/** Props for the shared page container. */
 export type PageContainerProps = {
   children: ReactNode;
   fillHeight?: boolean;
 };
 
-/** Props do título de página ou seção. */
+/** Props for a page or section title. */
 export type PageHeadingProps = { children: string };
 
-/** Props do cartão compartilhado entre seções. */
+/** Props for the card shared between sections. */
 export type SectionCardProps = PaperProps & { children: ReactNode };
 
-/** Props do provedor de notificações. */
+/** Props for the notification provider. */
 export type ToasterProviderProps = { children: ReactNode };
 
-/** Props da notificação exibida pelo provedor. */
+/** Props for the notification displayed by the provider. */
 export type ToastViewProps = {
   toast: Toast | null;
   onDismiss: () => void;
 };
 
-/** Props do contador de itens não lidos. */
+/** Props for the unread item counter. */
 export type UnreadBadgeProps = {
   count: number;
   children: ReactNode;

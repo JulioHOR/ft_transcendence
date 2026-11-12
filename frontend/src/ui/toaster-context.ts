@@ -15,7 +15,7 @@ export type ToastContextValue = (
 
 export const ToastContext = createContext<ToastContextValue | null>(null);
 
-/** Mostra uma notificação em qualquer página da aplicação. */
+/** Displays a notification on any application page. */
 export function useToaster(): ToastContextValue {
   const showToast = useContext(ToastContext);
   if (showToast === null) {
@@ -24,7 +24,7 @@ export function useToaster(): ToastContextValue {
   return showToast;
 }
 
-/** Envia erros de componentes para o toaster global. */
+/** Sends component errors to the global toaster. */
 export function useErrorToast(
   message: string | null,
   onDismiss?: () => void,

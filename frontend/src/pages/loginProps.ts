@@ -1,10 +1,10 @@
 import type { ChangeEventHandler, SubmitEvent } from "react";
 import type { User } from "../api/types";
 
-/** Modo exibido no formulário de autenticação. */
+/** Mode displayed in the authentication form. */
 export type AuthMode = "login" | "signup";
 
-/** Valores dos campos do formulário. */
+/** Form field values. */
 export type FieldValues = {
   mode: AuthMode;
   email: string;
@@ -12,7 +12,7 @@ export type FieldValues = {
   password: string;
 };
 
-/** Modelo de estado do formulário de login/cadastro. */
+/** State model for the login/registration form. */
 export type LoginFormModel = FieldValues & {
   error: string | null;
   pending: boolean;
@@ -24,10 +24,10 @@ export type LoginFormModel = FieldValues & {
   setMode: (value: AuthMode) => void;
 };
 
-/** Props compartilhadas pelos campos e ações do formulário. */
+/** Props shared by the form fields and actions. */
 export type LoginFormProps = { form: LoginFormModel };
 
-/** Props do campo de texto da autenticação. */
+/** Props for an authentication text field. */
 export type FieldProps = {
   id: string;
   label: string;
@@ -42,19 +42,19 @@ export type FieldProps = {
   onChange: ChangeEventHandler<HTMLInputElement>;
 };
 
-/** Props do corpo do formulário de autenticação. */
+/** Props for the authentication form body. */
 export type AuthFormBodyProps = {
   form: LoginFormModel;
   onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
 };
 
-/** Props do cartão de autenticação. */
+/** Props for the authentication card. */
 export type LoginCardProps = AuthFormBodyProps;
 
-/** Props da mensagem de erro do formulário. */
+/** Props for the form error message. */
 export type FormErrorProps = { error: string | null };
 
-/** Dados usados pelo envio autenticado. */
+/** Data used by the authenticated submission. */
 export type LoginSubmitProps = {
   event: SubmitEvent<HTMLFormElement>;
   form: LoginFormModel;

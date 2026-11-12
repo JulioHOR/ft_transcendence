@@ -1,23 +1,23 @@
-/** Usuário autenticado retornado pelos endpoints de auth. */
+/** Authenticated user returned by the auth endpoints. */
 export type User = {
-  /** Identificador do usuário. */
+  /** User ID. */
   id: number;
-  /** Email normalizado do usuário. */
+  /** Normalized user email. */
   email: string;
-  /** Apelido público do usuário. */
+  /** User's public nickname. */
   nickname: string;
-  /** URL do avatar, se houver. */
+  /** Avatar URL, if available. */
   avatarUrl?: string | null;
 };
 
-/** Perfil público (próprio ou de outro usuário). */
+/** Public profile (the current user or another user). */
 export type Profile = {
-  /** Identificador do usuário. */
+  /** User ID. */
   id: number;
-  /** Apelido público do usuário. */
+  /** User's public nickname. */
   nickname: string;
-  /** URL do avatar, ou null para usar o default. */
+  /** Avatar URL, or null to use the default. */
   avatarUrl: string | null;
-  /** Email, quando disponível no próprio perfil. */
+  /** Email, when available on the user's own profile. */
   email?: string;
 };

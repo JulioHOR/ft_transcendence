@@ -42,7 +42,7 @@ import type {
   IncomingActionsProps,
 } from "./friendsProps";
 
-/** Envia o nickname para adicionar um friend e limpa o campo. */
+/** Submits the nickname to add a friend and clears the field. */
 async function submitAddFriend(
   event: SubmitEvent<HTMLFormElement>,
   nickname: string,
@@ -69,7 +69,7 @@ async function submitAddFriend(
   }
 }
 
-/** Input com label do nickname do friend. */
+/** Input with a label for the friend's nickname. */
 function FriendNicknameField(props: FriendNicknameFieldProps) {
   return (
     <AppTextField
@@ -91,7 +91,7 @@ function FriendNicknameField(props: FriendNicknameFieldProps) {
   );
 }
 
-/** Campos do formulário de adicionar friend. */
+/** Fields in the add-friend form. */
 function AddFriendFields(props: AddFriendFieldsProps) {
   const label = props.pending ? "Adicionando…" : "Adicionar";
   return (
@@ -111,7 +111,7 @@ function AddFriendFields(props: AddFriendFieldsProps) {
   );
 }
 
-/** Formulário de adição de friend pelo nickname. */
+/** Form for adding a friend by nickname. */
 function AddFriendForm() {
   const [nickname, setNickname] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -138,7 +138,7 @@ function AddFriendForm() {
   );
 }
 
-/** Botões Aceitar / Recusar de um convite recebido. */
+/** Accept / Decline buttons for a received request. */
 function IncomingActions(props: IncomingActionsProps) {
   return (
     <>
@@ -161,7 +161,7 @@ function IncomingActions(props: IncomingActionsProps) {
   );
 }
 
-/** Botões de uma linha conforme relação. */
+/** Row buttons based on the relationship. */
 function FriendActions(props: FriendRowProps) {
   if (props.friend.relation === "incoming") {
     return (
@@ -187,7 +187,7 @@ function FriendActions(props: FriendRowProps) {
   );
 }
 
-/** Link para o perfil público do friend. */
+/** Link to the friend's public profile. */
 function FriendProfileLink({ friend }: FriendProps) {
   return (
     <MuiLink
@@ -201,7 +201,7 @@ function FriendProfileLink({ friend }: FriendProps) {
   );
 }
 
-/** Linha: avatar, nickname, online, relação e ações. */
+/** Row: avatar, nickname, online status, relationship, and actions. */
 function FriendSummary({ friend }: FriendProps) {
   return (
     <>
@@ -222,7 +222,7 @@ function FriendSummary({ friend }: FriendProps) {
   );
 }
 
-/** Exibe uma linha completa da lista de amigos. */
+/** Displays a complete row in the friends list. */
 function FriendRow(props: FriendRowProps) {
   return (
     <ListItem
@@ -238,13 +238,13 @@ function FriendRow(props: FriendRowProps) {
   );
 }
 
-/** Props da lista de friends. */
-/** Filtra friends por relation. */
+/** Props for the friends list. */
+/** Filters friends by relationship. */
 function byRelation(friends: Friend[], relation: Friend["relation"]): Friend[] {
   return friends.filter((friend) => friend.relation === relation);
 }
 
-/** Exibe uma seção de amigos quando há itens para mostrar. */
+/** Displays a friends section when there are items to show. */
 function FriendSection(props: FriendSectionProps) {
   if (props.friends.length === 0) return null;
   return (
@@ -260,7 +260,7 @@ function FriendSection(props: FriendSectionProps) {
   );
 }
 
-/** Lista de friends do contexto. */
+/** Friends list from the context. */
 function FriendRows(props: FriendsListProps) {
   return (
     <>
@@ -277,7 +277,7 @@ function FriendRows(props: FriendsListProps) {
   );
 }
 
-/** Exibe a lista ou o estado vazio de uma seção. */
+/** Displays the list or the section's empty state. */
 function FriendsList(props: FriendsListProps) {
   if (props.friends.length === 0) {
     return <EmptyState>Nenhum amigo na lista ainda.</EmptyState>;
@@ -293,7 +293,7 @@ function FriendsList(props: FriendsListProps) {
   );
 }
 
-/** Link para abrir conversa privada com um friend aceito. */
+/** Link to open a private conversation with an accepted friend. */
 function FriendPrivateChatLink({ friend }: FriendProps) {
   if (friend.relation !== "friend") return null;
   return (
@@ -308,7 +308,7 @@ function FriendPrivateChatLink({ friend }: FriendProps) {
   );
 }
 
-/** Handlers dos botões de convite/remoção. */
+/** Handlers for the request / removal buttons. */
 function friendHandlers(setError: (value: string | null) => void) {
   const run = (action: () => Promise<unknown>, fallback: string) => {
     setError(null);
@@ -328,7 +328,7 @@ function friendHandlers(setError: (value: string | null) => void) {
   } satisfies FriendActionHandlers;
 }
 
-/** Página de friends/presença e convites. */
+/** Friends / presence and requests page. */
 export function FriendsPage() {
   const { friends } = useFriends();
   const [actionError, setActionError] = useState<string | null>(null);
@@ -344,7 +344,7 @@ export function FriendsPage() {
   );
 }
 
-/** Monta o formulário, erros e seções da página. */
+/** Builds the form, errors, and page sections. */
 function FriendsContent(props: FriendsContentProps) {
   return (
     <Stack spacing={2}>
@@ -357,7 +357,7 @@ function FriendsContent(props: FriendsContentProps) {
   );
 }
 
-/** Distribui os amigos nas três relações exibidas. */
+/** Distributes friends among the three displayed relationships. */
 function FriendSections(props: FriendSectionsProps) {
   return (
     <>

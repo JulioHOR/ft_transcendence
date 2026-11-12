@@ -9,7 +9,7 @@ import {
 } from "./toaster-context";
 import type { ToasterProviderProps, ToastViewProps } from "./props";
 
-/** Posiciona o toast no rodapé, ocupando a largura útil da tela. */
+/** Positions the toast at the bottom, using the available screen width. */
 const toastSnackbarStyle = {
   bottom: 16,
   left: 16,
@@ -20,7 +20,7 @@ const toastSnackbarStyle = {
   position: "fixed",
 } as const;
 
-/** Disponibiliza notificações temporárias no rodapé da aplicação. */
+/** Provides temporary notifications at the bottom of the application. */
 export function ToasterProvider({ children }: ToasterProviderProps) {
   const [toast, setToast] = useState<Toast | null>(null);
   const showToast = useCallback<ToastContextValue>(
@@ -30,7 +30,7 @@ export function ToasterProvider({ children }: ToasterProviderProps) {
     [],
   );
 
-  /** Fecha a notificação atual e executa seu callback. */
+  /** Closes the current notification and runs its callback. */
   function dismissToast(): void {
     setToast(null);
     toast?.onDismiss?.();
@@ -44,7 +44,7 @@ export function ToasterProvider({ children }: ToasterProviderProps) {
   );
 }
 
-/** Renderiza a notificação atual ou mantém o Snackbar fechado. */
+/** Renders the current notification or keeps the Snackbar closed. */
 function ToastView(props: ToastViewProps) {
   return (
     <Portal container={() => document.body}>

@@ -6,8 +6,8 @@ import { WebSocketTransport } from "../transports/pong/WebSocketTransport";
 import type { PongBoardProps, PongLayoutProps } from "./pageProps";
 
 /**
- * Página do Pong.
- * Renderiza a interface do jogo e gerencia o transporte de comunicação.
+ * Pong page.
+ * Renders the game interface and manages the communication transport.
  */
 export function PongPage() {
   const [searchParams] = useSearchParams();
@@ -20,7 +20,7 @@ export function PongPage() {
   return <PongLayout transport={transport} />;
 }
 
-/** Organiza a área ocupada pelo jogo. */
+/** Arranges the area occupied by the game. */
 function PongLayout({ transport }: PongLayoutProps) {
   return (
     <Box
@@ -37,7 +37,7 @@ function PongLayout({ transport }: PongLayoutProps) {
   );
 }
 
-/** Renderiza o quadro que contém o Pong. */
+/** Renders the frame containing Pong. */
 function PongBoard({ transport }: PongBoardProps) {
   return (
     <Box

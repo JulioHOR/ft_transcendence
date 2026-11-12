@@ -5,10 +5,10 @@ import { ColorModeContext } from "./color-mode-context";
 import { createAppTheme } from "./theme";
 import type { ColorModeProviderProps } from "./props";
 
-/** Chave local usada para restaurar o tema entre visitas. */
+/** Local key used to restore the theme between visits. */
 const STORAGE_KEY = "ft-transcendence-color-mode";
 
-/** Lê o tema salvo e usa o modo escuro quando a leitura falha. */
+/** Reads the saved theme and uses dark mode if reading fails. */
 function savedMode(): PaletteMode {
   try {
     return window.localStorage.getItem(STORAGE_KEY) === "light"
@@ -19,12 +19,12 @@ function savedMode(): PaletteMode {
   }
 }
 
-/** Fornece o tema selecionado e persiste a escolha neste navegador. */
+/** Provides the selected theme and persists the choice in this browser. */
 export function ColorModeProvider({ children }: ColorModeProviderProps) {
   const [mode, setMode] = useState<PaletteMode>(savedMode);
   const theme = useMemo(() => createAppTheme(mode), [mode]);
 
-  /** Alterna o tema e persiste a escolha localmente. */
+  /** Toggles the theme and persists the choice locally. */
   function toggleMode() {
     setMode((current) => {
       const next = current === "dark" ? "light" : "dark";

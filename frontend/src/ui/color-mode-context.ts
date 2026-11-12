@@ -2,18 +2,18 @@ import { createContext, useContext } from "react";
 import type { PaletteMode } from "@mui/material/styles";
 
 export type ColorModeContextValue = {
-  /** Modo de cores atualmente aplicado. */
+  /** Currently applied color mode. */
   mode: PaletteMode;
-  /** Alterna entre os modos claro e escuro. */
+  /** Toggles between light and dark modes. */
   toggleMode: () => void;
 };
 
-/** Contexto React para compartilhar o modo de cores da aplicação. */
+/** React context for sharing the application's color mode. */
 export const ColorModeContext = createContext<ColorModeContextValue | null>(
   null,
 );
 
-/** Lê o modo de cores dentro do ColorModeProvider. */
+/** Reads the color mode inside ColorModeProvider. */
 export function useColorMode(): ColorModeContextValue {
   const context = useContext(ColorModeContext);
   if (context == null) {

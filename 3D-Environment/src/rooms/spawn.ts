@@ -6,14 +6,14 @@ export const MIN_SPAWN_DISTANCE = 1.5;
 
 // must be on the floor and clear of the building's collisions.
 export const SPAWN_POINTS: [SpawnPoint, ...SpawnPoint[]] = [
-	{ x: 0, y: 0, yaw: 0 },
-	{ x: 2, y: 0, yaw: 0 },
-	{ x: 3, y: 0, yaw: 0 },
-	{ x: 4, y: 0, yaw: 0 },
-	{ x: 5, y: 0, yaw: 0 },
-	{ x: 6, y: 0, yaw: 0 },
-	{ x: 7, y: 0, yaw: 0 },
-	{ x: 8, y: 0, yaw: 0 },
+	{ x: 1, y: -6, yaw: 0 },
+	{ x: 1, y: -4, yaw: 0 },
+	{ x: 1, y: -2, yaw: 0 },
+	{ x: 1, y: 0, yaw: 0 },
+	{ x: 1, y: 2, yaw: 0 },
+	{ x: 3, y: 4, yaw: 0 },
+	{ x: 5, y: 4, yaw: 0 },
+	{ x: 7, y: 4, yaw: 0 },
 ];
 
 // distance from a point to the nearest player, or Infinity when nobody is there.

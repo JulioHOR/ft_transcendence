@@ -10,7 +10,6 @@ from games.pong.collisions import (
 from games.pong.constants import (
     BASE_PADDLE_SPEED,
     BALL_BOUNCE_SPEED,
-    INITIAL_VELOCITY_X,
     PADDLE_VELOCITY_DECAY,
     TABLE,
 )
@@ -88,7 +87,7 @@ def test_sem_hit_fora_da_hit_zone():
 
     assert state.velocity_x == 5
 
-def test_gol_esquerda_ponto_para_direita_e_saque():
+def test_gol_esquerda_ponto_para_direita_e_saque_na_raquete():
     state = create_initial_sim_state()
     state.ball_x = -10.2
     state.score_right = 1
@@ -96,8 +95,9 @@ def test_gol_esquerda_ponto_para_direita_e_saque():
     resolve_goals(state)
 
     assert state.score_right == 2
-    assert state.ball_x == 0
-    assert state.velocity_x == INITIAL_VELOCITY_X
+    assert state.serve_side == "left"
+    assert state.ball_x == -TABLE["paddleX"] + TABLE["ballRadius"]
+    assert state.velocity_x == 0
 
 def test_quinto_ponto_declara_vencedor():
     state = create_initial_sim_state()

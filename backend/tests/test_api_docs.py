@@ -12,6 +12,8 @@ SPEC_OPERATIONS = {
     ("get", "/api/me"),
     ("get", "/api/profile"),
     ("put", "/api/profile"),
+    ("get", "/api/profile/character"),
+    ("put", "/api/profile/character"),
     ("post", "/api/profile/avatar"),
     ("delete", "/api/profile/avatar"),
     ("get", "/api/profile/avatar/{user_id}"),
@@ -42,7 +44,7 @@ def spec(client):
     return response.get_json()
 
 
-def test_spec_na_versao_3_1_2_documenta_as_dezessete_operacoes(client):
+def test_spec_na_versao_3_1_2_documenta_as_dezenove_operacoes(client):
     document = spec(client)
     assert document["openapi"] == "3.1.2"
     assert document["info"]["title"] == "ft_transcendence API"

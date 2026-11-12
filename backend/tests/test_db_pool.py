@@ -114,3 +114,49 @@ def test_operational_error_reconstrui_pool(fake_pool):
         cur.execute("SELECT 1;")
 
     assert len(fake_pool.instances) == 2
+
+
+def test_ensure_schema_commits_the_migration(monkeypatch):
+    class SchemaCursor:
+        def __init__(self):
+            self.statements = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def execute(self, statement):
+            self.statements.append(statement)
+
+    class SchemaConnection:
+        def __init__(self):
+            self.cursor_instance = SchemaCursor()
+            self.entered = False
+            self.committed = False
+            self.closed = False
+
+        def cursor(self):
+            return self.cursor_instance
+
+        def __enter__(self):
+            self.entered = True
+            return self
+
+        def __exit__(self, *args):
+            self.committed = True
+            return False
+
+        def close(self):
+            self.closed = True
+
+    connection = SchemaConnection()
+    monkeypatch.setattr(db_module, "open_connection", lambda: connection)
+
+    db_module.ensure_schema()
+
+    assert connection.entered
+    assert connection.committed
+    assert connection.closed
+    assert len(connection.cursor_instance.statements) == 2

@@ -9,8 +9,8 @@ Aplicação web full-stack da 42: um escritório virtual em 3D, em primeira pess
 
 | Integrante | GitHub | Papel principal | Áreas |
 | --- | --- | --- | --- |
-| Pedro Monteiro | [`peda-cos`](https://github.com/peda-cos) | Backend / banco / jogos | API Flask, autenticação, schema PostgreSQL, Pong, testes |
-| Jonnathan Lacerda Santos | [`jonnathan-ls`](https://github.com/jonnathan-ls) | Frontend / produto | React, MUI, páginas de perfil, chat, amigos, termos e privacidade |
+| Pedro Monteiro | [`peda-cos`](https://github.com/peda-cos) | Backend / banco | API Flask, autenticação, schema PostgreSQL, Pong, testes |
+| Jonnathan Lacerda Santos | [`jonnathan-ls`](https://github.com/jonnathan-ls) | Frontend / produto / pong | React, MUI, páginas de perfil, Pong, chat, amigos, termos e privacidade |
 | Julio Henrique | [`JulioHOR`](https://github.com/JulioHOR) | 3D / tempo real | Colyseus, Babylon.js, voz WebRTC, modelos 3D |
 | Fred Forte | `fforte-j` | 3D / infraestrutura | Cliente 3D, animações, Docker, testes e documentação do jogo |
 

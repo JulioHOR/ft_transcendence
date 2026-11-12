@@ -12,6 +12,8 @@ prepare_environment() {
         cp "${ENV_EXAMPLE}" "${ENV_FILE}"
     fi
 
+    chmod 600 "${ENV_FILE}"
+
     # shellcheck disable=SC1090
     set -a
     source "${ENV_FILE}"

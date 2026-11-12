@@ -456,7 +456,7 @@ def _private_rows_for_pair(cur, me_id: int, peer_id: int) -> list[dict]:
                 "senderId": sender_id,
                 "recipientId": recipient_id,
                 "peerId": recipient_id if is_own_message else sender_id,
-                "peerNickname": sender_nickname if is_own_message else recipient_nickname,
+                "peerNickname": recipient_nickname if is_own_message else sender_nickname,
             }
         )
         messages.append(message)

@@ -87,12 +87,13 @@ def wait_db() -> None:
 
 
 def ensure_schema() -> None:
-    with closing(open_connection()) as connection, connection.cursor() as cursor:
-        cursor.execute(
-            "ALTER TABLE account ADD COLUMN IF NOT EXISTS "
-            "session_version INTEGER NOT NULL DEFAULT 0;"
-        )
-        cursor.execute(
-            "ALTER TABLE account ADD COLUMN IF NOT EXISTS "
-            "character TEXT NOT NULL DEFAULT 'character';"
-        )
+    with closing(open_connection()) as connection:
+        with connection, connection.cursor() as cursor:
+            cursor.execute(
+                "ALTER TABLE account ADD COLUMN IF NOT EXISTS "
+                "session_version INTEGER NOT NULL DEFAULT 0;"
+            )
+            cursor.execute(
+                "ALTER TABLE account ADD COLUMN IF NOT EXISTS "
+                "character TEXT NOT NULL DEFAULT 'character';"
+            )

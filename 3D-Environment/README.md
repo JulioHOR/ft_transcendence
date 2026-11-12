@@ -14,10 +14,10 @@ Install the tools (here, the steps for an Arch distribution):
 sudo pacman -S nodejs npm
 ```
 
-Then go to the babylon folder and run:
+Then go to the 3D-Environment folder and run:
 
 ```sh
-cd babylonjs-multiplayer-server
+cd 3D-Environment
 npm install
 npm run dev
 ```
@@ -49,14 +49,12 @@ Then open http://localhost:2567 for the playground, or /monitor for the monitor.
 - `src/rooms/MyRoom.ts`: your room handler
 - `src/rooms/schema/MyRoomState.ts`: the state synchronized to every client in the room
 - `test/MyRoom.test.ts`: boots the real server and connects a real client
-- `loadtest/example.ts`: scriptable client for `npm run loadtest`
 
 ## Scripts
 
 - `npm start`: run Vite — client, server and playground on one port, with HMR
 - `npm test`: run the mocha test suite
 - `npm run build`: build client (`dist/client/`) and server (`dist/server/`)
-- `npm run loadtest`: connect N simulated clients with [`@colyseus/loadtest`](https://github.com/colyseus/colyseus-loadtest/)
 
 ## What's included
 
@@ -193,7 +191,7 @@ uses your dashboard session, so your name is your dashboard nickname.
 **On its own, for development:**
 
 ```sh
-cd babylonjs-multiplayer-server
+cd 3D-Environment
 npm install
 npm run dev
 ```
@@ -289,7 +287,7 @@ game reads:
   not across different networks.
 - Because the client is authoritative, positions are not checked against the
   level by the server.
-- Every player spawns at the origin; per-room spawn points are planned.
+- Spawn points are chosen on join by `src/rooms/spawn.ts`; the client starts from the server-selected point.
 
 ## Credits
 

@@ -15,6 +15,7 @@ ACCEPTED_PAIR = (1, 2)
 CREATED_AT = 1728000000000
 
 _counter = {"id": 0}
+_message_participants = {}
 
 def fake_get_user_profile(user_id):
     nickname = USERS.get(user_id)
@@ -28,8 +29,10 @@ def fake_find_user_by_nickname(nickname):
 
 def fake_insert_message(sender_id, recipient_id, text):
     _counter["id"] += 1
+    message_id = str(_counter["id"])
+    _message_participants[message_id] = (sender_id, recipient_id)
     message = {
-        "id": str(_counter["id"]),
+        "id": message_id,
         "userId": sender_id,
         "nickname": USERS[sender_id],
         "avatarUrl": None,
@@ -37,6 +40,14 @@ def fake_insert_message(sender_id, recipient_id, text):
         "createdAt": CREATED_AT + _counter["id"],
     }
     return message
+
+def fake_message_in_conversation(first_user_id, second_user_id, message_id):
+    participants = _message_participants.get(message_id)
+    return (
+        participants is not None
+        and participants[1] is not None
+        and set(participants) == {first_user_id, second_user_id}
+    )
 
 def fake_friend_rows(fake_edges, me_id):
     rows = []
@@ -52,6 +63,7 @@ def env(monkeypatch):
     handlers.identities.clear()
     handlers._online.clear()
     _counter["id"] = 0
+    _message_participants.clear()
     edges = {ACCEPTED_PAIR: (1, "accepted")}
     monkeypatch.setattr(store_pkg, "get_user_profile", fake_get_user_profile)
     monkeypatch.setattr(store_pkg, "find_user_by_nickname", fake_find_user_by_nickname)
@@ -78,10 +90,7 @@ def env(monkeypatch):
     monkeypatch.setattr(store_pkg, "blocked_user_ids", lambda me: [])
     monkeypatch.setattr(store_pkg, "blocking_user_ids", lambda me: [])
     monkeypatch.setattr(
-        store_pkg,
-        "message_in_conversation",
-        lambda _sender, _recipient, message_id: message_id.isdigit()
-        and int(message_id) >= 9,
+        store_pkg, "message_in_conversation", fake_message_in_conversation
     )
     handlers._last_chat_event_at.clear()
     app = Flask(__name__)
@@ -218,18 +227,33 @@ def test_read_repassa_shape_exato(env):
     bia = connect_api(env, 2)
     drain(ana)
     drain(bia)
-    ana.emit("chat:private:read", {"otherUserId": 2, "lastMessageId": "9"})
-    assert drain(bia, "chat:private:read") == [{
-        "userId": 1,
-        "conversationId": "1:2",
-        "lastMessageId": "9",
-    }]
-    bia.emit("chat:private:read", {"otherUserId": 1, "lastMessageId": "12"})
+    ana.emit("chat:private:send", {"otherUserId": 2, "text": "oi bia"})
+    first_message = drain(ana, "chat:private:message")[0]
+    drain(bia, "chat:private:message")
+    bia.emit(
+        "chat:private:read",
+        {"otherUserId": 1, "lastMessageId": first_message["id"]},
+    )
     assert drain(ana, "chat:private:read") == [{
         "userId": 2,
         "conversationId": "1:2",
-        "lastMessageId": "12",
+        "lastMessageId": first_message["id"],
     }]
+    assert drain(bia, "chat:private:read") == []
+
+    bia.emit("chat:private:send", {"otherUserId": 1, "text": "oi ana"})
+    second_message = drain(bia, "chat:private:message")[0]
+    drain(ana, "chat:private:message")
+    ana.emit(
+        "chat:private:read",
+        {"otherUserId": 2, "lastMessageId": second_message["id"]},
+    )
+    assert drain(bia, "chat:private:read") == [{
+        "userId": 1,
+        "conversationId": "1:2",
+        "lastMessageId": second_message["id"],
+    }]
+    assert drain(ana, "chat:private:read") == []
 
 def test_read_sem_id_ou_sem_amizade_ignora(env):
     ana = connect_api(env, 1)
@@ -400,10 +424,20 @@ def test_recibo_com_mensagem_ajena_e_ignorado(env):
     drain(ana)
     drain(bia)
 
-    ana.emit("chat:private:read", {"otherUserId": 2, "lastMessageId": "3"})
+    foreign_message = fake_insert_message(1, 3, "mensagem de outra conversa")
+    ana.emit(
+        "chat:private:read",
+        {"otherUserId": 2, "lastMessageId": foreign_message["id"]},
+    )
 
     assert drain(bia, "chat:private:read") == []
 
-    ana.emit("chat:private:read", {"otherUserId": 2, "lastMessageId": "9"})
+    ana.emit("chat:private:send", {"otherUserId": 2, "text": "mensagem da conversa"})
+    message = drain(ana, "chat:private:message")[0]
+    drain(bia, "chat:private:message")
+    bia.emit(
+        "chat:private:read",
+        {"otherUserId": 1, "lastMessageId": message["id"]},
+    )
 
-    assert len(drain(bia, "chat:private:read")) == 1
+    assert len(drain(ana, "chat:private:read")) == 1

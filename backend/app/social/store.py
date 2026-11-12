@@ -94,7 +94,9 @@ def block_user(blocker_id: int, blocked_id: int) -> None:
         )
 
 
-def message_in_conversation(sender_id: int, recipient_id: int, message_id: str) -> bool:
+def message_in_conversation(
+    first_user_id: int, second_user_id: int, message_id: str
+) -> bool:
     numeric_id = _parse_message_id(message_id)
     if numeric_id is None:
         return False
@@ -103,10 +105,16 @@ def message_in_conversation(sender_id: int, recipient_id: int, message_id: str) 
             "SELECT 1 "
             "FROM chat_message "
             "WHERE chat_message.id = %s "
-            "  AND chat_message.sender_id = %s "
-            "  AND chat_message.recipient_id = %s "
+            "  AND ((chat_message.sender_id = %s AND chat_message.recipient_id = %s) "
+            "       OR (chat_message.sender_id = %s AND chat_message.recipient_id = %s)) "
             "LIMIT 1;",
-            (numeric_id, sender_id, recipient_id),
+            (
+                numeric_id,
+                first_user_id,
+                second_user_id,
+                second_user_id,
+                first_user_id,
+            ),
         )
         return cur.fetchone() is not None
 

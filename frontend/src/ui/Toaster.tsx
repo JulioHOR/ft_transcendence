@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import Alert from "@mui/material/Alert";
+import Portal from "@mui/material/Portal";
 import Snackbar from "@mui/material/Snackbar";
 import {
   ToastContext,
@@ -9,13 +10,14 @@ import {
 import type { ToasterProviderProps, ToastViewProps } from "./props";
 
 /** Posiciona o toast no rodapé, ocupando a largura útil da tela. */
-const toastSnackbarSx = {
-  bottom: { xs: 72, sm: 80 },
-  left: { xs: 16, sm: 24 },
-  right: { xs: 16, sm: 24 },
+const toastSnackbarStyle = {
+  bottom: 16,
+  left: 16,
+  right: 16,
   width: "auto",
   maxWidth: "none",
   transform: "none",
+  position: "fixed",
 } as const;
 
 /** Disponibiliza notificações temporárias no rodapé da aplicação. */
@@ -45,24 +47,26 @@ export function ToasterProvider({ children }: ToasterProviderProps) {
 /** Renderiza a notificação atual ou mantém o Snackbar fechado. */
 function ToastView(props: ToastViewProps) {
   return (
-    <Snackbar
-      open={props.toast !== null}
-      autoHideDuration={6000}
-      anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-      onClose={props.onDismiss}
-      sx={toastSnackbarSx}
-    >
-      {props.toast ? (
-        <Alert
-          severity={props.toast.severity}
-          variant="filled"
-          role={props.toast.severity === "error" ? "alert" : "status"}
-          onClose={props.onDismiss}
-          sx={{ width: "100%", boxSizing: "border-box" }}
-        >
-          {props.toast.message}
-        </Alert>
-      ) : undefined}
-    </Snackbar>
+    <Portal container={() => document.body}>
+      <Snackbar
+        open={props.toast !== null}
+        autoHideDuration={6000}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        onClose={props.onDismiss}
+        style={toastSnackbarStyle}
+      >
+        {props.toast ? (
+          <Alert
+            severity={props.toast.severity}
+            variant="filled"
+            role={props.toast.severity === "error" ? "alert" : "status"}
+            onClose={props.onDismiss}
+            sx={{ width: "100%", boxSizing: "border-box" }}
+          >
+            {props.toast.message}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
+    </Portal>
   );
 }

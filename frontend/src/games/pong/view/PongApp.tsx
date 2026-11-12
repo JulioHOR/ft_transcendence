@@ -5,7 +5,11 @@ import { Avatar as UserAvatar } from "../../../ui/Avatar";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { PerspectiveCamera } from "three";
+import {
+  PerspectiveCamera,
+  WebGLRenderer,
+  type WebGLRendererParameters,
+} from "three";
 import { PongScene } from "./PongScene";
 import { usePaddleInput } from "./usePaddleInput";
 import { SectionCard } from "../../../ui/SectionCard";
@@ -32,7 +36,6 @@ import type {
   PlayerProfiles,
   PlayerScoreCardProps,
   PlayerScoreboardProps,
-  PlayingPhaseProps,
   PongAppProps,
   PongCanvasProps,
   PongStageProps,
@@ -69,7 +72,10 @@ async function loadPlayerProfiles(ids: PlayerIds): Promise<PlayerProfiles> {
 }
 
 /** Mantém os perfis exibidos no placar sincronizados com os IDs recebidos. */
-function usePlayerProfiles(ids: PlayerIds, phase: MatchState["phase"]): PlayerProfiles {
+function usePlayerProfiles(
+  ids: PlayerIds,
+  phase: MatchState["phase"],
+): PlayerProfiles {
   const { left, right } = ids;
   const [profiles, setProfiles] = useState<PlayerProfiles>({
     left: null,
@@ -135,6 +141,18 @@ function getCameraFov(aspect: number): number {
 }
 
 /** Ajusta a câmera para enquadrar a mesa na tela. */
+function positionTableCamera(
+  camera: PerspectiveCamera,
+  distance: number,
+): void {
+  camera.position.set(
+    0,
+    TABLE_SURFACE_Y + distance * PONG_CAMERA.elevation,
+    distance * PONG_CAMERA.depth,
+  );
+  camera.lookAt(0, TABLE_SURFACE_Y, 0);
+}
+
 function frameTableCamera(
   camera: PerspectiveCamera,
   width: number,
@@ -151,13 +169,9 @@ function frameTableCamera(
     vFov,
     hFov,
   );
-  camera.position.set(
-    0,
-    TABLE_SURFACE_Y + distance * PONG_CAMERA.elevation,
-    distance * PONG_CAMERA.depth,
-  );
-  camera.lookAt(0, TABLE_SURFACE_Y, 0);
-  camera.near = 0.1; camera.far = distance * 5;
+  positionTableCamera(camera, distance);
+  camera.near = 0.1;
+  camera.far = distance * 5;
   camera.updateProjectionMatrix();
 }
 
@@ -178,6 +192,13 @@ function FitTableCamera() {
   }, [camera, size.width, size.height]);
 
   return null;
+}
+
+/** Libera os recursos gráficos sem forçar a perda do contexto ao sair da rota. */
+function createPongRenderer(defaults: WebGLRendererParameters) {
+  const renderer = new WebGLRenderer(defaults);
+  renderer.forceContextLoss = () => {};
+  return renderer;
 }
 
 /** Componente para exibir a cena do jogo com a pontuação. */
@@ -210,7 +231,11 @@ function PongStage({ snapshot, playerSide, profiles, phase }: PongStageProps) {
 function PongCanvas({ snapshot }: PongCanvasProps) {
   return (
     <Box sx={{ position: "absolute", inset: 0 }}>
-      <Canvas camera={{ fov: PONG_CAMERA.fov, near: 0.1, far: 200 }} shadows>
+      <Canvas
+        gl={createPongRenderer}
+        camera={{ fov: PONG_CAMERA.fov, near: 0.1, far: 200 }}
+        shadows="basic"
+      >
         <FitTableCamera />
         <PongScene snapshot={snapshot} />
       </Canvas>
@@ -227,18 +252,8 @@ function getServeMessage(snapshot: GameSnapshot, playerSide: Side | null) {
 }
 
 /** Mantém a cena visível enquanto apresenta um estado da partida. */
-function PhaseStage({ state, profiles, children }: PhaseStageProps) {
-  return (
-    <Box sx={{ position: "relative", height: "100%", width: "100%" }}>
-      <PongStage
-        snapshot={state.snapshot}
-        playerSide={state.playerSide}
-        profiles={profiles}
-        phase={state.phase}
-      />
-      <PhaseBackdrop>{children}</PhaseBackdrop>
-    </Box>
-  );
+function PhaseStage({ children }: PhaseStageProps) {
+  return <PhaseBackdrop>{children}</PhaseBackdrop>;
 }
 
 /** Aplica o cartão visual comum às telas sobrepostas. */
@@ -265,11 +280,7 @@ function PhaseBackdrop({ children }: PhaseBackdropProps) {
 }
 
 /** Exibe os dois jogadores e seus placares no topo da mesa. */
-function PlayerScoreboard({
-  score,
-  profiles,
-  phase,
-}: PlayerScoreboardProps) {
+function PlayerScoreboard({ score, profiles, phase }: PlayerScoreboardProps) {
   return (
     <Stack
       direction="row"
@@ -292,7 +303,12 @@ function PlayerScoreboard({
 }
 
 /** Exibe avatar, nome e placar de um lado da mesa. */
-function PlayerScoreCard({ side, profile, score, phase }: PlayerScoreCardProps) {
+function PlayerScoreCard({
+  side,
+  profile,
+  score,
+  phase,
+}: PlayerScoreCardProps) {
   const label = profile?.nickname ?? "Jogador";
   return (
     <Stack sx={playerCardSx(side)}>
@@ -347,7 +363,7 @@ const specialScreens: Partial<
   Record<MatchState["phase"], (props: PhaseViewProps) => ReactNode>
 > = {
   finished: (props) => (
-    <PhaseStage state={props.state} profiles={props.profiles}>
+    <PhaseStage>
       <ResultScreen
         state={props.state}
         onRequestRematch={props.onRequestRematch}
@@ -357,7 +373,7 @@ const specialScreens: Partial<
   ),
   resume_pending: (props) => <PausedPhase {...props} />,
   opponent_disconnected: (props) => (
-    <PhaseStage state={props.state} profiles={props.profiles}>
+    <PhaseStage>
       <StatusScreen title="Oponente reconectando…">
         <LeaveMatchButton onLeave={props.onRequestLeave} />
       </StatusScreen>
@@ -368,31 +384,22 @@ const specialScreens: Partial<
 /** Exibe o modal de pausa sobre a cena atual. */
 function PausedPhase({
   state,
-  profiles,
   onRequestResume,
   onRequestLeave,
 }: PhaseViewProps) {
   return (
-    <Box sx={{ position: "relative", height: "100%", width: "100%" }}>
-      <PongStage
-        snapshot={state.snapshot}
-        playerSide={state.playerSide}
-        profiles={profiles}
-        phase={state.phase}
-      />
-      <ResumeModal
-        state={state}
-        onRequestResume={onRequestResume}
-        onRequestLeave={onRequestLeave}
-      />
-    </Box>
+    <ResumeModal
+      state={state}
+      onRequestResume={onRequestResume}
+      onRequestLeave={onRequestLeave}
+    />
   );
 }
 
 /** Seleciona a visualização básica da fase atual. */
 function BasicPhaseView({ state, profiles }: BasicPhaseViewProps): ReactNode {
   if (state.phase === "playing") {
-    return <PlayingPhase state={state} profiles={profiles} />;
+    return null;
   }
   if (state.phase === "countdown") {
     return <CountdownPhase state={state} profiles={profiles} />;
@@ -406,18 +413,6 @@ function BasicPhaseView({ state, profiles }: BasicPhaseViewProps): ReactNode {
   );
 }
 
-/** Renderiza a mesa durante a partida. */
-function PlayingPhase({ state, profiles }: PlayingPhaseProps) {
-  return (
-    <PongStage
-      snapshot={state.snapshot}
-      playerSide={state.playerSide}
-      profiles={profiles}
-      phase={state.phase}
-    />
-  );
-}
-
 /** Retorna o título usado pelas fases básicas. */
 function basicPhaseTitle(state: MatchState): string {
   return (
@@ -426,18 +421,18 @@ function basicPhaseTitle(state: MatchState): string {
 }
 
 /** Exibe uma mensagem de estado sobre a mesa. */
-function StatusPhase({ state, title, profiles }: StatusPhaseProps) {
+function StatusPhase({ title }: StatusPhaseProps) {
   return (
-    <PhaseStage state={state} profiles={profiles}>
+    <PhaseStage>
       <StatusScreen title={title} />
     </PhaseStage>
   );
 }
 
 /** Exibe a contagem regressiva sobre a mesa. */
-function CountdownPhase({ state, profiles }: CountdownPhaseProps) {
+function CountdownPhase({ state }: CountdownPhaseProps) {
   return (
-    <PhaseStage state={state} profiles={profiles}>
+    <PhaseStage>
       <CountdownScreen
         playerSide={state.playerSide}
         startsAt={state.startsAt}
@@ -456,8 +451,32 @@ export function PongApp({ transport }: PongAppProps) {
   const profiles = usePlayerProfiles(state.playerIds, state.phase);
   useGameControls(transport, state);
 
+  return <PongMatch state={state} profiles={profiles} transport={transport} />;
+}
+
+type PongMatchProps = {
+  state: MatchState;
+  profiles: PlayerProfiles;
+  transport: Transport;
+};
+
+const PONG_APP_SX = {
+  position: "relative",
+  height: "100%",
+  width: "100%",
+  minHeight: 0,
+} as const;
+
+/** Mantém a cena 3D estável enquanto alterna as telas da partida. */
+function PongMatch({ state, profiles, transport }: PongMatchProps) {
   return (
-    <Box sx={{ height: "100%", width: "100%", minHeight: 0 }}>
+    <Box sx={PONG_APP_SX}>
+      <PongStage
+        snapshot={state.snapshot}
+        playerSide={state.playerSide}
+        profiles={profiles}
+        phase={state.phase}
+      />
       <PhaseView
         state={state}
         profiles={profiles}

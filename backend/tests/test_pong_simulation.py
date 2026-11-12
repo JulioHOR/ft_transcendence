@@ -9,6 +9,7 @@ from games.pong.collisions import (
 )
 from games.pong.constants import (
     BASE_PADDLE_SPEED,
+    BALL_BOUNCE_SPEED,
     INITIAL_VELOCITY_X,
     PADDLE_VELOCITY_DECAY,
     TABLE,
@@ -58,7 +59,7 @@ def test_hit_na_paddle_direita():
 
     resolve_paddle_collisions(state)
 
-    assert state.velocity_x == -BASE_PADDLE_SPEED
+    assert state.velocity_x == -BALL_BOUNCE_SPEED
     assert state.ball_x == TABLE["paddleX"] - TABLE["ballRadius"]
     assert math.isclose(state.velocity_z, 0 * 4.5 + 0 * 0.55)
 

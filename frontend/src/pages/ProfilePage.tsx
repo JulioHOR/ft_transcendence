@@ -288,7 +288,7 @@ function AvatarRemoveButton(props: AvatarRemoveButtonProps) {
       disabled={props.pending}
       onClick={props.onRemove}
     >
-      Remover foto
+      Remover
     </ActionButton>
   );
 }

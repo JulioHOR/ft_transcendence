@@ -2,6 +2,7 @@
 from .constants import (
     ANGLE_FACTOR,
     BASE_PADDLE_SPEED,
+    BALL_BOUNCE_SPEED,
     BORDERS,
     PADDLE_MOTION_FACTOR,
     SIDES,
@@ -70,7 +71,7 @@ def apply_paddle_bounce_velocity(state: SimState, side: Side, hit_ratio: float) 
     paddle_motion = get_paddle_velocity(state, side) * PADDLE_MOTION_FACTOR
     max_velocity_z = ANGLE_FACTOR + PADDLE_MOTION_FACTOR * BASE_PADDLE_SPEED
 
-    state.velocity_x = direction_x * BASE_PADDLE_SPEED
+    state.velocity_x = direction_x * BALL_BOUNCE_SPEED
     state.velocity_z = clamp(
         hit_ratio * ANGLE_FACTOR + paddle_motion, -max_velocity_z, max_velocity_z
     )

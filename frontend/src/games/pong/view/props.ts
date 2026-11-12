@@ -101,8 +101,6 @@ export type PongCanvasProps = { snapshot: GameSnapshot };
 
 /** Props do painel de estado que mantém o jogo ao fundo. */
 export type PhaseStageProps = {
-  state: MatchState;
-  profiles: PlayerProfiles;
   children: ReactNode;
 };
 

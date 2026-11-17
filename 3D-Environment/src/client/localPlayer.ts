@@ -45,12 +45,13 @@ export class LocalPlayer {
 		this.scene = scene;
 		this.camera = camera;
 
-		this.entries = assets.character.instantiateModelsToScene();
+		const container = assets.characters[spawn.character] ?? assets.characters[0];
+		this.entries = container.instantiateModelsToScene();
 		this.mesh = this.entries.rootNodes[0] as BABYLON.AbstractMesh;
 		this.mesh.name = `player_${sessionId}`;
 		this.mesh.rotationQuaternion = null; // see RemotePlayer: the loader's 180° turn
 		this.mesh.rotation.y = MODEL_YAW_OFFSET;
-		this.mesh.position.set(spawn.x, 0, spawn.y); // y is babylon's Z; the models origins should be at its feet
+		this.mesh.position.set(spawn.x, spawn.height, spawn.y); // y is babylon's Z; the models origins should be at its feet
 		this.mesh.getChildMeshes().forEach((m) => (m.isVisible = false));
 
 		// collision capsule

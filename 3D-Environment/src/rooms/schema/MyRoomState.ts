@@ -8,6 +8,7 @@ export const Player = schema({
   yaw: t.number(),
   pitch: t.number(),
   equipped: t.boolean(),
+  character: t.number(),
 });
 export type Player = SchemaType<typeof Player>;
 

@@ -8,11 +8,17 @@ const MOVE_CLIPS = {
 	right: "models/right-strafe1.glb",
 } as const;
 
+const CHARACTER_MODELS = [
+	"models/character2.glb",
+	"models/character3.glb",
+	"models/character4.glb",
+] as const;
+
 export type MoveDir = keyof typeof MOVE_CLIPS;
 export type Clip = MoveDir | "idle";
 
 export type Assets = {
-	character: BABYLON.AssetContainer;
+	characters: BABYLON.AssetContainer[];
 	gun: BABYLON.AssetContainer;
 	/** One source animation per direction; every player clones these onto their own skeleton. */
 	moveClips: Map<MoveDir, BABYLON.AnimationGroup>;
@@ -29,10 +35,10 @@ async function loadMoveClips(scene: BABYLON.Scene): Promise<Map<MoveDir, BABYLON
 }
 
 export async function loadAssets(scene: BABYLON.Scene): Promise<Assets> {
-	const [character, gun, moveClips] = await Promise.all([
-		LoadAssetContainerAsync("models/character.glb", scene),
+	const [characters, gun, moveClips] = await Promise.all([
+		Promise.all(CHARACTER_MODELS.map((url) => LoadAssetContainerAsync(url, scene))),
 		LoadAssetContainerAsync("models/ak-47.glb", scene),
 		loadMoveClips(scene),
 	]);
-	return { character, gun, moveClips };
+	return { characters, gun, moveClips };
 }

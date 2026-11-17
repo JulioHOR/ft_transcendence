@@ -88,10 +88,11 @@ export class MyRoom extends Room<{ state: MyRoomState; client: GameClient }> {
 				name: user.nickname,
 				x: spawn.x,
 				y: spawn.y,
-				height: 0,
+				height: spawn.height,
 				yaw: spawn.yaw,
 				pitch: 0,
 				equipped: false,
+				character: user.character,
 			}),
 		);
 	}

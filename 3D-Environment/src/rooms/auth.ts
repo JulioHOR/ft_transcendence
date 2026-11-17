@@ -3,6 +3,7 @@ import type { AuthContext } from "colyseus";
 export type GameUser = {
     id : number;
     nickname : string;
+	character : number;
 };
 
 const BACKEND_URL = process.env.BACKEND_URL ?? `https://backend:${process.env.BACKEND_INTERNAL_PORT}`;
@@ -21,12 +22,14 @@ async function fetchDashboardUser(cookie: string): Promise<GameUser | null> {
     if (typeof body.id !== "number" || typeof body.nickname !== "string") {
         return null;
     }
-    return { id: body.id, nickname: body.nickname};
+	const n = Number(body.character);
+	const character = Number.isInteger(n) && n >= 1 && n <= 3 ? n - 1 : 0;
+    return { id: body.id, nickname: body.nickname, character };
 }
 
 function guestUser(): GameUser {
     const n = Math.floor(Math.random() * 10_000);
-    return { id: -n - 1, nickname: `dev_${n}`};
+    return { id: -n - 1, nickname: `dev_${n}`, character: 0};
 }
 
 export async function authenticate(context: AuthContext): Promise<GameUser | false> {

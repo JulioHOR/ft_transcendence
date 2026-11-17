@@ -7,8 +7,8 @@ export const CHARACTER_RADIUS = 0.3;
 export const CHARACTER_HEIGHT = 1.8;
 // Camera height above the feet, roughly where the character's eyes are.
 export const EYE_HEIGHT = 1.65;
-// The idle animation baked into character.glb, played in a loop on every instance.
-export const IDLE_ANIMATION_NAME = "Armature|mixamo.com|Layer0";
+// The idle animation baked into characters glb files, played in a loop on every instance.
+export const IDLE_ANIMATION_NAME = "mixamo.com";
 export const WALK_MOVING_EPSILON = 0.001;
 // adjust the gun origin positioning
 export const GUN_GRIP = new BABYLON.Vector3(-4.33, 0.04, 0.38);

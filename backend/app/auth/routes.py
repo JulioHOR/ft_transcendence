@@ -51,6 +51,7 @@ class UserSchema(Schema):
     id = fields.Integer(metadata={"description": "Identificador do usuário"})
     email = fields.String(metadata={"description": "E-mail normalizado (minúsculas)"})
     nickname = fields.String(metadata={"description": "Apelido público"})
+    character = fields.String(metadata={"description": "Personagem escolhido"})
 
 
 SIGNUP_REQUEST_BODY = {
@@ -186,9 +187,9 @@ def _fetch_login_record(
     return row
 
 
-def _fetch_user_summary(cur, user_id: int) -> tuple[str, str] | None:
+def _fetch_user_summary(cur, user_id: int) -> tuple[str, str, str] | None:
     cur.execute(
-        "SELECT email, nickname FROM account WHERE id = %s;",
+        "SELECT email, nickname, character FROM account WHERE id = %s;",
         (user_id,),
     )
     return cur.fetchone()
@@ -322,5 +323,5 @@ def me():
     if summary is None:
         session.clear()
         return "", 204
-    email, nickname = summary
-    return {"id": user_id, "email": email, "nickname": nickname}, 200
+    email, nickname, character = summary
+    return {"id": user_id, "email": email, "nickname": nickname, "character": character}, 200

@@ -13,8 +13,8 @@ const characters: GameCharacter[] = ["1", "2", "3"];
 const SELECTED_CHARACTER_STORAGE_KEY = "environment3d.selectedCharacter";
 const characterImages: Record<GameCharacter, string> = {
   "1": "/characters/character-1.png",
-  "2": "/characters/character-2.jpg",
-  "3": "/characters/character-3.jpeg",
+  "2": "/characters/character-2.png",
+  "3": "/characters/character-3.png",
 };
 const characterGridSx = {
   display: "grid",
@@ -103,7 +103,7 @@ function CharacterCard({ character }: { character: GameCharacter }) {
         display: "block",
         width: "100%",
         aspectRatio: "3 / 4",
-        objectFit: "cover",
+        objectFit: "contain",
       }}
     />
   );

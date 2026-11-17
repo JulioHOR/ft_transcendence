@@ -34,7 +34,7 @@ const client = new ColyseusSDK<typeof server>(
 	`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${import.meta.env.BASE_URL}`,
 );
 
-const { engine, scene, camera } = createScene(canvas);
+const { engine, scene, camera, shadows } = createScene(canvas);
 
 async function main() {
 	let micTurnedOffWarning: boolean = false as boolean;
@@ -84,6 +84,12 @@ async function main() {
 		room.send(MSG_SET_EQUIPPED, { equipped: local.toggleGun() });
 	});
 
+	addEventListener("keydown", (e) => {
+		if (e.repeat || e.key !== "p") return;
+			const { x, z } = camera.position;
+			console.log(`{ x: ${x.toFixed(1)}, y: ${z.toFixed(1)}, yaw: ${camera.rotation.y.toFixed(2)} },`);
+	});
+
 	const callbacks = Callbacks.get(room);
 
 	const assets = await loadAssets(scene);
@@ -94,7 +100,7 @@ async function main() {
 			return;
 		}
 
-		const remote = new RemotePlayer(scene, assets, sessionId, player);
+		const remote = new RemotePlayer(scene, assets, shadows, sessionId, player);
 		callbacks.listen(player, "equipped", (value) => remote.setEquipped(value));
 		remotePlayers.set(sessionId, remote);
 
@@ -117,7 +123,7 @@ async function main() {
 		removeAllVoiceConnections();
 	});
 
-	await loadLevel(scene);
+	await loadLevel(scene, shadows);
 
 	// --- Main Game Loop (Integrated with Babylon Render Loop) ---
 	engine.runRenderLoop(() => {

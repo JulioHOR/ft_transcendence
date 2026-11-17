@@ -26,9 +26,12 @@ export class RemotePlayer {
 	private readonly head: BABYLON.TransformNode;
 	private readonly gun: BABYLON.TransformNode;
 	private readonly tagAnchor: BABYLON.TransformNode;
+	private readonly shadows: BABYLON.ShadowGenerator;
 
-	constructor(scene: BABYLON.Scene, assets: Assets, sessionId: string, player: Player) {
-		this.entries = assets.character.instantiateModelsToScene();
+	constructor(scene: BABYLON.Scene, assets: Assets, shadows: BABYLON.ShadowGenerator, sessionId: string, player: Player) {
+		this.shadows = shadows;
+		const container = assets.characters[player.character] ?? assets.characters[0];
+		this.entries = container.instantiateModelsToScene();
 		this.mesh = this.entries.rootNodes[0] as BABYLON.AbstractMesh;
 		this.mesh.name = `player_${sessionId}`;
 
@@ -37,6 +40,7 @@ export class RemotePlayer {
 		this.mesh.rotationQuaternion = null;
 		this.mesh.rotation.y = MODEL_YAW_OFFSET;
 		this.mesh.position.y = 0; // model origin is at its feet
+		shadows.addShadowCaster(this.mesh, true);
 
 		this.lastX = player.x;
 		this.lastZ = player.y;
@@ -69,6 +73,7 @@ export class RemotePlayer {
 	}
 
 	dispose(): void {
+		this.shadows.removeShadowCaster(this.mesh, true);
 		this.entries.dispose(); // mesh, skeleton and the character's own animation groups
 		this.moveClipClones.forEach((g) => g.dispose());
 		this.head.dispose(); // takes the gun with it

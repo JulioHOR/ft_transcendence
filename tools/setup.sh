@@ -39,7 +39,7 @@ save_environment_value() {
     local value="$2"
 
     if grep -q "^${name}=" "${ENV_FILE}"; then
-        sed -i "s/^${name}=.*/${name}=${value}/" "${ENV_FILE}"
+		sed -i.bak "s/^${name}=.*/${name}=${value}/" "${ENV_FILE}" && rm -f "${ENV_FILE}.bak"
     else
         printf '\n%s=%s\n' "${name}" "${value}" >> "${ENV_FILE}"
     fi

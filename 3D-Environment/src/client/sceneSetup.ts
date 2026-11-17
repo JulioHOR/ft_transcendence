@@ -4,7 +4,33 @@ export type GameScene = {
 	engine: BABYLON.Engine;
 	scene: BABYLON.Scene;
 	camera: BABYLON.UniversalCamera;
+	shadows: BABYLON.ShadowGenerator;
 };
+
+function createEnvironment(scene: BABYLON.Scene): void {
+	scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData(
+		"environments/environment.env",
+		scene,
+	);
+	scene.environmentIntensity = 0.3; // tune: this is the ambient fill now
+	scene.createDefaultSkybox(scene.environmentTexture!, true, 900, 0.05);
+}
+
+function createSun(scene: BABYLON.Scene): BABYLON.ShadowGenerator {
+	const sun = new BABYLON.DirectionalLight(
+		"sun",
+		new BABYLON.Vector3(-1, -2, -1).normalize(),
+		scene,
+	);
+	sun.intensity = 4;
+
+	const shadows = new BABYLON.ShadowGenerator(2048, sun);
+	shadows.usePercentageCloserFiltering = true; // soft edges
+	shadows.bias = 0.0001;
+	shadows.normalBias = 0.02; // fixes acne on the PBR surfaces
+	shadows.forceBackFacesOnly = true;
+	return shadows;
+}
 
 function createCamera(scene: BABYLON.Scene): BABYLON.UniversalCamera {
 	const camera = new BABYLON.UniversalCamera(
@@ -27,14 +53,14 @@ function createCamera(scene: BABYLON.Scene): BABYLON.UniversalCamera {
 	return camera;
 }
 
-function createLight(scene: BABYLON.Scene): void {
-	const light = new BABYLON.HemisphericLight(
-		"light",
-		new BABYLON.Vector3(0, 1, 0),
-		scene,
-	);
-	light.intensity = 2.0;
-}
+// function createLight(scene: BABYLON.Scene): void {
+// 	const light = new BABYLON.HemisphericLight(
+// 		"light",
+// 		new BABYLON.Vector3(0, 1, 0),
+// 		scene,
+// 	);
+// 	light.intensity = 2.0;
+// }
 
 function createFloor(scene: BABYLON.Scene): void {
 	const floor = BABYLON.MeshBuilder.CreatePlane("floor", { size: 1000 }, scene);
@@ -43,9 +69,11 @@ function createFloor(scene: BABYLON.Scene): void {
 	const floorMat = new BABYLON.StandardMaterial("floorMat", scene);
 	floorMat.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
 	floorMat.backFaceCulling = false;
-
+	
 	floor.material = floorMat;
+	// floor.receiveShadows = true;
 	floor.checkCollisions = true;
+	floor.isVisible = false;
 }
 
 // the camera only turns with the mouse while the pointer is locked to the canvas
@@ -73,11 +101,13 @@ export function createScene(canvas: HTMLCanvasElement): GameScene {
 	scene.collisionsEnabled = true;
 
 	const camera = createCamera(scene);
-	createLight(scene);
+	// createLight(scene);
+	createEnvironment(scene);
+	const shadows = createSun(scene);
 	createFloor(scene);
 	setupPointerLock(canvas, camera);
 
 	window.addEventListener("resize", () => engine.resize());
 
-	return { engine, scene, camera };
+	return { engine, scene, camera, shadows };
 }

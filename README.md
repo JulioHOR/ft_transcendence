@@ -12,7 +12,7 @@ A full-stack web application built for 42: a first-person 3D virtual office with
 | Member | GitHub | Main role | Areas |
 | --- | --- | --- | --- |
 | Pedro Monteiro | [`peda-cos`](https://github.com/peda-cos) | Developer / Backend / database | Flask API, authentication, PostgreSQL schema, Pong, tests |
-| Jonnathan Lacerda Santos | [`jonnathan-ls`](https://github.com/jonnathan-ls) | Tech Lead / Frontend / product / Pong | React, MUI, profile pages, Pong, chat, friends, terms and privacy |
+| Jonnathan Lacerda Santos | [`jlacerda`](https://github.com/jonnathan-ls) | Tech Lead / Frontend / product / Pong | React, MUI, profile pages, Pong, chat, friends, terms and privacy |
 | Julio Henrique | [`juhenriq`](https://github.com/JulioHOR) | PM / 3D / real-time | Colyseus, Babylon.js, WebRTC voice, 3D models |
 | Fred Forte | `fforte-j` | PO / 3D / infrastructure | 3D client, animations, Docker, game tests and documentation |
 

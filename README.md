@@ -1,3 +1,5 @@
+*This project has been created as part of the 42 curriculum by peda-cos, fforte-j, jlacerda, juhenriq.*
+
 # ft_transcendence — Virtual Co-Work
 
 Aplicação web full-stack da 42: um escritório virtual em 3D, em primeira pessoa, com chat, amigos, perfis e Pong multijogador em tempo real. O objetivo é reunir, em um único produto, autenticação, presença, conversas, partidas ao vivo e um ambiente 3D navegável com voz por proximidade.
@@ -9,10 +11,10 @@ Aplicação web full-stack da 42: um escritório virtual em 3D, em primeira pess
 
 | Integrante | GitHub | Papel principal | Áreas |
 | --- | --- | --- | --- |
-| Pedro Monteiro | [`peda-cos`](https://github.com/peda-cos) | Backend / banco | API Flask, autenticação, schema PostgreSQL, Pong, testes |
-| Jonnathan Lacerda Santos | [`jonnathan-ls`](https://github.com/jonnathan-ls) | Frontend / produto / pong | React, MUI, páginas de perfil, Pong, chat, amigos, termos e privacidade |
-| Julio Henrique | [`JulioHOR`](https://github.com/JulioHOR) | 3D / tempo real | Colyseus, Babylon.js, voz WebRTC, modelos 3D |
-| Fred Forte | `fforte-j` | 3D / infraestrutura | Cliente 3D, animações, Docker, testes e documentação do jogo |
+| Pedro Monteiro | [`peda-cos`](https://github.com/peda-cos) | DEV / Backend / banco | API Flask, autenticação, schema PostgreSQL, Pong, testes |
+| Jonnathan Lacerda Santos | [`jonnathan-ls`](https://github.com/jonnathan-ls) | Tech Lead / Frontend / produto / pong | React, MUI, páginas de perfil, Pong, chat, amigos, termos e privacidade |
+| Julio Henrique | [`juhenriq`](https://github.com/JulioHOR) | PM / 3D / tempo real | Colyseus, Babylon.js, voz WebRTC, modelos 3D |
+| Fred Forte | `fforte-j` | PO / 3D / infraestrutura | Cliente 3D, animações, Docker, testes e documentação do jogo |
 
 A distribuição acima segue as áreas em que cada pessoa concentrou commits e o changelog do ambiente 3D (`3D-Environment/CHANGELOG.md`). O time tem 4 integrantes.
 
@@ -140,7 +142,7 @@ Relações principais:
 
 ### Chat
 
-- Sala pública e conversas privadas persistidas no banco.
+- Sala pública e conversas privadas persistidas no banco (WebSocket).
 - Histórico, indicador de digitação, confirmação de leitura, bloqueio e convites de Pong pelo chat.
 - Acesso ao perfil do autor a partir da mensagem.
 

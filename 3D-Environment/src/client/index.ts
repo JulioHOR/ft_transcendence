@@ -48,7 +48,18 @@ async function main() {
 		}
 	});
 
-	const room = await client.joinOrCreate("my_room", {});
+	let room;
+	try {
+		room = await client.joinOrCreate("my_room", {});
+	} catch (e) {
+		// server's onAuth rejected us (no valid session cookie): go to login
+		if (e instanceof Error && e.message.includes("onAuth failed")) {
+			statusEl.textContent = "You must be logged in. Redirecting to login...";
+			window.location.assign("/login");
+			return;
+		}
+		throw e;
+	}
 
 	room.reconnection.maxRetries = 5;
 

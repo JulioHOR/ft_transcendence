@@ -2,80 +2,80 @@
 
 # ft_transcendence — Virtual Co-Work
 
-Aplicação web full-stack da 42: um escritório virtual em 3D, em primeira pessoa, com chat, amigos, perfis e Pong multijogador em tempo real. O objetivo é reunir, em um único produto, autenticação, presença, conversas, partidas ao vivo e um ambiente 3D navegável com voz por proximidade.
+A full-stack web application built for 42: a first-person 3D virtual office with chat, friends, profiles and real-time multiplayer Pong. The goal is to bring authentication, presence, messaging, live matches and a navigable 3D environment with proximity voice chat together in a single product.
 
-- **Conceito e fluxo:** [`flow.md`](flow.md)
-- **Créditos de assets:** [`CREDITS.md`](CREDITS.md)
+- **Concept and flow:** [`flow.md`](flow.md)
+- **Asset credits:** [`CREDITS.md`](CREDITS.md)
 
-## Equipe
+## Team
 
-| Integrante | GitHub | Papel principal | Áreas |
+| Member | GitHub | Main role | Areas |
 | --- | --- | --- | --- |
-| Pedro Monteiro | [`peda-cos`](https://github.com/peda-cos) | DEV / Backend / banco | API Flask, autenticação, schema PostgreSQL, Pong, testes |
-| Jonnathan Lacerda Santos | [`jonnathan-ls`](https://github.com/jonnathan-ls) | Tech Lead / Frontend / produto / pong | React, MUI, páginas de perfil, Pong, chat, amigos, termos e privacidade |
-| Julio Henrique | [`juhenriq`](https://github.com/JulioHOR) | PM / 3D / tempo real | Colyseus, Babylon.js, voz WebRTC, modelos 3D |
-| Fred Forte | `fforte-j` | PO / 3D / infraestrutura | Cliente 3D, animações, Docker, testes e documentação do jogo |
+| Pedro Monteiro | [`peda-cos`](https://github.com/peda-cos) | Developer / Backend / database | Flask API, authentication, PostgreSQL schema, Pong, tests |
+| Jonnathan Lacerda Santos | [`jonnathan-ls`](https://github.com/jonnathan-ls) | Tech Lead / Frontend / product / Pong | React, MUI, profile pages, Pong, chat, friends, terms and privacy |
+| Julio Henrique | [`juhenriq`](https://github.com/JulioHOR) | PM / 3D / real-time | Colyseus, Babylon.js, WebRTC voice, 3D models |
+| Fred Forte | `fforte-j` | PO / 3D / infrastructure | 3D client, animations, Docker, game tests and documentation |
 
-A distribuição acima segue as áreas em que cada pessoa concentrou commits e o changelog do ambiente 3D (`3D-Environment/CHANGELOG.md`). O time tem 4 integrantes.
+The breakdown above reflects the areas where each member concentrated their commits, as well as the 3D environment changelog (`3D-Environment/CHANGELOG.md`). The team has 4 members.
 
-## Gestão
+## Project management
 
-O trabalho foi organizado por **features em branches**, com **pull requests e merges**. O histórico tem 136 commits e 20 merges entre agosto e novembro de 2026. As mensagens seguem, na maior parte, o padrão `feat:`, `fix:`, `refactor:` e `test:`.
+Work was organized as **feature branches** integrated through **pull requests and merges**. The history contains 136 commits and 20 merges between August and November 2026. Commit messages mostly follow the `feat:`, `fix:`, `refactor:` and `test:` convention.
 
-- Branches por feature (login, chat, Pong, 3D, Docker, documentação).
-- Integração por PR/merge para `main`, commits pequenos por feature e testes automatizados no backend.
-- Distribuição de tarefas por área, com o changelog do 3D registrando a autoria de cada bloco.
+- One branch per feature (login, chat, Pong, 3D, Docker, documentation).
+- Integration into `main` via PR/merge, small per-feature commits and automated backend tests.
+- Tasks split by area, with the 3D changelog recording who authored each part.
 
-## Stack e justificativa
+## Stack and rationale
 
-| Camada | Tecnologias | Por que |
+| Layer | Technologies | Why |
 | --- | --- | --- |
-| Frontend | React 19, TypeScript, Vite, Material UI + Emotion, React Router, Socket.IO Client | Componentização, tipagem, componentes acessíveis e tema claro/escuro sem CSS artesanal. |
-| Backend | Flask 3, Flask-Smorest, Flask-SocketIO, Gunicorn, psycopg2 | HTTP e WebSocket no mesmo processo, OpenAPI gerado a partir das rotas e SQL explícito para o schema relacional. |
-| Banco | PostgreSQL 17 | Integridade referencial, `CHECK`, índices e transações para contas, amigos, chat e partidas. |
-| 3D | Babylon.js, Colyseus, WebRTC | Renderização 3D no navegador, salas com estado sincronizado e voz ponto a ponto por proximidade. |
-| Infra | Docker Compose, Nginx, OpenSSL, Docker secrets | Subida com um comando, HTTPS na borda e TLS interno entre Nginx e backend, sem segredos no Git. |
+| Frontend | React 19, TypeScript, Vite, Material UI + Emotion, React Router, Socket.IO Client | Component-based UI, static typing, accessible components and light/dark themes without hand-written CSS. |
+| Backend | Flask 3, Flask-Smorest, Flask-SocketIO, Gunicorn, psycopg2 | HTTP and WebSocket in the same process, OpenAPI generated from the routes, and explicit SQL for the relational schema. |
+| Database | PostgreSQL 17 | Referential integrity, `CHECK` constraints, indexes and transactions for accounts, friends, chat and matches. |
+| 3D | Babylon.js, Colyseus, WebRTC | In-browser 3D rendering, rooms with synchronized state and peer-to-peer proximity voice. |
+| Infra | Docker Compose, Nginx, OpenSSL, Docker secrets | Single-command startup, HTTPS at the edge and internal TLS between Nginx and the backend, with no secrets in Git. |
 
-## Como executar
+## Getting started
 
-Pré-requisitos: Docker com Compose. O comando abaixo cria o `.env` a partir de `.env.example`, gera os secrets ausentes, cria o certificado interno e sobe os quatro serviços:
+Prerequisites: Docker with Compose. The command below creates `.env` from `.env.example`, generates any missing secrets, creates the internal certificate and starts all four services:
 
 ```sh
 make up
 ```
 
-Acesse **https://localhost:8443**. O certificado é autoassinado; aceite o aviso do navegador. Para usar outro host, ajuste `DOMAIN_NAME`, `LAN_IP` e `FRONT_PUBLIC_PORT` no `.env`.
+Open **https://localhost:8443**. The certificate is self-signed, so accept the browser warning. To use a different host, set `DOMAIN_NAME`, `LAN_IP` and `FRONT_PUBLIC_PORT` in `.env`.
 
 ```sh
-make logs SERVICE=backend   # logs de um serviço
-make down                   # para os containers
-make re                     # limpa volumes/imagens e sobe de novo
+make logs SERVICE=backend   # logs for a single service
+make down                   # stop the containers
+make re                     # wipe volumes/images and start again
 ```
 
-O `.env` é local e ignorado pelo Git. Os secrets ficam em `secrets/` (também ignorado) e são montados em `/run/secrets/`:
+`.env` is local and ignored by Git. Secrets live in `secrets/` (also ignored) and are mounted at `/run/secrets/`:
 
-| Arquivo | Uso |
+| File | Purpose |
 | --- | --- |
-| `secrets/db_password.txt` | senha do PostgreSQL |
-| `secrets/flask_secret_key.txt` | assinatura da sessão Flask |
-| `secrets/backend.crt` / `secrets/backend.key` | TLS interno entre Nginx e backend |
+| `secrets/db_password.txt` | PostgreSQL password |
+| `secrets/flask_secret_key.txt` | Flask session signing key |
+| `secrets/backend.crt` / `secrets/backend.key` | Internal TLS between Nginx and the backend |
 
-## Schema do banco
+## Database schema
 
-Os scripts de `database/init/` rodam na criação do volume. O schema é relacional e usa chaves estrangeiras, `CHECK`, `UNIQUE`, índices e triggers de `updated_at`.
+The scripts in `database/init/` run when the volume is first created. The schema is relational and uses foreign keys, `CHECK` and `UNIQUE` constraints, indexes and `updated_at` triggers.
 
 ```mermaid
 erDiagram
-    account ||--o| avatar : "tem"
-    account ||--o{ friendship : "envia convite"
-    account ||--o{ friendship : "recebe convite"
-    account ||--o{ blocked_user : "bloqueia"
-    account ||--o{ blocked_user : "é bloqueado"
-    account ||--o{ chat_message : "envia"
-    account ||--o{ chat_message : "recebe"
-    account ||--o{ pong_match : "joga à esquerda"
-    account ||--o{ pong_match : "joga à direita"
-    account ||--o{ pong_match : "vence"
+    account ||--o| avatar : "has"
+    account ||--o{ friendship : "sends request"
+    account ||--o{ friendship : "receives request"
+    account ||--o{ blocked_user : "blocks"
+    account ||--o{ blocked_user : "is blocked by"
+    account ||--o{ chat_message : "sends"
+    account ||--o{ chat_message : "receives"
+    account ||--o{ pong_match : "plays left side"
+    account ||--o{ pong_match : "plays right side"
+    account ||--o{ pong_match : "wins"
 
     account {
         int id PK
@@ -118,138 +118,138 @@ erDiagram
     }
 ```
 
-Relações principais:
+Key relationships:
 
-- `account` é a raiz; `avatar` tem no máximo uma imagem por conta.
-- `friendship` guarda um convite direcionado (`pending`/`accepted`) e impede arestas duplicadas nos dois sentidos.
-- `blocked_user` impede mensagens entre as contas; a PK composta lógica é `(blocker_id, blocked_id)`.
-- `chat_message.recipient_id = NULL` identifica a sala pública; caso contrário, é uma conversa privada.
-- `pong_match` referencia os dois jogadores e o vencedor, com `CHECK` de participação e placar não negativo.
+- `account` is the root table; `avatar` holds at most one image per account.
+- `friendship` stores a directed request (`pending`/`accepted`) and prevents duplicate edges in either direction.
+- `blocked_user` prevents messaging between two accounts; its logical composite key is `(blocker_id, blocked_id)`.
+- `chat_message.recipient_id = NULL` marks the public room; any other value is a private conversation.
+- `pong_match` references both players and the winner, with `CHECK` constraints on participation and non-negative scores.
 
-## Funcionalidades implementadas
+## Implemented features
 
-### Contas e sessão
+### Accounts and sessions
 
-- Cadastro, login, logout e sessão por cookie `HttpOnly`, `Secure` e `SameSite=Lax`.
-- Senha com `scrypt` e salt aleatório (Werkzeug), mensagem genérica de credenciais e limite de tentativas.
-- `session_version` invalida sessões antigas após logout.
+- Sign-up, login, logout and cookie-based sessions (`HttpOnly`, `Secure`, `SameSite=Lax`).
+- Passwords hashed with `scrypt` and a random salt (Werkzeug), a generic invalid-credentials message and login rate limiting.
+- `session_version` invalidates old sessions on logout.
 
-### Perfil e amigos
+### Profiles and friends
 
-- Edição de e-mail e apelido, upload/remoção de avatar e escolha de personagem do 3D.
-- Perfil público, avatar público e presença online.
-- Convite, aceite, rejeição e remoção de amigos; bloqueio/desbloqueio de mensagens.
+- Edit email and nickname, upload/remove an avatar and choose a 3D character.
+- Public profile, public avatar and online presence.
+- Send, accept, decline and remove friend requests; block/unblock messages.
 
 ### Chat
 
-- Sala pública e conversas privadas persistidas no banco (WebSocket).
-- Histórico, indicador de digitação, confirmação de leitura, bloqueio e convites de Pong pelo chat.
-- Acesso ao perfil do autor a partir da mensagem.
+- Public room and private conversations persisted to the database (WebSocket).
+- Message history, typing indicator, read receipts, blocking and Pong invites from the chat.
+- Open the author's profile directly from a message.
 
 ### Pong
 
-- Matchmaking 1v1, partida autoritativa no backend e placar em tempo real por WebSocket.
-- Reconexão com pausa/retomada, revanche e saída de partida.
-- Estatísticas: partidas, vitórias, derrotas, ranking, nível, conquistas, histórico e leaderboard.
+- 1v1 matchmaking, server-authoritative matches and real-time scoring over WebSocket.
+- Reconnection with pause/resume, rematch and leaving a match.
+- Statistics: matches played, wins, losses, ranking, level, achievements, match history and leaderboard.
 
-### Ambiente 3D
+### 3D environment
 
-- Escritório em primeira pessoa com Babylon.js e modelos GLB, colisões e animações.
-- Colyseus sincroniza jogadores, nome, posição, orientação e arma equipada.
-- Login do 3D reaproveita a sessão do dashboard via `GET /api/me`; sem sessão, a entrada é recusada em produção.
-- Voz por proximidade via WebRTC, com fallback de texto no chat.
-- Pontos de spawn e reconexão de assento.
+- First-person office built with Babylon.js and GLB models, with collisions and animations.
+- Colyseus synchronizes players' names, positions, orientations and equipped weapons.
+- The 3D login reuses the dashboard session via `GET /api/me`; without a session, entry is refused in production.
+- Proximity voice chat over WebRTC, with a text chat fallback.
+- Spawn points and seat reconnection.
 
-### Infra e documentação
+### Infrastructure and documentation
 
-- Quatro containers: `database`, `backend`, `game` e `frontend`.
-- HTTPS na borda e TLS interno; backend e banco não publicam portas no host.
-- Swagger/OpenAPI em `/api/docs` e contrato WebSocket em `/api/docs/asyncapi.yaml`.
-- Testes de backend com `pytest` e testes do servidor 3D com Mocha.
+- Four containers: `database`, `backend`, `game` and `frontend`.
+- HTTPS at the edge and internal TLS; the backend and database expose no ports on the host.
+- Swagger/OpenAPI at `/api/docs` and the WebSocket contract at `/api/docs/asyncapi.yaml`.
+- Backend tests with `pytest` and 3D server tests with Mocha.
 
-## Módulos da régua
+## Modules
 
-A tabela abaixo declara **10 módulos** e **17 pontos** (7 majors × 2 + 3 minors × 1, conforme o subject). O mínimo é 14; os 3 pontos extras são pleiteados como bônus (máximo de 5). Cada linha tem implementação e evidência no código e nos testes.
+The table below declares **10 modules** for **17 points** (7 majors × 2 + 3 minors × 1, as defined in the subject). The minimum is 14; the 3 extra points are claimed as a bonus (5 at most). Every row is backed by implementation and evidence in the code and tests.
 
-| Categoria | Módulo | Tipo | Pontos | Dependências | Evidência | Responsável |
+| Category | Module | Type | Points | Dependencies | Evidence | Owner |
 | --- | --- | --- | ---: | --- | --- | --- |
-| Web | Framework no frontend e no backend | Major | 2 | — | React + Flask em `frontend/` e `backend/` | Pedro, Jonnathan |
-| Web | Tempo real com WebSockets | Major | 2 | Framework | Socket.IO no chat, presença e Pong | Pedro, Jonnathan |
-| Web | Usuários interagem entre si | Major | 2 | Framework, banco | Chat, perfil e amigos | Pedro, Jonnathan |
-| User Management | Gestão padrão de usuários e autenticação | Major | 2 | Framework, banco | Cadastro/login, perfil, avatar, amigos online | Pedro, Jonnathan |
-| Gaming | Jogo web completo | Major | 2 | Usuários, WebSockets | Pong 1v1 com regras e placar | Pedro, Jonnathan |
-| Gaming | Jogadores remotos | Major | 2 | Jogo, WebSockets | Matchmaking, reconexão e partida entre navegadores | Pedro, Jonnathan |
-| Gaming | Gráficos 3D avançados | Major | 2 | WebSockets, usuários | Ambiente Babylon/Colyseus com avatares e voz | Julio, Fred |
-| User Management | Estatísticas e histórico de partidas | Minor | 1 | Jogo | `/api/games/pong/statistics` e perfil | Pedro, Jonnathan |
-| Gaming | Chat avançado | Minor | 1 | Usuários interagem | Bloqueio, convites, digitação, leitura e histórico | Pedro, Jonnathan |
-| Gaming | Gamificação | Minor | 1 | Jogo, estatísticas | Conquistas, níveis e leaderboard persistentes | Pedro, Jonnathan |
+| Web | Frontend and backend frameworks | Major | 2 | — | React + Flask in `frontend/` and `backend/` | Pedro, Jonnathan |
+| Web | Real-time features with WebSockets | Major | 2 | Framework | Socket.IO for chat, presence and Pong | Pedro, Jonnathan |
+| Web | User interaction | Major | 2 | Framework, database | Chat, profiles and friends | Pedro, Jonnathan |
+| User Management | Standard user management and authentication | Major | 2 | Framework, database | Sign-up/login, profile, avatar, online friends | Pedro, Jonnathan |
+| Gaming | Complete web-based game | Major | 2 | Users, WebSockets | 1v1 Pong with rules and scoring | Pedro, Jonnathan |
+| Gaming | Remote players | Major | 2 | Game, WebSockets | Matchmaking, reconnection and cross-browser matches | Pedro, Jonnathan |
+| Gaming | Advanced 3D graphics | Major | 2 | WebSockets, users | Babylon/Colyseus environment with avatars and voice | Julio, Fred |
+| User Management | Game statistics and match history | Minor | 1 | Game | `/api/games/pong/statistics` and profile page | Pedro, Jonnathan |
+| Gaming | Advanced chat | Minor | 1 | User interaction | Blocking, invites, typing indicator, read receipts and history | Pedro, Jonnathan |
+| Gaming | Gamification | Minor | 1 | Game, statistics | Persistent achievements, levels and leaderboard | Pedro, Jonnathan |
 
-**Total: 17 pontos.** Bônus pleiteado: **3 pontos** (os três minors além do mínimo). Nenhum módulo é contado sem evidência funcional.
+**Total: 17 points.** Bonus claimed: **3 points** (the three minors beyond the minimum). No module is counted without working evidence.
 
-### Dependências entre módulos
+### Module dependencies
 
-- Chat avançado depende do módulo de interação entre usuários.
-- Estatísticas e gamificação dependem do jogo.
-- Jogadores remotos dependem do jogo e de WebSockets.
-- O 3D depende da sessão de usuário e da camada de tempo real.
+- Advanced chat depends on the user interaction module.
+- Statistics and gamification depend on the game.
+- Remote players depend on the game and on WebSockets.
+- The 3D environment depends on user sessions and the real-time layer.
 
-## Contribuições individuais
+## Individual contributions
 
-Contagens normalizadas por pessoa (o histórico bruto tem 136 commits e algumas identidades de e-mail duplicadas).
+Counts are normalized per person (the raw history has 136 commits and some duplicate email identities).
 
-| Integrante | Commits aprox. | Principais entregas | Módulos |
+| Member | Approx. commits | Main deliverables | Modules |
 | --- | ---: | --- | --- |
-| Pedro Monteiro | ~45 | API Flask, auth/sessão, schema PostgreSQL, matchmaker/Pong, testes, Docker/HTTPS | 1–6, 8–10 |
-| Jonnathan Lacerda Santos | ~41 | React/MUI, login/perfil, chat, amigos, termos/privacidade, integração do Pong | 1–6, 8–10 |
-| Julio Henrique | ~26 | Colyseus, Babylon, voz WebRTC, modelos e cena 3D | 7 |
-| Fred Forte | ~24 | Cliente 3D, animações, name tags, Docker do jogo, testes e documentação | 7 |
+| Pedro Monteiro | ~45 | Flask API, auth/sessions, PostgreSQL schema, matchmaker/Pong, tests, Docker/HTTPS | 1–6, 8–10 |
+| Jonnathan Lacerda Santos | ~41 | React/MUI, login/profile, chat, friends, terms/privacy, Pong integration | 1–6, 8–10 |
+| Julio Henrique | ~26 | Colyseus, Babylon, WebRTC voice, 3D models and scene | 7 |
+| Fred Forte | ~24 | 3D client, animations, name tags, game Docker setup, tests and documentation | 7 |
 
-## API e contratos
+## API and contracts
 
 - **Swagger UI:** `https://localhost:8443/api/docs`
 - **OpenAPI JSON:** `https://localhost:8443/api/docs/openapi.json`
 - **AsyncAPI (WebSocket):** `https://localhost:8443/api/docs/asyncapi.yaml`
-- **Autenticação:** cookie de sessão para ações de usuário; `X-API-Key` para os endpoints públicos de leitura marcados na documentação.
-- **Rate limit:** 120 req/min por IP; cadastro 3/hora e login 5/minuto.
+- **Authentication:** session cookie for user actions; `X-API-Key` for the public read-only endpoints flagged in the documentation.
+- **Rate limits:** 120 req/min per IP; sign-up 3/hour and login 5/minute.
 
-Endpoints principais: `/api/auth/*`, `/api/me`, `/api/profile*`, `/api/friends*`, `/api/chat/*`, `/api/games/pong/statistics`.
+Main endpoints: `/api/auth/*`, `/api/me`, `/api/profile*`, `/api/friends*`, `/api/chat/*`, `/api/games/pong/statistics`.
 
-## Testes
+## Testing
 
 ```sh
-# Backend (171 testes; o alvo usa o .venv local)
+# Backend (171 tests; the target uses the local .venv)
 python3 -m venv .venv
 .venv/bin/pip install -r backend/app/requirements.txt -r backend/app/requirements-dev.txt
 make test
 
-# Servidor 3D (Mocha)
+# 3D server (Mocha)
 cd 3D-Environment && npm ci && npm test
 
 # Frontend (build + lint)
 cd frontend && npm ci && npm run build && npm run lint
 ```
 
-O backend usa `pytest` com testes de auth, validação, schema, rate limit, matchmaker, handlers, store e API docs. O 3D usa `@colyseus/testing` para subir o servidor real e conectar clientes reais.
+The backend uses `pytest`, covering auth, validation, schema, rate limiting, the matchmaker, handlers, the store and the API docs. The 3D server uses `@colyseus/testing` to spin up the real server and connect real clients.
 
-## Segurança e privacidade
+## Security and privacy
 
-- Senhas com `scrypt` e salt; cookies `HttpOnly`, `Secure` e `SameSite=Lax`.
-- SQL sempre parametrizado; respostas de erro genéricas no login.
-- Validação de tipos, formatos, tamanhos e MIME no frontend e no backend.
-- Avatar com validação de imagem (Pillow), limite de tamanho e `Content-Security-Policy` restritiva.
-- `.env` e `secrets/` fora do Git; `.env.example` sem valores.
-- HTTPS de ponta a ponta: navegador → Nginx → backend; backend e banco sem portas públicas.
-- Política de privacidade e termos acessíveis em `/privacy` e `/terms`.
+- Passwords hashed with `scrypt` and a salt; `HttpOnly`, `Secure` and `SameSite=Lax` cookies.
+- Always-parameterized SQL; generic error responses on login.
+- Type, format, size and MIME validation on both frontend and backend.
+- Avatar image validation (Pillow), size limits and a strict `Content-Security-Policy`.
+- `.env` and `secrets/` kept out of Git; `.env.example` contains no values.
+- End-to-end HTTPS: browser → Nginx → backend; the backend and database have no public ports.
+- Privacy policy and terms of service available at `/privacy` and `/terms`.
 
-## Limitações conhecidas
+## Known limitations
 
-- A voz WebRTC não usa STUN/TURN; funciona na mesma máquina/rede local, não entre redes distintas.
-- A posição no 3D é autoritativa no cliente (o servidor só valida números finitos); um cliente modificado poderia trapacear na posição.
-- Pong é 1v1; não há torneio, espectador, IA nem personalização de jogo.
-- Não há OAuth, 2FA, recuperação de senha, múltiplos idiomas nem exclusão de conta pelo app.
-- O backend usa 1 worker Gunicorn e estado de matchmaking em memória; a escala horizontal não é suportada.
-- O ambiente 3D é uma sala compartilhada; não há múltiplas salas nem whiteboard.
+- WebRTC voice does not use STUN/TURN; it works on the same machine or local network, but not across different networks.
+- 3D positions are client-authoritative (the server only checks that values are finite), so a modified client could cheat on position.
+- Pong is 1v1 only; there are no tournaments, spectators, AI opponents or game customization.
+- No OAuth, 2FA, password recovery, multiple languages or in-app account deletion.
+- The backend runs a single Gunicorn worker with in-memory matchmaking state, so horizontal scaling is not supported.
+- The 3D environment is a single shared room; there are no multiple rooms and no whiteboard.
 
-## Créditos
+## Credits
 
-Assets de terceiros: [`CREDITS.md`](CREDITS.md). Modelos 3D e texturas seguem as licenças indicadas.
+Third-party assets: [`CREDITS.md`](CREDITS.md). 3D models and textures follow the licenses listed there.

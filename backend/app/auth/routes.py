@@ -213,7 +213,7 @@ def _fetch_user_summary(cur, user_id: int) -> tuple[str, str, str] | None:
     429,
     schema=ErrorResponseSchema,
     success=True,
-    description="Limite de 3 cadastros por hora por endereço IP.",
+    description="Limite de 10 cadastros por hora por endereço IP.",
 )
 @auth_bp.doc(
     summary="Criar conta e abrir sessão",
@@ -222,7 +222,7 @@ def _fetch_user_summary(cur, user_id: int) -> tuple[str, str, str] | None:
     ),
     requestBody=SIGNUP_REQUEST_BODY,
 )
-@limiter.limit("3 per hour")
+@limiter.limit("10 per hour")
 def signup():
     fields = _require_text_fields(_json_body(), "email", "nickname", "password")
     if fields is None:

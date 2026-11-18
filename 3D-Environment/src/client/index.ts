@@ -9,6 +9,7 @@ import {
 } from "./voice.js";
 
 import { ColyseusSDK, Callbacks } from "@colyseus/sdk";
+import type { RoomClockLike } from "@colyseus/sdk";
 import { Predict } from "@colyseus/sdk/predict";
 import type { default as server } from "../app.config.js";
 import {CLOSE_LOGGED_IN_ELSEWHERE} from "../shared/constants.js";
@@ -65,7 +66,21 @@ async function main() {
 
 	initVoice(room);
 
-	const predict = Predict.get(room);
+	// The room has no defineInput() (movement is client-authoritative), so
+	// there is no server clock. Passing a local one makes that explicit: the
+	// lerp timestamps snapshots on arrival, exactly as it did with the SDK's
+	// inert default clock, but without the "isn't server-synced" warning.
+	const localClock: RoomClockLike = {
+		now: () => performance.now(),
+		serverNow: () => performance.now(),
+		rtt: () => 0,
+		smoothedRtt: () => 0,
+		jitter: () => 0,
+		lastServerTime: () => 0,
+		sample: () => {},
+	};
+
+	const predict = Predict.get(room, { clock: localClock });
 
 	// Interpolate other players smoothly
 	predict.attachAll("players", {

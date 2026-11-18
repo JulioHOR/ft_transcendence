@@ -1,6 +1,6 @@
 *This project has been created as part of the 42 curriculum by peda-cos, fforte-j, jlacerda, juhenriq.*
 
-# ft_transcendence — Virtual Co-Work
+# ft_transcendence — 3DEVironment
 
 A full-stack web application built for 42: a first-person 3D virtual office with chat, friends, profiles and real-time multiplayer Pong. The goal is to bring authentication, presence, messaging, live matches and a navigable 3D environment with proximity voice chat together in a single product.
 
@@ -20,7 +20,7 @@ The breakdown above reflects the areas where each member concentrated their comm
 
 ## Project management
 
-Work was organized as **feature branches** integrated through **pull requests and merges**. The history contains 136 commits and 20 merges between August and November 2026. Commit messages mostly follow the `feat:`, `fix:`, `refactor:` and `test:` convention.
+Work was organized as **feature branches** integrated through **pull requests and merges**. The history contains hundreads of commits and many merges between August and November 2026. Commit messages mostly follow the `feat:`, `fix:`, `refactor:` and `test:` convention.
 
 - One branch per feature (login, chat, Pong, 3D, Docker, documentation).
 - Integration into `main` via PR/merge, small per-feature commits and automated backend tests.
@@ -30,7 +30,7 @@ Work was organized as **feature branches** integrated through **pull requests an
 
 | Layer | Technologies | Why |
 | --- | --- | --- |
-| Frontend | React 19, TypeScript, Vite, Material UI + Emotion, React Router, Socket.IO Client | Component-based UI, static typing, accessible components and light/dark themes without hand-written CSS. |
+| Frontend | React 19, TypeScript, Vite, Material UI, React Router, Socket.IO Client | Component-based UI, static typing, accessible components and light/dark themes without hand-written CSS. |
 | Backend | Flask 3, Flask-Smorest, Flask-SocketIO, Gunicorn, psycopg2 | HTTP and WebSocket in the same process, OpenAPI generated from the routes, and explicit SQL for the relational schema. |
 | Database | PostgreSQL 17 | Referential integrity, `CHECK` constraints, indexes and transactions for accounts, friends, chat and matches. |
 | 3D | Babylon.js, Colyseus, WebRTC | In-browser 3D rendering, rooms with synchronized state and peer-to-peer proximity voice. |
@@ -169,22 +169,24 @@ Key relationships:
 
 ## Modules
 
-The table below declares **10 modules** for **17 points** (7 majors × 2 + 3 minors × 1, as defined in the subject). The minimum is 14; the 3 extra points are claimed as a bonus (5 at most). Every row is backed by implementation and evidence in the code and tests.
+The table below declares **12 modules** for **22 points** (10 majors × 2 + 2 minors × 1, as defined in the subject). The minimum is 14 and up to 5 bonus points can be earned, so at most 19 points count toward the grade; the remaining 3 points act as a safety margin in case a module is not validated during evaluation. Every row is backed by implementation and evidence in the code and tests.
 
 | Category | Module | Type | Points | Dependencies | Evidence | Owner |
 | --- | --- | --- | ---: | --- | --- | --- |
-| Web | Frontend and backend frameworks | Major | 2 | — | React + Flask in `frontend/` and `backend/` | Pedro, Jonnathan |
-| Web | Real-time features with WebSockets | Major | 2 | Framework | Socket.IO for chat, presence and Pong | Pedro, Jonnathan |
-| Web | User interaction | Major | 2 | Framework, database | Chat, profiles and friends | Pedro, Jonnathan |
-| User Management | Standard user management and authentication | Major | 2 | Framework, database | Sign-up/login, profile, avatar, online friends | Pedro, Jonnathan |
+| Web | Frontend and backend frameworks | Major | 2 | — | React + Flask in `frontend/` and `backend/` | Jonnathan, Pedro |
+| Web | Real-time features with WebSockets | Major | 2 | Framework | Socket.IO for chat, presence and Pong; Colyseus for the 3D room | Julio |
+| Web | User interaction | Major | 2 | Framework, database | Chat, profiles and friends | Jonnathan, Pedro |
+| Web | Public API | Major | 2 | Framework, database | `X-API-Key` on public read endpoints, rate limiting, Swagger/OpenAPI at `/api/docs`, 5+ endpoints | Pedro, Jonnathan |
+| Web | Custom-made design system | Minor | 1 | Frontend framework | 10+ reusable components with a shared color palette, typography, icons and light/dark themes | Jonnathan |
+| User Management | Standard user management and authentication | Major | 2 | Framework, database | Sign-up/login, profile, avatar, friends and online status | Jonnathan, Pedro |
+| User Management | Game statistics and match history | Minor | 1 | Game | `/api/games/pong/statistics` and profile page | Jonnathan, Pedro |
 | Gaming | Complete web-based game | Major | 2 | Users, WebSockets | 1v1 Pong with rules and scoring | Pedro, Jonnathan |
-| Gaming | Remote players | Major | 2 | Game, WebSockets | Matchmaking, reconnection and cross-browser matches | Pedro, Jonnathan |
-| Gaming | Advanced 3D graphics | Major | 2 | WebSockets, users | Babylon/Colyseus environment with avatars and voice | Julio, Fred |
-| User Management | Game statistics and match history | Minor | 1 | Game | `/api/games/pong/statistics` and profile page | Pedro, Jonnathan |
-| Gaming | Advanced chat | Minor | 1 | User interaction | Blocking, invites, typing indicator, read receipts and history | Pedro, Jonnathan |
-| Gaming | Gamification | Minor | 1 | Game, statistics | Persistent achievements, levels and leaderboard | Pedro, Jonnathan |
+| Gaming | Remote players | Major | 2 | Game, WebSockets | Real-time matches between separate computers, with reconnection | Julio, Fred |
+| Gaming | Multiplayer game (more than two players) | Major | 2 | Game, remote players | Shared 3D room with 3+ players synchronized by Colyseus | Julio, Fred |
+| Gaming | Additional game with user history and matchmaking | Major | 2 | Game, users | TODO | Jonnathan, Pedro |
+| Gaming | Advanced 3D graphics | Major | 2 | — | Babylon.js office with GLB models, collisions, animations and proximity voice | Julio, Fred |
 
-**Total: 17 points.** Bonus claimed: **3 points** (the three minors beyond the minimum). No module is counted without working evidence.
+**Total: 22 points** (14 required + 5 bonus).
 
 ### Module dependencies
 
